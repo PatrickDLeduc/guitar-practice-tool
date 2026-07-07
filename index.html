@@ -35,7 +35,13 @@
   select:focus{border-color:var(--accent2)}
   #summary{font-size:14px;color:var(--accent2);margin:0 0 14px;min-height:18px}
   .keyblock{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px}
-  .keyhead{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+  .keyhead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .pbtn{background:var(--panel2);border:1px solid var(--border);color:var(--text);width:30px;height:26px;border-radius:7px;font-size:12px}
+  .pbtn:hover{border-color:var(--accent)}
+  .pbtn.playing{background:var(--accent);color:#1a1408}
+  #droneBtn{background:var(--panel2);color:var(--muted);padding:8px 14px;font-size:13px;border:1px solid var(--border);margin-right:8px}
+  #droneBtn:hover{color:var(--text)}
+  #droneBtn.playing{color:var(--accent);border-color:var(--accent)}
   .keyname{font-size:18px;font-weight:700;color:var(--accent)}
   .keynotes{font-size:12px;color:var(--muted)}
   pre.tab{margin:0;overflow-x:auto;font-family:'Consolas','Menlo',monospace;font-size:13px;line-height:1.35;color:var(--tab)}
@@ -101,6 +107,8 @@
   #mDots .dot{width:12px;height:12px;border-radius:50%;background:var(--panel2);border:1px solid var(--border);transition:background .05s}
   #mDots .dot.hit{background:var(--accent2)}
   #mDots .dot.hit.acc{background:var(--accent)}
+  #trainerGrp input{width:52px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:13px}
+  .tlbl{color:var(--muted);font-size:12px}
   @media(max-width:640px){ #mSlider{width:110px} }
   @media(max-width:640px){ .inputrow{flex-direction:column} }
 </style>
@@ -113,6 +121,7 @@
   <div class="tabbar">
     <button class="tabbtn active" data-tab="ex">Exercises</button>
     <button class="tabbtn" data-tab="stack">Chord stacking</button>
+    <button class="tabbtn" data-tab="prog">Progressions</button>
     <button class="tabbtn" data-tab="ear">Ear training</button>
   </div>
 
@@ -185,7 +194,7 @@
 
   <p id="summary"></p>
   <p id="techTip" style="display:none"></p>
-  <div class="toolrow"><button id="copyall">Copy all tabs</button></div>
+  <div class="toolrow"><button id="droneBtn" title="Sustain the root note as a drone">Drone: C</button><button id="copyall">Copy all tabs</button></div>
   <div id="out"></div>
   </div><!-- /viewEx -->
 
@@ -233,6 +242,25 @@
         <div class="keyhead"><span class="keyname" id="spName"></span></div>
         <div class="notation" id="spOut"></div>
       </div>
+    </div>
+  </div>
+
+  <div id="viewProg" style="display:none">
+    <div class="inputrow">
+      <input id="progIn" type="text" placeholder='e.g. "ii-V-I in Bb" · "Dm7 G7 Cmaj7 Am7 D7 Gmaj7" · "blues in A"' autocomplete="off">
+      <button id="progGo">Generate</button>
+    </div>
+    <div class="chips" id="progChips"></div>
+    <div class="controls">
+      <div class="ctl"><label>Notes per chord</label><select id="progN">
+        <option value="4">4</option>
+        <option value="8" selected>8</option>
+      </select></div>
+    </div>
+    <p class="sub">Arpeggios are voice-led: each chord starts from the tone nearest the previous note, alternating direction. ▶ plays the line with chord pads underneath at the metronome tempo.</p>
+    <div class="keyblock" id="progBlock" style="display:none">
+      <div class="keyhead"><span class="keyname" id="progName"></span><button class="pbtn" id="progPlay">▶</button></div>
+      <div class="notation" id="progOut"></div>
     </div>
   </div>
 
@@ -286,6 +314,12 @@
       <option value="1">No accent</option>
     </select>
     <div id="mDots"></div>
+  </div>
+  <div class="mgrp" id="trainerGrp">
+    <button class="mbtn" id="mTrain" title="Auto-increase tempo" style="width:auto;padding:0 10px">Trainer: off</button>
+    <span class="tlbl">to</span><input id="tTarget" type="number" min="40" max="260" value="160">
+    <span class="tlbl">+</span><input id="tStep" type="number" min="1" max="20" value="4">
+    <span class="tlbl">every</span><input id="tBars" type="number" min="1" max="16" value="4"><span class="tlbl">bars</span>
   </div>
 </div>
 
@@ -506,29 +540,37 @@ function spellWritten(midi, useSharps){
   const [letter, acc] = (useSharps ? SHARP_SPELL : FLAT_SPELL)[pc];
   return { dval: oct*7 + LETTER_DIA[letter], acc };
 }
-function renderNotationSystems(groups, rootPc){
+function renderNotationSystems(groups, rootPc, labels){
   const SP=8, TS=13, colW=26, gapW=14, padL=56, padR=12, maxPx=800;
   const useSharps = SHARP_KEYS.has(rootPc);
   // wrap groups into systems by pixel width
   const systems=[]; let cur=[], w=0;
-  groups.forEach(g=>{
+  groups.forEach((g,gi)=>{
     const gw = g.length*colW + gapW;
     if(w+gw > maxPx && cur.length){ systems.push(cur); cur=[]; w=0; }
-    cur.push(g); w += gw;
+    cur.push({notes:g, label: labels ? labels[gi] : null}); w += gw;
   });
   if(cur.length) systems.push(cur);
   return systems.map(sysGroups=>{
-    const cols=[]; let x=padL;
-    sysGroups.forEach(g=>{ g.forEach(n=>{ cols.push({x: x+colW/2, n}); x+=colW; }); x+=gapW; });
+    const cols=[]; const marks=[]; let x=padL;
+    sysGroups.forEach(({notes,label})=>{
+      if(label) marks.push({x, label});
+      notes.forEach(n=>{ cols.push({x: x+colW/2, n}); x+=colW; });
+      x+=gapW;
+    });
     const W = x - gapW + padR;
     cols.forEach(c=>{ c.sp = spellWritten(STRINGS[c.n.s]+c.n.f, useSharps); });
     const maxD = Math.max(38, ...cols.map(c=>c.sp.dval));
     const minD = Math.min(30, ...cols.map(c=>c.sp.dval));
-    const staffTop = 12 + (maxD-38)*SP/2;         // y of top staff line (F5, dval 38)
+    const staffTop = (labels ? 28 : 12) + (maxD-38)*SP/2;   // y of top staff line (F5, dval 38)
     const yOf = d => staffTop + (38-d)*SP/2;
     const tabTop = yOf(minD) + 26;
     const H = tabTop + 5*TS + 18;
     let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+    // chord labels (progression mode)
+    marks.forEach(mk=>{
+      s += `<text x="${mk.x+2}" y="14" font-size="12" font-weight="700" fill="var(--accent)">${mk.label}</text>`;
+    });
     // staff (5 lines, E4..F5 = dval 30..38)
     for(let d=30; d<=38; d+=2)
       s += `<line x1="12" y1="${yOf(d)}" x2="${W-6}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
@@ -634,6 +676,80 @@ function analyzeStack(basePc, baseQualKey, triPc, triType){
   const union = new Set([...baseIvs, ...triIvs]);
   const named = compositeName(union);
   return {adds, reinf, verdict, score, union, named};
+}
+
+// ---- Chord progressions (voice-led arpeggios) ----
+function parseProgression(raw){
+  let text = ' ' + raw.trim() + ' ';
+  let keyPc = 0;
+  const km = text.match(/\b(?:in|key of) ([A-Ga-g][b#♭♯]?)\b/);
+  if(km){
+    const k = km[1].toLowerCase().replace('♭','b').replace('♯','#');
+    if(PC[k] !== undefined) keyPc = PC[k];
+    text = text.replace(km[0], ' ');
+  }
+  const NM = SHARP_KEYS.has(keyPc) ? SHARP_NAMES : FLAT_NAMES;
+  const mkLabel = (pc,q)=> NM[pc] + (CHORD_SYM[q] ?? '');
+  if(/blues/i.test(text)){
+    const deg = [0,0,0,0,5,5,0,0,7,5,0,7];
+    return {chords: deg.map(d=>{ const pc=(keyPc+d)%12; return {pc, qual:'dom7', label:mkLabel(pc,'dom7')}; }), keyPc};
+  }
+  const minorKey = /minor/i.test(text);
+  const toks = text.split(/[\s,|>–—-]+/).filter(t=> t && !/^(and|then|minor|major|progression|chords?|the|a)$/i.test(t));
+  const ROMAN = {i:0, ii:2, iii:4, iv:5, v:7, vi:9, vii:11};
+  const MAJ_FUNC = {0:'maj7',2:'min7',4:'min7',5:'maj7',7:'dom7',9:'min7',11:'m7b5'};
+  const MIN_FUNC = {0:'min7',2:'m7b5',3:'maj7',5:'min7',7:'dom7',8:'maj7',10:'dom7'};
+  const chords = [];
+  for(const tk of toks){
+    let m = tk.match(/^([A-G][b#]?)(maj7|maj|m7b5|m7|m6|m|dim7|dim|aug|7|6|sus4)?$/);
+    if(m && PC[m[1].toLowerCase()] !== undefined){
+      const map = {'':'maj','maj':'maj','maj7':'maj7','m':'min','m7':'min7','m7b5':'m7b5','m6':'min6',
+                   'dim':'dim','dim7':'dim7','aug':'aug','7':'dom7','6':'maj6','sus4':'maj'};
+      chords.push({pc: PC[m[1].toLowerCase()], qual: map[m[2]||''], label: tk});
+      continue;
+    }
+    m = tk.match(/^(b|#)?([ivIV]{1,3})(°|o|ø|dim|maj7|m7b5|m7|7)?$/);
+    if(m && ROMAN[m[2].toLowerCase()] !== undefined){
+      const pc = (keyPc + ROMAN[m[2].toLowerCase()] + (m[1]==='b'?-1:m[1]==='#'?1:0) + 12) % 12;
+      const degree = (pc - keyPc + 12) % 12;
+      let q = (minorKey ? MIN_FUNC : MAJ_FUNC)[degree] || (m[2]===m[2].toLowerCase() ? 'min7' : 'dom7');
+      const suf = m[3]||'';
+      if(suf==='°'||suf==='o'||suf==='ø'||suf==='dim'||suf==='m7b5') q='m7b5';
+      else if(suf==='maj7') q='maj7';
+      else if(suf==='m7') q='min7';
+      else if(suf==='7') q='dom7';
+      chords.push({pc, qual:q, label: mkLabel(pc,q)});
+    }
+  }
+  return {chords, keyPc};
+}
+// One arpeggio segment per chord, starting from the chord tone nearest the previous
+// note (voice leading), alternating direction; bounces at range edges.
+function progressionLine(chords, notesPerChord){
+  let cur = 57, dirUp = true;
+  const segPitches = [];
+  chords.forEach(ch=>{
+    const set = new Set(QUALITIES[ch.qual].intervals.map(iv=>(iv+ch.pc)%12));
+    const tones = [];
+    for(let m=45; m<=81; m++) if(set.has(m%12)) tones.push(m);
+    let idx=0, best=1e9;
+    tones.forEach((t,i)=>{ const d=Math.abs(t-cur); if(d<best){best=d; idx=i;} });
+    const seg=[]; let p=idx, step=dirUp?1:-1;
+    for(let k=0;k<notesPerChord;k++){
+      seg.push(tones[p]);
+      let np = p + step;
+      if(np < 0 || np >= tones.length){ step = -step; np = p + step; }
+      p = np;
+    }
+    cur = seg[seg.length-1];
+    dirUp = !dirUp;
+    segPitches.push(seg);
+  });
+  const flat = segPitches.flat();
+  const fing = assignFingering(flat);
+  const groups=[]; let k=0;
+  segPitches.forEach(sp=>{ groups.push(fing.slice(k, k+sp.length)); k += sp.length; });
+  return groups;
 }
 
 // ---- CAGED shapes ----
@@ -934,6 +1050,7 @@ function generate(){
   const fingName = fing==='3nps' ? ' · 3 notes/string' : fing==='fixed' ? ` · position ${posFret} (frets ${posFret}–${posFret+4})` : '';
   const rangeName = fing==='fixed' ? 'full position' : `${oct} octave${oct>1?'s':''}`;
   $('summary').textContent = `${QUALITIES[qual].label} · ${patName} · ${dirName} · ${rangeName}${fingName}${varName}${seqName}`;
+  $('droneBtn').textContent = 'Drone: ' + FLAT_NAMES[rootPc];
   const tip = $('techTip');
   if(tech !== 'none'){ tip.style.display=''; tip.textContent = `${selTech.options[selTech.selectedIndex].text}: ${TECH_TIPS[tech]}`; }
   else tip.style.display='none';
@@ -944,6 +1061,10 @@ function generate(){
     const div=document.createElement('div'); div.className='keyblock';
     const head=document.createElement('div'); head.className='keyhead';
     head.innerHTML = `<span class="keyname">${ex.name}</span>`;
+    const pb=document.createElement('button'); pb.className='pbtn'; pb.textContent='▶';
+    pb.title='Play this exercise (8th notes at metronome tempo, 4-click count-in)';
+    pb.onclick = ()=>{ if(playState && playState.btn===pb) stopPlayback(); else playNotes(ex.groups.flat(), pb); };
+    head.appendChild(pb);
     div.appendChild(head);
     if(selShapes.value === 'on') div.appendChild(shapesRow(pc, qual));
     else if(selShapes.value === 'neck') div.appendChild(neckRow(pc, qual, fing==='fixed' ? {lo:posFret, hi:posFret+4} : null));
@@ -981,6 +1102,7 @@ $('go').onclick = runFromText;
 $('query').addEventListener('keydown', e=>{ if(e.key==='Enter') runFromText(); });
 [selRoot,selQual,selPat,selSeq,selDir,selOct,selShapes,selNote,selFing,selVar,selTech,selPos].forEach(s=> s.addEventListener('change', generate));
 
+$('droneBtn').onclick = toggleDrone;
 $('copyall').onclick = ()=>{
   navigator.clipboard.writeText(copyText);
   $('copyall').textContent='Copied!'; setTimeout(()=>$('copyall').textContent='Copy all tabs',1200);
@@ -1031,8 +1153,10 @@ document.querySelectorAll('.tabbtn').forEach(b=> b.onclick = ()=>{
   document.querySelectorAll('.tabbtn').forEach(x=>x.classList.toggle('active', x===b));
   $('viewEx').style.display = b.dataset.tab==='ex' ? '' : 'none';
   $('viewStack').style.display = b.dataset.tab==='stack' ? '' : 'none';
+  $('viewProg').style.display = b.dataset.tab==='prog' ? '' : 'none';
   $('viewEar').style.display = b.dataset.tab==='ear' ? '' : 'none';
   if(b.dataset.tab==='stack') renderStack();
+  if(b.dataset.tab==='prog' && !progData) renderProg();
 });
 
 // ---- Stack playback (ear training) & practice exercises ----
@@ -1046,15 +1170,75 @@ function ensureAudio(){
   }
   return metro.ctx;
 }
-function tone(ctx, m, t0, dur, vol, type){
+function tone(ctx, m, t0, dur, vol, type, dest){
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.type = type || 'triangle'; o.frequency.value = midiFreq(m);
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(vol, t0 + 0.04);
   g.gain.setValueAtTime(vol, t0 + dur*0.55);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g); g.connect(metro.bus);
+  o.connect(g); g.connect(dest || metro.bus);
   o.start(t0); o.stop(t0 + dur + 0.05);
+}
+// ---- Exercise playback + drone ----
+let playState = null;
+function stopPlayback(){
+  if(playState){
+    try{ playState.g.disconnect(); }catch(e){}
+    if(playState.btn){ playState.btn.textContent = '▶'; playState.btn.classList.remove('playing'); }
+    clearTimeout(playState.endTimer);
+    playState = null;
+  }
+}
+// Plays a flat list of {s,f} notes as 8th notes at the metronome tempo, after a 4-click count-in.
+function playNotes(noteList, btn, pads){
+  const ctx = ensureAudio();
+  stopPlayback();
+  const g = ctx.createGain(); g.gain.value = 1; g.connect(metro.bus);
+  const spb = 60 / metro.bpm, eighth = spb / 2;
+  let t0 = ctx.currentTime + 0.08;
+  for(let i=0;i<4;i++){
+    const o=ctx.createOscillator(), cg=ctx.createGain();
+    o.type='square'; o.frequency.value = i===0?1568:1047;
+    cg.gain.setValueAtTime(0.0001,t0+i*spb);
+    cg.gain.exponentialRampToValueAtTime(0.3,t0+i*spb+0.002);
+    cg.gain.exponentialRampToValueAtTime(0.0001,t0+i*spb+0.05);
+    o.connect(cg); cg.connect(g); o.start(t0+i*spb); o.stop(t0+i*spb+0.06);
+  }
+  const start = t0 + 4*spb;
+  noteList.forEach((n,i)=> tone(ctx, STRINGS[n.s]+n.f, start + i*eighth, eighth*0.95, 0.17, 'triangle', g));
+  if(pads) pads.forEach(p=> p.pitches.forEach(m=> tone(ctx, m, start + p.at*eighth, p.dur*eighth, 0.06, 'sine', g)));
+  const total = (4*spb + noteList.length*eighth + 0.3) * 1000;
+  playState = {g, btn, endTimer: setTimeout(stopPlayback, total)};
+  if(btn){ btn.textContent = '■'; btn.classList.add('playing'); }
+}
+let droneNodes = null;
+function toggleDrone(){
+  const ctx = ensureAudio();
+  if(droneNodes){
+    const t = ctx.currentTime;
+    droneNodes.g.gain.cancelScheduledValues(t);
+    droneNodes.g.gain.setValueAtTime(droneNodes.g.gain.value, t);
+    droneNodes.g.gain.exponentialRampToValueAtTime(0.0001, t+0.4);
+    droneNodes.oscs.forEach(o=>o.stop(t+0.5));
+    droneNodes = null;
+    $('droneBtn').classList.remove('playing');
+    return;
+  }
+  const pc = +selRoot.value;
+  const rootM = 40 + ((pc - 4 + 12) % 12);
+  const g = ctx.createGain(); g.gain.value = 0.0001; g.connect(metro.bus);
+  const t = ctx.currentTime;
+  g.gain.exponentialRampToValueAtTime(0.14, t+0.5);
+  const oscs = [rootM, rootM+12, rootM+19].map((m,i)=>{
+    const o = ctx.createOscillator(); o.type = i===2?'sine':'triangle';
+    o.frequency.value = midiFreq(m);
+    const og = ctx.createGain(); og.gain.value = i===2?0.35:1;
+    o.connect(og); og.connect(g); o.start(t);
+    return o;
+  });
+  droneNodes = {g, oscs};
+  $('droneBtn').classList.add('playing');
 }
 // Base chord sustains underneath; triad notes enter one by one on top, then ring together.
 function playStack(basePc, bq, triPc, triType){
@@ -1105,6 +1289,44 @@ function renderStackPractice(){
   $('spOut').innerHTML = renderNotationSystems(ex.groups, keyPc).map(s=>`<div class="nsys">${s}</div>`).join('');
 }
 ['spMat','spPat','spDir','spOct'].forEach(id=> $(id).addEventListener('change', renderStackPractice));
+
+// ---- Progressions UI ----
+let progData = null;
+const PROG_PRESETS = ['ii-V-I in C','ii-V-I in Bb','blues in A','I vi ii V in G','minor ii-V-i in A',
+  'Dm7 G7 Cmaj7 Fmaj7 Bm7b5 E7 Am7'];
+PROG_PRESETS.forEach(t=>{
+  const b=document.createElement('button'); b.className='chip'; b.textContent=t;
+  b.onclick=()=>{ $('progIn').value=t; renderProg(); };
+  $('progChips').appendChild(b);
+});
+function renderProg(){
+  const {chords, keyPc} = parseProgression($('progIn').value.trim() || 'ii-V-I in C');
+  if(!chords.length){
+    $('progBlock').style.display='';
+    $('progName').textContent = 'Couldn’t read that — try roman numerals (ii-V-I in Bb) or chord symbols (Dm7 G7 Cmaj7)';
+    $('progOut').innerHTML=''; progData=null; return;
+  }
+  const n = +$('progN').value;
+  const groups = progressionLine(chords, n);
+  progData = {groups, chords, n};
+  $('progBlock').style.display='';
+  $('progName').textContent = chords.map(c=>c.label).join(' – ');
+  $('progOut').innerHTML = renderNotationSystems(groups, keyPc, chords.map(c=>c.label))
+    .map(s=>`<div class="nsys">${s}</div>`).join('');
+}
+$('progGo').onclick = renderProg;
+$('progIn').addEventListener('keydown', e=>{ if(e.key==='Enter') renderProg(); });
+$('progN').addEventListener('change', ()=>{ if(progData) renderProg(); });
+$('progPlay').onclick = ()=>{
+  if(playState && playState.btn===$('progPlay')){ stopPlayback(); return; }
+  if(!progData) return;
+  const pads = progData.chords.map((c,i)=>{
+    let rootM = 48 + c.pc; if(rootM > 55) rootM -= 12;
+    return {at: i*progData.n, dur: progData.n,
+      pitches: QUALITIES[c.qual].intervals.slice(0,4).map(iv=>rootM+iv)};
+  });
+  playNotes(progData.groups.flat(), $('progPlay'), pads);
+};
 
 // ---- Ear training ----
 const EAR_INTERVALS = {1:'minor 2nd',2:'major 2nd',3:'minor 3rd',4:'major 3rd',5:'perfect 4th',
@@ -1209,6 +1431,7 @@ $('eLvl').addEventListener('change', ()=>{ earState.q=null; $('eChoices').innerH
 const metro = {
   ctx:null, playing:false, bpm:80, beats:4, beat:0, nextTime:0, timer:null,
   LOOKAHEAD_MS:25, AHEAD:0.1,
+  trainer:false, barCount:0,
 };
 function metroClick(time, accent){
   const osc = metro.ctx.createOscillator(), g = metro.ctx.createGain();
@@ -1232,6 +1455,18 @@ function metroScheduler(){
   while(metro.nextTime < metro.ctx.currentTime + metro.AHEAD){
     const idx = metro.beat % metro.beats;
     const accent = metro.beats > 1 && idx === 0;
+    // speed trainer: bump tempo at bar boundaries
+    if(metro.trainer && idx === 0 && metro.beat > 0){
+      metro.barCount++;
+      const barsPer = Math.max(1, +$('tBars').value || 4);
+      if(metro.barCount >= barsPer){
+        metro.barCount = 0;
+        const target = Math.max(30, Math.min(260, +$('tTarget').value || 160));
+        const step = Math.max(1, +$('tStep').value || 4);
+        if(metro.bpm < target) setBpm(Math.min(target, metro.bpm + step));
+        else if(metro.bpm > target) setBpm(Math.max(target, metro.bpm - step));
+      }
+    }
     metroClick(metro.nextTime, accent);
     metroFlash(idx, accent, (metro.nextTime - metro.ctx.currentTime) * 1000);
     metro.beat++;
@@ -1266,6 +1501,12 @@ $('mSlider').addEventListener('input', e=> setBpm(+e.target.value));
 $('mUp').onclick = ()=> setBpm(metro.bpm + 1);
 $('mDown').onclick = ()=> setBpm(metro.bpm - 1);
 $('mBeats').addEventListener('change', e=>{ metro.beats = +e.target.value; metro.beat = 0; buildDots(); });
+$('mTrain').onclick = ()=>{
+  metro.trainer = !metro.trainer; metro.barCount = 0;
+  $('mTrain').textContent = metro.trainer ? 'Trainer: ON' : 'Trainer: off';
+  $('mTrain').style.borderColor = metro.trainer ? 'var(--accent)' : '';
+  $('mTrain').style.color = metro.trainer ? 'var(--accent)' : '';
+};
 // Tap tempo: average the intervals of the last few taps
 let taps = [];
 $('mTap').onclick = ()=>{
