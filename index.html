@@ -66,6 +66,13 @@
   .feel{font-weight:600;white-space:nowrap}
   .feel::before{content:'●';margin-right:6px}
   .f-smooth{color:#58c98f} .f-colorful{color:#5ab0f0} .f-spicy{color:#e8a33d} .f-harsh{color:#e05c5c} .f-reinforces{color:#8a93a8}
+  .hgbox{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+  .hgbox .controls{background:var(--panel2);border:none;padding:8px}
+  .hgchip{font-size:13px;padding:7px 12px}
+  .hgchip b{color:var(--accent)}
+  .hgstrip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .hgstrip .mbtn{background:var(--panel2);border:1px solid var(--border);color:var(--text);height:28px;border-radius:8px;font-size:12px}
+  .hgstrip .mbtn:hover{border-color:var(--accent)}
   .earbox{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px}
   .earrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   #ePlay{background:var(--accent);color:#1a1408;padding:10px 20px;border-radius:10px;font-size:15px}
@@ -107,6 +114,9 @@
   #mDots .dot{width:12px;height:12px;border-radius:50%;background:var(--panel2);border:1px solid var(--border);transition:background .05s}
   #mDots .dot.hit{background:var(--accent2)}
   #mDots .dot.hit.acc{background:var(--accent)}
+  #mDots .dot.hit.sec{background:#58c98f}
+  #mDots .dot.g2{border-color:var(--accent)}
+  #mDots .dot.g1{border-color:#58c98f}
   #trainerGrp input{width:52px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:13px}
   .tlbl{color:var(--muted);font-size:12px}
   @media(max-width:640px){ #mSlider{width:110px} }
@@ -258,6 +268,37 @@
       </select></div>
     </div>
     <p class="sub">Arpeggios are voice-led: each chord starts from the tone nearest the previous note, alternating direction. ▶ plays the line with chord pads underneath at the metronome tempo.</p>
+    <div class="hgbox">
+      <div class="keyhead"><span class="keyname">Harmony game — modal mixture</span></div>
+      <p class="sub" style="margin-bottom:10px">Stay on the home I chord, borrow every other chord from a parallel mode. Click chords to build a progression, or roll a random one.</p>
+      <div class="controls" style="margin-bottom:10px">
+        <div class="ctl"><label>Home key</label><select id="hgKey"></select></div>
+        <div class="ctl"><label>Borrow from</label><select id="hgMode">
+          <option value="natmin" selected>Aeolian (parallel minor)</option>
+          <option value="dorian">Dorian</option>
+          <option value="phrygian">Phrygian</option>
+          <option value="lydian">Lydian</option>
+          <option value="mixo">Mixolydian</option>
+          <option value="locrian">Locrian</option>
+          <option value="harmmin">Harmonic minor</option>
+          <option value="melmin">Melodic minor</option>
+          <option value="anymode">Every mode (full mixture)</option>
+          <option value="secdom">Secondary dominants (V7/x)</option>
+        </select></div>
+      </div>
+      <div class="chips" id="hgPalette"></div>
+      <p class="sub" style="margin:6px 0 4px">Classic mixture moves:</p>
+      <div class="chips" id="hgPresets"></div>
+      <div class="hgstrip">
+        <span id="hgProgTxt" class="sub" style="margin:0">Progression: —</span>
+        <button class="mbtn" id="hgRand4" style="width:auto;padding:0 10px">Random ×4</button>
+        <button class="mbtn" id="hgRand8" style="width:auto;padding:0 10px">Random ×8</button>
+        <button class="mbtn" id="hgClear" style="width:auto;padding:0 10px">Clear</button>
+        <button class="mbtn" id="hgQuiz" style="width:auto;padding:0 10px">Ear quiz</button>
+        <span id="hgMsg" class="sub" style="margin:0"></span>
+      </div>
+    </div>
+
     <div class="keyblock" id="progBlock" style="display:none">
       <div class="keyhead"><span class="keyname" id="progName"></span><button class="pbtn" id="progPlay">▶</button></div>
       <div class="notation" id="progOut"></div>
@@ -307,11 +348,17 @@
   <button class="mbtn" id="mTap">Tap</button>
   <div class="mgrp">
     <select id="mBeats">
-      <option value="4" selected>4/4</option>
-      <option value="3">3/4</option>
-      <option value="2">2/4</option>
-      <option value="6">6/8</option>
-      <option value="1">No accent</option>
+      <option value="4/4" selected>4/4</option>
+      <option value="3/4">3/4</option>
+      <option value="2/4">2/4</option>
+      <option value="6/8">6/8 (3+3)</option>
+      <option value="5/4a">5/4 (3+2)</option>
+      <option value="5/4b">5/4 (2+3)</option>
+      <option value="7/8a">7/8 (2+2+3)</option>
+      <option value="7/8b">7/8 (3+2+2)</option>
+      <option value="9/8">9/8 (3+3+3)</option>
+      <option value="11/8">11/8 (3+3+3+2)</option>
+      <option value="none">No accent</option>
     </select>
     <div id="mDots"></div>
   </div>
@@ -335,6 +382,7 @@ const QUALITIES = {
   m7b5:    {label:'m7♭5',       intervals:[0,3,6,10]},
   dim7:    {label:'dim7',            intervals:[0,3,6,9]},
   minmaj7: {label:'m(maj7)',         intervals:[0,3,7,11]},
+  maj7s5:  {label:'maj7♯5',       intervals:[0,4,8,11]},
   maj6:    {label:'6',               intervals:[0,4,7,9]},
   min6:    {label:'m6',              intervals:[0,3,7,9]},
   maj:     {label:'major triad',     intervals:[0,4,7]},
@@ -615,7 +663,7 @@ const STACK_TRIADS = {
   sus4:{label:'sus4', intervals:[0,5,7]},
 };
 const CHORD_SYM = {maj:'', min:'m', dim:'dim', aug:'aug', maj7:'maj7', dom7:'7', min7:'m7',
-  m7b5:'m7♭5', dim7:'dim7', minmaj7:'m(maj7)', maj6:'6', min6:'m6'};
+  m7b5:'m7♭5', dim7:'dim7', minmaj7:'m(maj7)', maj6:'6', min6:'m6', maj7s5:'maj7♯5'};
 function tensionLabel(iv, baseHasMaj3){
   return {0:'R',1:'♭9',2:'9',3: baseHasMaj3?'♯9':'♭3',4:'3',5:'11',6:'♯11',7:'5',8:'♭13',9:'13',10:'♭7',11:'∆7'}[iv];
 }
@@ -750,6 +798,34 @@ function progressionLine(chords, notesPerChord){
   const groups=[]; let k=0;
   segPitches.forEach(sp=>{ groups.push(fing.slice(k, k+sp.length)); k += sp.length; });
   return groups;
+}
+// ---- Harmony game: diatonic 7th chords of any parallel mode ----
+const SEVENTH_QUALS = {
+  '0,4,7,11':'maj7', '0,4,7,10':'dom7', '0,3,7,10':'min7', '0,3,6,10':'m7b5',
+  '0,3,6,9':'dim7', '0,3,7,11':'minmaj7', '0,4,8,11':'maj7s5',
+};
+const ROMAN_BASE = {0:'I',1:'♭II',2:'II',3:'♭III',4:'III',5:'IV',6:'♭V',7:'V',8:'♭VI',9:'VI',10:'♭VII',11:'VII'};
+// Harmonize each degree of a 7-note mode (stacked 3rds within the mode).
+function harmonizeMode(keyPc, modeKey){
+  const m = QUALITIES[modeKey].intervals;   // must be 7 notes
+  const out = [];
+  for(let d=0; d<7; d++){
+    const rootIv = m[d];
+    const ivs = [0,1,2,3].map(k=>{
+      const x = m[(d + 2*k) % 7];
+      return ((x - rootIv) % 12 + 12) % 12;
+    }).sort((a,b)=>a-b);
+    const qual = SEVENTH_QUALS[ivs.join(',')] || 'maj7';
+    const pc = (keyPc + rootIv) % 12;
+    const off = ((pc - keyPc) % 12 + 12) % 12;
+    let roman = ROMAN_BASE[off];
+    const minorish = ['min7','m7b5','dim7','minmaj7'].includes(qual);
+    if(minorish) roman = roman.replace(/(I|V)+$/, s=>s.toLowerCase());
+    if(qual==='m7b5') roman += 'ø';
+    else if(qual==='dim7') roman += '°';
+    out.push({degree:d+1, pc, qual, roman});
+  }
+  return out;
 }
 
 // ---- CAGED shapes ----
@@ -1299,13 +1375,7 @@ PROG_PRESETS.forEach(t=>{
   b.onclick=()=>{ $('progIn').value=t; renderProg(); };
   $('progChips').appendChild(b);
 });
-function renderProg(){
-  const {chords, keyPc} = parseProgression($('progIn').value.trim() || 'ii-V-I in C');
-  if(!chords.length){
-    $('progBlock').style.display='';
-    $('progName').textContent = 'Couldn’t read that — try roman numerals (ii-V-I in Bb) or chord symbols (Dm7 G7 Cmaj7)';
-    $('progOut').innerHTML=''; progData=null; return;
-  }
+function renderProgChords(chords, keyPc){
   const n = +$('progN').value;
   const groups = progressionLine(chords, n);
   progData = {groups, chords, n};
@@ -1313,6 +1383,15 @@ function renderProg(){
   $('progName').textContent = chords.map(c=>c.label).join(' – ');
   $('progOut').innerHTML = renderNotationSystems(groups, keyPc, chords.map(c=>c.label))
     .map(s=>`<div class="nsys">${s}</div>`).join('');
+}
+function renderProg(){
+  const {chords, keyPc} = parseProgression($('progIn').value.trim() || 'ii-V-I in C');
+  if(!chords.length){
+    $('progBlock').style.display='';
+    $('progName').textContent = 'Couldn’t read that — try roman numerals (ii-V-I in Bb) or chord symbols (Dm7 G7 Cmaj7)';
+    $('progOut').innerHTML=''; progData=null; return;
+  }
+  renderProgChords(chords, keyPc);
 }
 $('progGo').onclick = renderProg;
 $('progIn').addEventListener('keydown', e=>{ if(e.key==='Enter') renderProg(); });
@@ -1327,6 +1406,135 @@ $('progPlay').onclick = ()=>{
   });
   playNotes(progData.groups.flat(), $('progPlay'), pads);
 };
+
+// ---- Harmony game (modal mixture) ----
+let hgProg = [];
+FLAT_NAMES.forEach((n,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=n; $('hgKey').appendChild(o); });
+function hgPaletteChords(){
+  const keyPc = +$('hgKey').value;
+  const NM = SHARP_KEYS.has(keyPc) ? SHARP_NAMES : FLAT_NAMES;
+  const mode = $('hgMode').value;
+  const mk = c => ({...c, label: NM[c.pc] + (CHORD_SYM[c.qual] ?? '')});
+  const home = {pc:keyPc, qual:'maj7', roman:'I', label:NM[keyPc]+'maj7'};
+  if(mode === 'secdom'){
+    // V7 of each diatonic degree; clicking adds the dominant AND its resolution
+    const targets = [[2,'min7','ii'],[4,'min7','iii'],[5,'maj7','IV'],[7,'dom7','V'],[9,'min7','vi']];
+    const chords = [home];
+    targets.forEach(([off,q,rn])=>{
+      const tpc = (keyPc+off)%12, dpc = (tpc+7)%12;
+      chords.push({pc:dpc, qual:'dom7', roman:'V7/'+rn, label:NM[dpc]+'7',
+        resolveTo: mk({pc:tpc, qual:q, roman:rn})});
+    });
+    return chords;
+  }
+  if(mode === 'anymode'){
+    // union of every parallel mode's harmonization, deduped
+    const seen = new Set([keyPc+':maj7']);
+    const chords = [home];
+    ['majscale','natmin','dorian','phrygian','lydian','mixo','locrian','harmmin','melmin'].forEach(md=>{
+      harmonizeMode(keyPc, md).slice(1).forEach(c=>{
+        const k = c.pc+':'+c.qual;
+        if(!seen.has(k)){ seen.add(k); chords.push(mk(c)); }
+      });
+    });
+    chords.sort((a,b)=> ((a.pc-keyPc+12)%12) - ((b.pc-keyPc+12)%12) || (a.roman==='I'?-1:0));
+    return chords;
+  }
+  const borrowed = harmonizeMode(keyPc, mode);
+  return [home, ...borrowed.slice(1).map(mk)];
+}
+let hgQuizChord = null;
+function hgPlayChord(c, t0, dur){
+  const ctx = ensureAudio();
+  let rm = 48 + c.pc; if(rm > 55) rm -= 12;
+  QUALITIES[c.qual].intervals.forEach((iv,i)=> tone(ctx, rm+iv, t0 + i*0.03, dur, 0.12, 'sine'));
+}
+function hgQuizPlay(){
+  const ctx = ensureAudio(); const t = ctx.currentTime + 0.06;
+  hgPlayChord({pc:+$('hgKey').value, qual:'maj7'}, t, 1.3);
+  hgPlayChord(hgQuizChord, t + 1.5, 1.7);
+}
+function hgRenderPalette(){
+  const chords = hgPaletteChords();
+  const pal = $('hgPalette'); pal.innerHTML='';
+  chords.forEach(c=>{
+    const b = document.createElement('button');
+    b.className = 'chip hgchip';
+    b.innerHTML = `<b>${c.roman}</b>&nbsp;${c.label}` + (c.resolveTo ? `&nbsp;<span style="opacity:.6">→ ${c.resolveTo.label}</span>` : '');
+    b.onclick = ()=>{
+      if(hgQuizChord){
+        if(c.pc===hgQuizChord.pc && c.qual===hgQuizChord.qual){
+          $('hgMsg').textContent = `✓ It was ${hgQuizChord.roman} (${hgQuizChord.label})`;
+          hgQuizChord = null;
+        } else {
+          $('hgMsg').textContent = `✗ not ${c.roman} — listen again`;
+          hgQuizPlay();
+        }
+        return;
+      }
+      hgProg.push(c);
+      if(c.resolveTo) hgProg.push(c.resolveTo);
+      hgUpdate();
+    };
+    pal.appendChild(b);
+  });
+}
+function hgUpdate(){
+  $('hgProgTxt').textContent = 'Progression: ' + (hgProg.length ? hgProg.map(c=>c.label).join(' – ') : '—');
+  if(hgProg.length >= 2) renderProgChords(hgProg.slice(), +$('hgKey').value);
+}
+function hgRandom(n){
+  const chords = hgPaletteChords();
+  hgProg = [chords[0]];
+  while(hgProg.length < n-1){
+    const c = chords[1 + Math.floor(Math.random()*(chords.length-1))];
+    hgProg.push(c);
+    if(c.resolveTo && hgProg.length < n-1) hgProg.push(c.resolveTo);
+  }
+  hgProg.push(Math.random() < 0.6 ? chords[0] : chords[1 + Math.floor(Math.random()*(chords.length-1))]);
+  hgUpdate();
+}
+// Classic borrowed-chord moves: [semitone offset from key, quality] per chord
+const HG_PRESETS = [
+  {name:'I – ♭VII – IV – I  (mixolydian)', seq:[[0,'maj7'],[10,'dom7'],[5,'maj7'],[0,'maj7']]},
+  {name:'I – ♭VI – ♭VII – I  (aeolian)', seq:[[0,'maj7'],[8,'maj7'],[10,'dom7'],[0,'maj7']]},
+  {name:'I – iv – I  (minor plagal)', seq:[[0,'maj7'],[5,'min7'],[0,'maj7']]},
+  {name:'Backdoor: I – iv – ♭VII7 – I', seq:[[0,'maj7'],[5,'min7'],[10,'dom7'],[0,'maj7']]},
+  {name:'I – ♭III – ♭VII – IV', seq:[[0,'maj7'],[3,'maj7'],[10,'dom7'],[5,'maj7']]},
+  {name:'maj7 planing: I – ♭III – ♭VI – ♭II', seq:[[0,'maj7'],[3,'maj7'],[8,'maj7'],[1,'maj7']]},
+];
+HG_PRESETS.forEach(p=>{
+  const b = document.createElement('button');
+  b.className = 'chip'; b.textContent = p.name;
+  b.onclick = ()=>{
+    const keyPc = +$('hgKey').value;
+    const NM = SHARP_KEYS.has(keyPc) ? SHARP_NAMES : FLAT_NAMES;
+    hgProg = p.seq.map(([off,q])=>{
+      const pc = (keyPc+off)%12;
+      const minorish = ['min7','m7b5','dim7','minmaj7'].includes(q);
+      let roman = ROMAN_BASE[off];
+      if(minorish) roman = roman.replace(/(I|V)+$/, s=>s.toLowerCase());
+      return {pc, qual:q, roman, label: NM[pc] + (CHORD_SYM[q] ?? '')};
+    });
+    hgUpdate();
+  };
+  $('hgPresets').appendChild(b);
+});
+$('hgQuiz').onclick = ()=>{
+  if(hgQuizChord){ hgQuizPlay(); return; }   // replay current question
+  const pool = hgPaletteChords().slice(1);
+  hgQuizChord = pool[Math.floor(Math.random()*pool.length)];
+  $('hgMsg').textContent = 'I … then ? — click the chord you heard (button replays)';
+  hgQuizPlay();
+};
+$('hgRand4').onclick = ()=> hgRandom(4);
+$('hgRand8').onclick = ()=> hgRandom(8);
+$('hgClear').onclick = ()=>{ hgProg = []; hgUpdate(); };
+['hgKey','hgMode'].forEach(id=> $(id).addEventListener('change', ()=>{
+  hgProg=[]; hgQuizChord=null; $('hgMsg').textContent='';
+  hgRenderPalette(); hgUpdate();
+}));
+hgRenderPalette();
 
 // ---- Ear training ----
 const EAR_INTERVALS = {1:'minor 2nd',2:'major 2nd',3:'minor 3rd',4:'major 3rd',5:'perfect 4th',
@@ -1428,33 +1636,40 @@ $('eCat').addEventListener('change', ()=>{
 $('eLvl').addEventListener('change', ()=>{ earState.q=null; $('eChoices').innerHTML=''; });
 
 // ---- Metronome (Web Audio, lookahead scheduler) ----
+// Accent maps per meter: 2 = downbeat, 1 = group start, 0 = weak tick
+const METERS = {
+  '4/4':[2,0,0,0], '3/4':[2,0,0], '2/4':[2,0], '6/8':[2,0,0,1,0,0],
+  '5/4a':[2,0,0,1,0], '5/4b':[2,0,1,0,0],
+  '7/8a':[2,0,1,0,1,0,0], '7/8b':[2,0,0,1,0,1,0],
+  '9/8':[2,0,0,1,0,0,1,0,0], '11/8':[2,0,0,1,0,0,1,0,0,1,0],
+  'none':[0],
+};
 const metro = {
   ctx:null, playing:false, bpm:80, beats:4, beat:0, nextTime:0, timer:null,
   LOOKAHEAD_MS:25, AHEAD:0.1,
-  trainer:false, barCount:0,
+  trainer:false, barCount:0, accents:[2,0,0,0],
 };
-function metroClick(time, accent){
+function metroClick(time, level){
   const osc = metro.ctx.createOscillator(), g = metro.ctx.createGain();
   osc.type = 'square';
-  osc.frequency.value = accent ? 1568 : 1047;   // G6 accent, C6 tick
+  osc.frequency.value = level===2 ? 1568 : level===1 ? 1319 : 1047;   // G6 / E6 / C6
   g.gain.setValueAtTime(0.0001, time);
-  g.gain.exponentialRampToValueAtTime(accent ? 0.5 : 0.3, time + 0.002);
+  g.gain.exponentialRampToValueAtTime(level===2 ? 0.5 : level===1 ? 0.42 : 0.3, time + 0.002);
   g.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
   osc.connect(g); g.connect(metro.ctx.destination);
   osc.start(time); osc.stop(time + 0.07);
 }
-function metroFlash(beatIdx, accent, delayMs){
+function metroFlash(beatIdx, level, delayMs){
   setTimeout(()=>{
     const dots = document.querySelectorAll('#mDots .dot');
-    dots.forEach(d=>d.classList.remove('hit','acc'));
+    dots.forEach(d=>d.classList.remove('hit','acc','sec'));
     const d = dots[beatIdx];
-    if(d){ d.classList.add('hit'); if(accent) d.classList.add('acc'); }
+    if(d){ d.classList.add('hit'); if(level===2) d.classList.add('acc'); else if(level===1) d.classList.add('sec'); }
   }, Math.max(delayMs, 0));
 }
 function metroScheduler(){
   while(metro.nextTime < metro.ctx.currentTime + metro.AHEAD){
     const idx = metro.beat % metro.beats;
-    const accent = metro.beats > 1 && idx === 0;
     // speed trainer: bump tempo at bar boundaries
     if(metro.trainer && idx === 0 && metro.beat > 0){
       metro.barCount++;
@@ -1467,8 +1682,9 @@ function metroScheduler(){
         else if(metro.bpm > target) setBpm(Math.max(target, metro.bpm - step));
       }
     }
-    metroClick(metro.nextTime, accent);
-    metroFlash(idx, accent, (metro.nextTime - metro.ctx.currentTime) * 1000);
+    const level = metro.accents[idx] ?? 0;
+    metroClick(metro.nextTime, level);
+    metroFlash(idx, level, (metro.nextTime - metro.ctx.currentTime) * 1000);
     metro.beat++;
     metro.nextTime += 60 / metro.bpm;
   }
@@ -1494,13 +1710,22 @@ function setBpm(v){
 }
 function buildDots(){
   const md = $('mDots'); md.innerHTML = '';
-  for(let i=0;i<metro.beats;i++){ const d=document.createElement('div'); d.className='dot'; md.appendChild(d); }
+  for(let i=0;i<metro.beats;i++){
+    const d=document.createElement('div');
+    d.className='dot' + (metro.accents[i]===2?' g2':metro.accents[i]===1?' g1':'');
+    md.appendChild(d);
+  }
 }
 $('mPlay').onclick = ()=> metro.playing ? metroStop() : metroStart();
 $('mSlider').addEventListener('input', e=> setBpm(+e.target.value));
 $('mUp').onclick = ()=> setBpm(metro.bpm + 1);
 $('mDown').onclick = ()=> setBpm(metro.bpm - 1);
-$('mBeats').addEventListener('change', e=>{ metro.beats = +e.target.value; metro.beat = 0; buildDots(); });
+$('mBeats').addEventListener('change', e=>{
+  metro.accents = METERS[e.target.value] || [2,0,0,0];
+  metro.beats = metro.accents.length;
+  metro.beat = 0; metro.barCount = 0;
+  buildDots();
+});
 $('mTrain').onclick = ()=>{
   metro.trainer = !metro.trainer; metro.barCount = 0;
   $('mTrain').textContent = metro.trainer ? 'Trainer: ON' : 'Trainer: off';
