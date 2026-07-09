@@ -182,6 +182,13 @@
       <option value="2" selected>2 octaves</option>
       <option value="3">3 octaves</option>
     </select></div>
+    <div class="ctl"><label>Note value</label><select id="selNV">
+      <option value="half">Half notes</option>
+      <option value="quarter" selected>Quarter notes</option>
+      <option value="eighth">8th notes</option>
+      <option value="triplet">Triplets</option>
+      <option value="sixteenth">16th notes</option>
+    </select></div>
     <div class="ctl"><label>Fingering</label><select id="selFing">
       <option value="pos" selected>Position (auto)</option>
       <option value="3nps">3 notes per string</option>
@@ -645,7 +652,8 @@ function spellWritten(midi, useSharps){
   const [letter, acc] = (useSharps ? SHARP_SPELL : FLAT_SPELL)[pc];
   return { dval: oct*7 + LETTER_DIA[letter], acc };
 }
-function renderNotationSystems(groups, rootPc, labels){
+function renderNotationSystems(groups, rootPc, labels, nv){
+  nv = nv || 'quarter';
   const SP=8, TS=13, colW=26, gapW=14, padL=56, padR=12, maxPx=800;
   const useSharps = SHARP_KEYS.has(rootPc);
   // wrap groups into systems by pixel width
@@ -690,12 +698,24 @@ function renderNotationSystems(groups, rootPc, labels){
         s += `<line x1="${c.x-8}" y1="${yOf(d)}" x2="${c.x+8}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
       if(c.sp.acc !== 0)
         s += `<text x="${c.x-14}" y="${y+4}" font-size="13" fill="#cdd3e0" font-family="'Segoe UI Symbol',serif">${c.sp.acc<0?'♭':'♯'}</text>`;
-      if(c.sp.dval < 34)  // stem up
-        s += `<line x1="${c.x+4.4}" y1="${y-1}" x2="${c.x+4.4}" y2="${y-SP*3.1}" stroke="#e8eaf0" stroke-width="1.2"/>`;
-      else                // stem down
-        s += `<line x1="${c.x-4.4}" y1="${y+1}" x2="${c.x-4.4}" y2="${y+SP*3.1}" stroke="#e8eaf0" stroke-width="1.2"/>`;
-      s += `<ellipse cx="${c.x}" cy="${y}" rx="4.8" ry="3.5" transform="rotate(-18 ${c.x} ${y})" fill="#e8eaf0"/>`;
+      const up = c.sp.dval < 34;
+      const sx = up ? c.x+4.4 : c.x-4.4;
+      const sy2 = up ? y-SP*3.1 : y+SP*3.1;
+      s += `<line x1="${sx}" y1="${up?y-1:y+1}" x2="${sx}" y2="${sy2}" stroke="#e8eaf0" stroke-width="1.2"/>`;
+      const flags = nv==='sixteenth' ? 2 : (nv==='eighth'||nv==='triplet') ? 1 : 0;
+      for(let fi=0; fi<flags; fi++){
+        const fy = sy2 + (up ? fi*5 : -fi*5);
+        s += `<path d="M ${sx} ${fy} q 7 ${up?3:-3} 4 ${up?10:-10}" stroke="#e8eaf0" stroke-width="1.3" fill="none"/>`;
+      }
+      s += `<ellipse cx="${c.x}" cy="${y}" rx="4.8" ry="3.5" transform="rotate(-18 ${c.x} ${y})" ${nv==='half' ? 'fill="none" stroke="#e8eaf0" stroke-width="1.5"' : 'fill="#e8eaf0"'}/>`;
     });
+    // triplet numerals over each set of three
+    if(nv === 'triplet')
+      for(let i=0; i+2 < cols.length || i+2 === cols.length; i+=3){
+        if(i+1 >= cols.length) break;
+        const mid = cols[Math.min(i+1, cols.length-1)];
+        s += `<text x="${mid.x}" y="${staffTop-3}" text-anchor="middle" font-size="9" font-style="italic" fill="var(--muted)">3</text>`;
+      }
     // tab (top line = high e)
     for(let i=0;i<6;i++){
       const y = tabTop + i*TS;
@@ -1003,8 +1023,8 @@ function parseQuery(raw){
   // pattern
   if(/(in|by|of) (diatonic )?(3rds?|thirds)|(^| )(3rds|thirds)/.test(q)) res.pat = 'thirds';
   else if(/(in|by|of) (diatonic )?(4ths?|fourths)|(^| )(4ths|fourths)/.test(q)) res.pat = 'fourths';
-  else if(/groups? of (3|three)|triplet/.test(q)) res.pat = 'groups3';
-  else if(/groups? of (4|four)|sixteenth/.test(q)) res.pat = 'groups4';
+  else if(/groups? of (3|three)/.test(q)) res.pat = 'groups3';
+  else if(/groups? of (4|four)/.test(q)) res.pat = 'groups4';
   else if(/straight|linear|up and down/.test(q)) res.pat = 'straight';
 
   // direction
@@ -1026,6 +1046,13 @@ function parseQuery(raw){
   else if(/economy/.test(q)) res.tech = 'economy';
   else if(/sweep/.test(q)) res.tech = 'sweep';
   else if(/hybrid/.test(q)) res.tech = 'hybrid';
+
+  // note value
+  if(/\btriplets?\b/.test(q)) res.nv = 'triplet';
+  else if(/\b(8th|eighth)s? ?(notes?)?\b/.test(q)) res.nv = 'eighth';
+  else if(/\b(16th|sixteenth)s? ?(notes?)?\b/.test(q)) res.nv = 'sixteenth';
+  else if(/\bhalf ?notes?\b/.test(q)) res.nv = 'half';
+  else if(/\bquarter ?notes?\b/.test(q)) res.nv = 'quarter';
 
   // octaves
   if(/\b(1|one)[- ]octave/.test(q)) res.oct = 1;
@@ -1149,7 +1176,7 @@ function shapesRow(rootPc, qualKey){
 const $ = id => document.getElementById(id);
 const selRoot=$('selRoot'), selQual=$('selQual'), selPat=$('selPat'),
       selSeq=$('selSeq'), selDir=$('selDir'), selOct=$('selOct'), selShapes=$('selShapes'), selNote=$('selNote'),
-      selFing=$('selFing'), selVar=$('selVar'), selTech=$('selTech');
+      selFing=$('selFing'), selVar=$('selVar'), selTech=$('selTech'), selNV=$('selNV');
 let copyText = '';
 const TECH_TIPS = {
   alternate: 'Strict down–up picking throughout — start each group on a downstroke. Keep it clean at a slow metronome setting before speeding up.',
@@ -1205,7 +1232,8 @@ function generate(){
   const varName = {none:'',rev:' · reversed groups',zigzag:' · zigzag',pedal:' · pedal root'}[variation];
   const fingName = fing==='3nps' ? ' · 3 notes/string' : fing==='fixed' ? ` · position ${posFret} (frets ${posFret}–${posFret+4})` : '';
   const rangeName = fing==='fixed' ? 'full position' : `${oct} octave${oct>1?'s':''}`;
-  $('summary').textContent = `${QUALITIES[qual].label} · ${patName} · ${dirName} · ${rangeName}${fingName}${varName}${seqName}`;
+  const nvName = {half:'half notes', quarter:'quarter notes', eighth:'8th notes', triplet:'triplets', sixteenth:'16th notes'}[selNV.value];
+  $('summary').textContent = `${QUALITIES[qual].label} · ${patName} · ${dirName} · ${nvName} · ${rangeName}${fingName}${varName}${seqName}`;
   $('droneBtn').textContent = 'Drone: ' + FLAT_NAMES[rootPc];
   akIdx = 0; akCount = 0;
   stateToHash();
@@ -1228,7 +1256,7 @@ function generate(){
     else if(selShapes.value === 'neck') div.appendChild(neckRow(pc, qual, fing==='fixed' ? {lo:posFret, hi:posFret+4} : null));
     if(selNote.value === 'on'){
       const nd=document.createElement('div'); nd.className='notation';
-      nd.innerHTML = renderNotationSystems(ex.groups, pc).map(s=>`<div class="nsys">${s}</div>`).join('');
+      nd.innerHTML = renderNotationSystems(ex.groups, pc, null, selNV.value).map(s=>`<div class="nsys">${s}</div>`).join('');
       div.appendChild(nd);
     } else {
       const pre=document.createElement('pre'); pre.className='tab';
@@ -1253,12 +1281,13 @@ function runFromText(){
   if(p.pos)  selPos.value = p.pos;
   if(p.variation) selVar.value = p.variation;
   if(p.tech) selTech.value = p.tech;
+  if(p.nv)   selNV.value = p.nv;
   generate();
 }
 
 $('go').onclick = runFromText;
 $('query').addEventListener('keydown', e=>{ if(e.key==='Enter') runFromText(); });
-[selRoot,selQual,selPat,selSeq,selDir,selOct,selShapes,selNote,selFing,selVar,selTech,selPos].forEach(s=> s.addEventListener('change', generate));
+[selRoot,selQual,selPat,selSeq,selDir,selOct,selShapes,selNote,selFing,selVar,selTech,selPos,selNV].forEach(s=> s.addEventListener('change', generate));
 
 $('droneBtn').onclick = toggleDrone;
 $('loopBtn').onclick = ()=> setLoop(!playLoop);
@@ -1297,12 +1326,12 @@ $('akBtn').onclick = ()=>{
 // ---- Shareable URL state (compact: only non-default settings) ----
 let currentTab = 'ex';
 let hashReady = false;
-const EX_DEFAULTS = ['0','maj7','straight','single','asc','2','pos','5','none','none','neck','on'];
+const EX_DEFAULTS = ['0','maj7','straight','single','asc','2','pos','5','none','none','neck','on','quarter'];
 function stateToHash(){
   if(!hashReady) return;
   try{
     const ex = [selRoot.value,selQual.value,selPat.value,selSeq.value,selDir.value,selOct.value,
-                selFing.value,selPos.value,selVar.value,selTech.value,selShapes.value,selNote.value];
+                selFing.value,selPos.value,selVar.value,selTech.value,selShapes.value,selNote.value,selNV.value];
     // trim trailing fields that match the defaults
     let end = ex.length;
     while(end > 0 && ex[end-1] === EX_DEFAULTS[end-1]) end--;
@@ -1539,11 +1568,14 @@ function stopPlayback(){
   }
 }
 // Plays a flat list of {s,f} notes as 8th notes at the metronome tempo, after a 4-click count-in.
+const NV_MULT = {half:2, quarter:1, eighth:0.5, triplet:1/3, sixteenth:0.25};
 function playNotes(noteList, btn, pads, skipCountIn){
   const ctx = ensureAudio();
   if(!skipCountIn) stopPlayback();
   const g = ctx.createGain(); g.gain.value = 1; g.connect(metro.bus);
-  const spb = 60 / metro.bpm, eighth = spb / 2;
+  const spb = 60 / metro.bpm;
+  const nvSel = document.getElementById('selNV');
+  const eighth = spb * (NV_MULT[nvSel ? nvSel.value : 'quarter'] ?? 1);   // note unit
   let t0 = ctx.currentTime + 0.08;
   const countDur = skipCountIn ? 0 : 4*spb;
   if(!skipCountIn) for(let i=0;i<4;i++){
@@ -1642,7 +1674,7 @@ function renderStackPractice(){
       `${spState.name} — stacked arpeggio (${spState.triName} over ${spState.baseName})`);
   }
   $('spName').textContent = ex.name;
-  $('spOut').innerHTML = renderNotationSystems(ex.groups, keyPc).map(s=>`<div class="nsys">${s}</div>`).join('');
+  $('spOut').innerHTML = renderNotationSystems(ex.groups, keyPc, null, selNV.value).map(s=>`<div class="nsys">${s}</div>`).join('');
 }
 ['spMat','spPat','spDir','spOct'].forEach(id=> $(id).addEventListener('change', renderStackPractice));
 
@@ -1663,7 +1695,7 @@ function renderProgChords(chords, keyPc){
   stateToHash();
   $('progBlock').style.display='';
   $('progName').textContent = chords.map(c=>c.label).join(' – ');
-  $('progOut').innerHTML = renderNotationSystems(groups, keyPc, chords.map(c=>c.label))
+  $('progOut').innerHTML = renderNotationSystems(groups, keyPc, chords.map(c=>c.label), selNV.value)
     .map(s=>`<div class="nsys">${s}</div>`).join('');
 }
 function renderProg(){
@@ -2235,7 +2267,7 @@ metro.onBar = akOnBar;
   if(st){
     if(st.ex){
       const v = st.ex.split('|');
-      [selRoot,selQual,selPat,selSeq,selDir,selOct,selFing,selPos,selVar,selTech,selShapes,selNote]
+      [selRoot,selQual,selPat,selSeq,selDir,selOct,selFing,selPos,selVar,selTech,selShapes,selNote,selNV]
         .forEach((s,i)=>{ if(v[i] !== undefined && v[i] !== '') s.value = v[i]; });
     }
     if(st.q)  $('query').value = st.q;
