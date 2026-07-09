@@ -2,7 +2,7 @@
 
 A free, open-source practice environment for guitarists — scales, arpeggios, CAGED visualization, chord theory, ear training, jam tracks, and a practice log, all in **a single HTML file** that runs entirely in your browser. No account, no server, no install. Works offline once loaded.
 
-**[▶ Try it live](https://patrickdleduc.github.io/guitar-practice-tool/)** *(update this link after enabling GitHub Pages)*
+**[▶ Try it live](https://patrickdleduc.github.io/guitar-practice-tool/)**
 
 ---
 
