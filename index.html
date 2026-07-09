@@ -288,6 +288,11 @@
         <option value="4">4</option>
         <option value="8" selected>8</option>
       </select></div>
+      <div class="ctl"><label>Jam comp sound</label><select id="jamComp">
+        <option value="pads" selected>Soft pads</option>
+        <option value="stabs">Plucked stabs</option>
+        <option value="none">Bass &amp; drums only</option>
+      </select></div>
     </div>
     <p class="sub">Arpeggios are voice-led: each chord starts from the tone nearest the previous note, alternating direction. ▶ plays the line with chord pads underneath at the metronome tempo.</p>
     <div class="hgbox">
@@ -1289,16 +1294,49 @@ $('akBtn').onclick = ()=>{
     if(!metro.playing) metroStart();
   }
 };
-// ---- Shareable URL state ----
+// ---- Shareable URL state (compact: only non-default settings) ----
 let currentTab = 'ex';
+let hashReady = false;
+const EX_DEFAULTS = ['0','maj7','straight','single','asc','2','pos','5','none','none','neck','on'];
 function stateToHash(){
+  if(!hashReady) return;
   try{
-    const s = {t: currentTab,
-      ex: [selRoot.value,selQual.value,selPat.value,selSeq.value,selDir.value,selOct.value,
-           selFing.value,selPos.value,selVar.value,selTech.value,selShapes.value,selNote.value].join('|'),
-      q: $('query').value, pi: $('progIn').value, pn: $('progN').value, pl: $('progLine').value};
-    history.replaceState(null, '', '#' + encodeURIComponent(JSON.stringify(s)));
+    const ex = [selRoot.value,selQual.value,selPat.value,selSeq.value,selDir.value,selOct.value,
+                selFing.value,selPos.value,selVar.value,selTech.value,selShapes.value,selNote.value];
+    // trim trailing fields that match the defaults
+    let end = ex.length;
+    while(end > 0 && ex[end-1] === EX_DEFAULTS[end-1]) end--;
+    const parts = [];
+    if(currentTab !== 'ex') parts.push('t=' + currentTab);
+    if(end > 0) parts.push('ex=' + ex.slice(0, end).join('.'));
+    if($('progIn').value.trim()) parts.push('pi=' + encodeURIComponent($('progIn').value.trim()));
+    if($('progN').value !== '8') parts.push('pn=' + $('progN').value);
+    if($('progLine').value !== 'arps') parts.push('pl=' + $('progLine').value);
+    if(parts.length) history.replaceState(null, '', '#' + parts.join('&'));
+    else history.replaceState(null, '', location.pathname + location.search);
   }catch(e){}
+}
+function parseHash(){
+  const h = location.hash.slice(1);
+  if(!h) return null;
+  // legacy JSON links still work
+  if(h.startsWith('%7B') || h.startsWith('{')){
+    try{ return JSON.parse(decodeURIComponent(h)); }catch(e){ return null; }
+  }
+  const st = {};
+  h.split('&').forEach(kv=>{
+    const i = kv.indexOf('='); if(i < 0) return;
+    const k = kv.slice(0, i), v = kv.slice(i+1);
+    if(k === 't') st.t = v;
+    else if(k === 'ex'){
+      const vals = v.split('.');
+      st.ex = EX_DEFAULTS.map((d, j)=> vals[j] !== undefined ? vals[j] : d).join('|');
+    }
+    else if(k === 'pi') st.pi = decodeURIComponent(v);
+    else if(k === 'pn') st.pn = v;
+    else if(k === 'pl') st.pl = v;
+  });
+  return Object.keys(st).length ? st : null;
 }
 $('copyall').onclick = ()=>{
   navigator.clipboard.writeText(copyText);
@@ -1689,8 +1727,21 @@ function stopJam(){
     $('jamBtn').textContent = 'Jam ▶'; $('jamBtn').classList.remove('playing');
   }
 }
+// Soft pad: slow attack/release sine, kind to stacked chords
+function pad(ctx, m, t0, dur, vol, dest){
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine'; o.frequency.value = midiFreq(m);
+  const a = Math.min(0.3, dur*0.3), r = Math.min(0.4, dur*0.3);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(vol, t0+a);
+  g.gain.setValueAtTime(vol, t0+dur-r);
+  g.gain.linearRampToValueAtTime(0.0001, t0+dur);
+  o.connect(g); g.connect(dest || metro.bus);
+  o.start(t0); o.stop(t0+dur+0.05);
+}
 function scheduleJamPass(ctx, g, chords, t0){
   const spb = 60 / metro.bpm, bar = 4*spb;
+  const compMode = $('jamComp') ? $('jamComp').value : 'pads';
   chords.forEach((c, bi)=>{
     const bt = t0 + bi*bar;
     // drums: kick 1 & 3, snare 2 & 4, hats on 8ths
@@ -1706,11 +1757,15 @@ function scheduleJamPass(ctx, g, chords, t0){
     const next = chords[(bi+1) % chords.length];
     const nextRoot = 28 + ((next.pc - 4 + 12) % 12);
     pluck(ctx, nextRoot + (nextRoot >= rootM ? -1 : 1), bt+3.5*spb, spb*0.5, 0.22, g);
-    // comp stabs on the and-of-2 and beat 4
+    // comping
     let cr = 52 + c.pc; if(cr > 63) cr -= 12;
     const tones = QUALITIES[c.qual].intervals.slice(0,4).map(iv=>cr+iv);
-    tones.forEach((m,i)=> pluck(ctx, m, bt + 1.5*spb + i*0.02, spb*0.9, 0.11, g));
-    tones.forEach((m,i)=> pluck(ctx, m, bt + 3*spb + i*0.02, spb*0.7, 0.09, g));
+    if(compMode === 'pads'){
+      tones.forEach(m=> pad(ctx, m, bt + 0.02, bar - 0.06, 0.055, g));
+    } else if(compMode === 'stabs'){
+      tones.forEach((m,i)=> pluck(ctx, m, bt + 1.5*spb + i*0.03, spb*0.9, 0.07, g));
+      tones.forEach((m,i)=> pluck(ctx, m, bt + 3*spb + i*0.03, spb*0.7, 0.06, g));
+    }
   });
   return chords.length * bar;
 }
@@ -2176,14 +2231,13 @@ metro.onBar = akOnBar;
 
 // ---- init: restore from URL hash, or show the demo ----
 (function init(){
-  let st = null;
-  try{
-    if(location.hash.length > 1) st = JSON.parse(decodeURIComponent(location.hash.slice(1)));
-  }catch(e){}
-  if(st && st.ex){
-    const v = st.ex.split('|');
-    [selRoot,selQual,selPat,selSeq,selDir,selOct,selFing,selPos,selVar,selTech,selShapes,selNote]
-      .forEach((s,i)=>{ if(v[i] !== undefined && v[i] !== '') s.value = v[i]; });
+  const st = parseHash();
+  if(st){
+    if(st.ex){
+      const v = st.ex.split('|');
+      [selRoot,selQual,selPat,selSeq,selDir,selOct,selFing,selPos,selVar,selTech,selShapes,selNote]
+        .forEach((s,i)=>{ if(v[i] !== undefined && v[i] !== '') s.value = v[i]; });
+    }
     if(st.q)  $('query').value = st.q;
     if(st.pi) $('progIn').value = st.pi;
     if(st.pn) $('progN').value = st.pn;
@@ -2197,6 +2251,7 @@ metro.onBar = akOnBar;
     $('query').value = EXAMPLES[0];
     runFromText();
   }
+  hashReady = true;
 })();
 </script>
 </body>
