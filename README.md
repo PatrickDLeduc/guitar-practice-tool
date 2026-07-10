@@ -1,6 +1,6 @@
 # 🎸 Guitar Practice Helper
 
-A free, open-source practice environment for guitarists — scales, arpeggios, CAGED visualization, chord theory, ear training, jam tracks, and a practice log, all in **a single HTML file** that runs entirely in your browser. No account, no server, no install. Works offline once loaded.
+A free, open-source practice environment for guitarists — scales, arpeggios, CAGED visualization, chord theory, ear training, jam tracks, and a practice log, all in **a single HTML file** that runs entirely in your browser. No account, no server, no install. Works offline, and installs to your phone's home screen as an app (PWA).
 
 **[▶ Try it live](https://patrickdleduc.github.io/guitar-practice-tool/)**
 
@@ -54,15 +54,16 @@ Exercises are also **shareable**: every setting is encoded in the URL, so you ca
 
 ## Running it
 
-It's one file. Any of these work:
+Any of these work:
 
 - **Online**: open the GitHub Pages link above
-- **Locally**: download `index.html` and double-click it
+- **On your phone**: open the link in Chrome → menu (⋮) → **Add to Home screen** / **Install app**. It runs fullscreen like a native app and works offline. The layout is mobile-friendly; the metronome bar shows the essentials, with a ⋯ button for the rest.
+- **Locally**: download `index.html` and double-click it (the app itself is still a single file — the extra files in the repo only enable the install/offline behavior)
 - **Host your own**: fork this repo → Settings → Pages → deploy from `main`
 
 ## Tech
 
-Vanilla HTML/CSS/JavaScript, zero dependencies, no build step. Audio is synthesized with the Web Audio API (lookahead-scheduled metronome, Karplus-Strong plucked strings, synthesized drums). Notation and fretboard graphics are hand-rolled SVG.
+Vanilla HTML/CSS/JavaScript, zero dependencies, no build step. Audio is synthesized with the Web Audio API (lookahead-scheduled metronome, Karplus-Strong plucked strings, synthesized drums). Notation and fretboard graphics are hand-rolled SVG. PWA support (offline + home-screen install) is a web manifest and a small network-first service worker (`sw.js`).
 
 > Note: browsers require a user interaction before audio can start — the first click on any play button takes care of it.
 

@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#12141a">
+<link rel="manifest" href="manifest.webmanifest">
 <title>Guitar Practice Helper</title>
 <style>
   :root{
@@ -128,8 +130,37 @@
   #mDots .dot.g1{border-color:#58c98f}
   #trainerGrp input{width:52px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:13px}
   .tlbl{color:var(--muted);font-size:12px}
-  @media(max-width:640px){ #mSlider{width:110px} }
-  @media(max-width:640px){ .inputrow{flex-direction:column} }
+  #mMore{display:none}
+  @media(max-width:640px){
+    body{padding:16px 10px 130px}
+    .inputrow{flex-direction:column}
+    #query{font-size:16px}
+    .tabbar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    .tabbar::-webkit-scrollbar{display:none}
+    .tabbtn{flex:0 0 auto;white-space:nowrap;padding:12px 14px;font-size:15px}
+    .controls{display:grid;grid-template-columns:1fr 1fr}
+    .controls .ctl{min-width:0}
+    select,#akBars,#trainerGrp input{width:100%;min-height:44px;font-size:16px}
+    #akBars{width:56px}
+    #trainerGrp input{width:60px}
+    .chip{padding:9px 13px;font-size:13px}
+    .choice{padding:12px 16px;min-height:44px}
+    .pbtn{width:40px;height:36px;font-size:14px}
+    .mbtn{width:40px;height:40px}
+    .rowbtns button{padding:8px 12px}
+    #droneBtn,#loopBtn,#akBtn,#logBtn,#copyall{padding:11px 14px;margin-right:0}
+    .toolrow{flex-wrap:wrap;justify-content:flex-start;gap:6px}
+    table.stbl{display:block;overflow-x:auto} /* wide table scrolls instead of clipping the Try-it column */
+    /* metronome: essentials only, ⋯ expands the rest */
+    #metro{gap:8px;padding:10px 12px}
+    #mSlider{flex:1 1 80px;min-width:56px;width:auto}
+    #mTap,#beatsGrp,#trainerGrp{display:none}
+    #metro.open #mTap{display:inline-block}
+    #metro.open #beatsGrp,#metro.open #trainerGrp{display:flex}
+    #metro.open #trainerGrp{flex-wrap:wrap}
+    #metro.open #mTap{width:auto;padding:0 14px}
+    #mMore{display:inline-block}
+  }
 </style>
 </head>
 <body>
@@ -410,7 +441,8 @@
   </div>
   <input id="mSlider" type="range" min="30" max="260" value="80">
   <button class="mbtn" id="mTap">Tap</button>
-  <div class="mgrp">
+  <button class="mbtn" id="mMore" title="More metronome controls">&#8943;</button>
+  <div class="mgrp" id="beatsGrp">
     <select id="mBeats">
       <option value="4/4" selected>4/4</option>
       <option value="3/4">3/4</option>
@@ -2285,6 +2317,13 @@ metro.onBar = akOnBar;
   }
   hashReady = true;
 })();
+
+// mobile: ⋯ expands/collapses the extra metronome controls
+$('mMore').onclick = () => $('metro').classList.toggle('open');
+
+// PWA: offline cache + installability (skipped when opened as a local file)
+if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
+  navigator.serviceWorker.register('sw.js');
 </script>
 </body>
 </html>
