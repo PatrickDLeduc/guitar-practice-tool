@@ -255,7 +255,7 @@
   <p id="techTip" style="display:none"></p>
   <div class="toolrow">
     <button id="akBtn" title="Advance to the next key automatically as the metronome plays">Auto-advance: off</button>
-    <input id="akBars" type="number" min="1" max="16" value="4" title="Bars per key">
+    <input id="akBars" type="number" min="1" max="99" value="4" title="Bars per key (auto-set from the exercise length; edit to override)">
     <button id="loopBtn" title="Loop playback">Loop: off</button>
     <button id="droneBtn" title="Sustain the root note as a drone">Drone: C</button>
     <button id="logBtn" title="Save this exercise + current tempo to your practice log">✓ Log @ 80</button>
@@ -664,6 +664,10 @@ function renderTab(groups, maxWidth){
         lines[li] += (n.s === sIdx) ? fs + '-' : '-'.repeat(w);
       }
       width += w;
+      if(n.bar){
+        for(let li=0; li<6; li++) lines[li] += '|-';
+        width += 2;
+      }
     });
     for(let li=0; li<6; li++) lines[li] += '--';
     width += 2;
@@ -740,6 +744,13 @@ function renderNotationSystems(groups, rootPc, labels, nv){
         s += `<path d="M ${sx} ${fy} q 7 ${up?3:-3} 4 ${up?10:-10}" stroke="#e8eaf0" stroke-width="1.3" fill="none"/>`;
       }
       s += `<ellipse cx="${c.x}" cy="${y}" rx="4.8" ry="3.5" transform="rotate(-18 ${c.x} ${y})" ${nv==='half' ? 'fill="none" stroke="#e8eaf0" stroke-width="1.5"' : 'fill="#e8eaf0"'}/>`;
+    });
+    // bar lines through staff and tab
+    cols.forEach(c=>{
+      if(!c.n.bar) return;
+      const bx = c.x + colW/2;
+      s += `<line x1="${bx}" y1="${yOf(38)}" x2="${bx}" y2="${yOf(30)}" stroke="#6a7186" stroke-width="1.5"/>`;
+      s += `<line x1="${bx}" y1="${tabTop}" x2="${bx}" y2="${tabTop+5*TS}" stroke="#6a7186" stroke-width="1.5"/>`;
     });
     // triplet numerals over each set of three
     if(nv === 'triplet')
@@ -1251,6 +1262,26 @@ EXAMPLES.forEach(t=>{
   $('chips').appendChild(b);
 });
 
+// ---- Bar lines: one exercise note lasts noteTicks() metronome ticks ----
+function noteTicks(nv){
+  const q = {half:2, quarter:1, eighth:.5, triplet:1/3, sixteenth:.25}[nv] || 1;
+  return $('mBeats').value.includes('8') ? q*2 : q;   // x/8 meters tick in 8ths
+}
+function barTicks(){ const v = $('mBeats').value; return v==='none' ? 4 : METERS[v].length; }
+// Mark n.bar on each note that ends exactly on a barline; the renderers draw it.
+// Notes that straddle a barline (e.g. quarters in 7/8) get no line — nothing to lie about.
+function markBarLines(groups, nv){
+  const tpb = barTicks(), dt = noteTicks(nv);
+  const flat = groups.flat();
+  let t = 0;
+  flat.forEach((n,i)=>{
+    delete n.bar;
+    t += dt;
+    const r = t % tpb;
+    if(i < flat.length-1 && (r < 1e-6 || tpb - r < 1e-6)) n.bar = true;
+  });
+}
+
 function generate(){
   const rootPc=+selRoot.value, qual=selQual.value, pat=selPat.value,
         seq=selSeq.value, dir=selDir.value, oct=+selOct.value,
@@ -1273,8 +1304,18 @@ function generate(){
   if(tech !== 'none'){ tip.style.display=''; tip.textContent = `${selTech.options[selTech.selectedIndex].text}: ${TECH_TIPS[tech]}`; }
   else tip.style.display='none';
   copyText = $('summary').textContent + (tech!=='none' ? '\n' + tip.textContent : '');
-  roots.forEach(pc=>{
+  roots.forEach((pc, ri)=>{
     const ex = buildKeyExercise(pc, qual, pat, dir, oct, null, null, fing, variation, posFret);
+    markBarLines(ex.groups, selNV.value);
+    if(ri === 0){
+      // auto-fit auto-advance: bars this exercise takes in the current meter
+      const ticks = ex.groups.flat().length * noteTicks(selNV.value);
+      const perBar = $('mBeats').value==='none' ? 1 : barTicks();
+      const bars = Math.max(1, Math.min(99, Math.ceil(ticks/perBar - 1e-6)));
+      $('akBars').value = bars;
+      const meterName = $('mBeats').value==='none' ? '4/4' : $('mBeats').value.replace(/[ab]$/,'');
+      $('summary').textContent += ` · ${bars} bar${bars>1?'s':''}/key in ${meterName}`;
+    }
     copyText += '\n\n' + ex.name + '\n' + renderTab(ex.groups).join('\n\n');
     const div=document.createElement('div'); div.className='keyblock';
     const head=document.createElement('div'); head.className='keyhead';
@@ -1320,6 +1361,7 @@ function runFromText(){
 $('go').onclick = runFromText;
 $('query').addEventListener('keydown', e=>{ if(e.key==='Enter') runFromText(); });
 [selRoot,selQual,selPat,selSeq,selDir,selOct,selShapes,selNote,selFing,selVar,selTech,selPos,selNV].forEach(s=> s.addEventListener('change', generate));
+$('mBeats').addEventListener('change', generate);   // barlines follow the meter
 
 $('droneBtn').onclick = toggleDrone;
 $('loopBtn').onclick = ()=> setLoop(!playLoop);
