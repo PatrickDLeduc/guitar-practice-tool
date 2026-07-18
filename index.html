@@ -37,6 +37,7 @@
   .chip{background:var(--panel);border:1px solid var(--border);color:var(--muted);font-size:12px;
     padding:5px 10px;border-radius:20px;font-weight:400}
   .chip:hover{color:var(--text);border-color:var(--accent)}
+  #diceChip{color:var(--accent);border-color:var(--accent);font-weight:600}
   .controls{display:flex;flex-wrap:wrap;gap:10px;background:var(--panel);border:1px solid var(--border);
     border-radius:12px;padding:12px;margin-bottom:20px}
   .ctl{display:flex;flex-direction:column;gap:4px}
@@ -1400,6 +1401,21 @@ const EXAMPLES = [
   'E major scale 3nps, groups of 4 zigzag, alternate picking',
   'major scale in 5th position, circle of 4ths',
 ];
+// 🎲 random exercise for the "no idea what to practice" case: randomize the
+// musical controls, keep the advanced ones at friendly defaults
+const dice=document.createElement('button'); dice.className='chip'; dice.id='diceChip'; dice.textContent='🎲 Surprise me';
+dice.onclick=()=>{
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  selRoot.value=Math.floor(Math.random()*12);
+  selQual.value=pick(Object.values(QUAL_GROUPS).flat());
+  selPat.value=pick(['straight','thirds','fourths','groups3','groups4']);
+  selSeq.value=pick(['single','cycle4','cycle5','chromatic','whole']);
+  selDir.value=pick(['asc','desc','both']);
+  selOct.value='2'; selNV.value='quarter'; selFing.value='pos'; selVar.value='none'; selTech.value='none';
+  $('query').value='';
+  generate();
+};
+$('chips').appendChild(dice);
 EXAMPLES.forEach(t=>{
   const b=document.createElement('button'); b.className='chip'; b.textContent=t;
   b.onclick=()=>{ $('query').value=t; runFromText(); };
