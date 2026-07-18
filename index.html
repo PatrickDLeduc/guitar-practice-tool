@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#12141a">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -164,13 +164,39 @@
   .acctlegal a{color:var(--muted)}
   #acctPlan{display:inline-block;padding:1px 8px;border-radius:9px;border:1px solid var(--accent);color:var(--accent);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-left:6px}
   #acctSync{color:var(--muted);font-size:12px;margin:6px 0 14px}
+  .ticon,.ts,#custBtn,#custDone,#sheetBack{display:none}
   @media(max-width:640px){
-    body{padding:16px 10px 130px}
-    .inputrow{flex-direction:column}
-    #query{font-size:16px}
-    .tabbar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-    .tabbar::-webkit-scrollbar{display:none}
-    .tabbtn{flex:0 0 auto;white-space:nowrap;padding:12px 14px;font-size:15px}
+    body{padding:14px 10px calc(150px + env(safe-area-inset-bottom))}
+    h1{font-size:20px}
+    .sub{font-size:12px;margin-bottom:14px}
+    #acctBtn{padding:6px 10px;font-size:12px;max-width:120px}
+    .inputrow{flex-direction:row}
+    #query{font-size:16px;min-width:0}
+    #go{flex:0 0 auto;width:46px;border-radius:12px;font-size:0}
+    #go::after{content:'\2192';font-size:19px}
+    .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    .chips::-webkit-scrollbar{display:none}
+    .chip{flex:0 0 auto;white-space:nowrap}
+    /* bottom icon tab bar (mobile design 1a) */
+    .tabbar{position:fixed;bottom:0;left:0;right:0;z-index:12;margin:0;gap:0;
+      background:var(--panel);border-bottom:none;border-top:1px solid var(--border);
+      padding:7px 4px calc(9px + env(safe-area-inset-bottom))}
+    .tabbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;border:none;white-space:nowrap}
+    .tabbtn.active{background:none;border:none}
+    .ticon{display:block;width:19px;height:19px}
+    .ts{display:block;font-size:9.5px;font-weight:600}
+    .tl{display:none}
+    /* exercise controls live in a bottom sheet */
+    #exControls{display:none}
+    #custBtn{display:block;width:100%;padding:13px;border-radius:12px;background:var(--panel2);
+      border:1px solid var(--border);color:var(--accent);font-size:14px;margin-bottom:14px}
+    body.sheet #sheetBack{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20}
+    body.sheet #exControls{display:grid;grid-template-columns:1fr 1fr;position:fixed;left:0;right:0;bottom:0;z-index:21;
+      margin:0;border:none;border-top:1px solid var(--border);border-radius:20px 20px 0 0;
+      max-height:72vh;overflow-y:auto;padding:22px 18px calc(26px + env(safe-area-inset-bottom))}
+    body.sheet #exControls::before{content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);
+      width:36px;height:4px;border-radius:2px;background:var(--border)}
+    #custDone{display:block;grid-column:1/-1;background:var(--accent);color:#1a1408;padding:13px;border-radius:12px;margin-top:6px}
     .controls{display:grid;grid-template-columns:1fr 1fr}
     .controls .ctl{min-width:0}
     select,#akBars,#trainerGrp input{width:100%;min-height:44px;font-size:16px}
@@ -184,8 +210,10 @@
     #droneBtn,#loopBtn,#akBtn,#logBtn,#copyall{padding:11px 14px;margin-right:0}
     .toolrow{flex-wrap:wrap;justify-content:flex-start;gap:6px}
     table.stbl{display:block;overflow-x:auto} /* wide table scrolls instead of clipping the Try-it column */
-    /* metronome: essentials only, ⋯ expands the rest */
-    #metro{gap:8px;padding:10px 12px}
+    /* metronome: slim bar docked above the tab bar; ⋯ expands the rest */
+    #metro{gap:8px;padding:8px 12px;bottom:calc(54px + env(safe-area-inset-bottom))}
+    #mPlay{width:36px;height:36px;font-size:14px}
+    #mBpmVal{font-size:17px;min-width:40px}
     #mSlider{flex:1 1 80px;min-width:56px;width:auto}
     #mTap,#beatsGrp,#trainerGrp{display:none}
     #metro.open #mTap{display:inline-block}
@@ -205,12 +233,12 @@
   <p class="sub">Describe an exercise and get tablature. Standard tuning (EADGBE).</p>
 
   <div class="tabbar">
-    <button class="tabbtn active" data-tab="ex">Exercises</button>
-    <button class="tabbtn" data-tab="stack">Chord stacking</button>
-    <button class="tabbtn" data-tab="prog">Progressions</button>
-    <button class="tabbtn" data-tab="voic">Voicings</button>
-    <button class="tabbtn" data-tab="ear">Ear training</button>
-    <button class="tabbtn" data-tab="pg">Progress</button>
+    <button class="tabbtn active" data-tab="ex"><svg class="ticon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/></svg><span class="tl">Exercises</span><span class="ts">Exercises</span></button>
+    <button class="tabbtn" data-tab="stack"><svg class="ticon" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="8.5" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="14" width="16" height="3" rx="1" fill="currentColor"/></svg><span class="tl">Chord stacking</span><span class="ts">Stack</span></button>
+    <button class="tabbtn" data-tab="prog"><svg class="ticon" viewBox="0 0 20 20"><circle cx="4" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="10" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/></svg><span class="tl">Progressions</span><span class="ts">Prog</span></button>
+    <button class="tabbtn" data-tab="voic"><svg class="ticon" viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="3" y="11" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="11" width="6" height="6" rx="1" fill="currentColor"/></svg><span class="tl">Voicings</span><span class="ts">Voicings</span></button>
+    <button class="tabbtn" data-tab="ear"><svg class="ticon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="currentColor"/></svg><span class="tl">Ear training</span><span class="ts">Ear</span></button>
+    <button class="tabbtn" data-tab="pg"><svg class="ticon" viewBox="0 0 20 20"><rect x="3" y="11" width="4" height="7" fill="currentColor"/><rect x="8" y="7" width="4" height="11" fill="currentColor"/><rect x="13" y="2" width="4" height="16" fill="currentColor"/></svg><span class="tl">Progress</span><span class="ts">Progress</span></button>
   </div>
 
   <div id="viewEx">
@@ -222,7 +250,8 @@
 
   <div class="chips" id="chips"></div>
 
-  <div class="controls">
+  <div id="sheetBack"></div>
+  <div class="controls" id="exControls">
     <div class="ctl"><label>Root / start key</label><select id="selRoot"></select></div>
     <div class="ctl"><label>Type</label><select id="selQual"></select></div>
     <div class="ctl"><label>Pattern</label><select id="selPat">
@@ -285,7 +314,9 @@
       <option value="on" selected>Staff + tab</option>
       <option value="off">Tab only (text)</option>
     </select></div>
+    <button id="custDone">Done</button>
   </div>
+  <button id="custBtn">Customize exercise &#8964;</button>
 
   <p id="summary"></p>
   <p id="techTip" style="display:none"></p>
@@ -1607,6 +1638,7 @@ document.querySelectorAll('.tabbtn').forEach(b=> b.onclick = ()=>{
   $('viewEar').style.display = b.dataset.tab==='ear' ? '' : 'none';
   $('viewVoic').style.display = b.dataset.tab==='voic' ? '' : 'none';
   $('viewPg').style.display = b.dataset.tab==='pg' ? '' : 'none';
+  document.body.classList.remove('sheet');
   currentTab = b.dataset.tab;
   if(b.dataset.tab==='stack') renderStack();
   if(b.dataset.tab==='prog' && !progData) renderProg();
@@ -1614,6 +1646,11 @@ document.querySelectorAll('.tabbtn').forEach(b=> b.onclick = ()=>{
   if(b.dataset.tab==='pg') renderProgress();
   stateToHash();
 });
+// mobile: exercise controls open as a bottom sheet
+const sheet = on => document.body.classList.toggle('sheet', on);
+$('custBtn').onclick = ()=> sheet(true);
+$('custDone').onclick = ()=> sheet(false);
+$('sheetBack').onclick = ()=> sheet(false);
 // ---- Progress tracking (localStorage) ----
 const store = {
   load(){ try{ return JSON.parse(localStorage.getItem('gph') || '{}'); }catch(e){ return {}; } },
