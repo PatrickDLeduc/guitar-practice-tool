@@ -158,6 +158,10 @@
   #acctGoogle{width:100%;margin-top:8px;padding:10px;font-size:14px}
   #acctGoogle:hover,#acctDoUp:hover,#acctOut:hover,#acctClose:hover{border-color:var(--accent)}
   #acctErr{color:#f08080;font-size:13px;min-height:16px;margin:8px 0 0}
+  #acctDel{background:none;color:#e05c5c;border:1px solid transparent;font-size:12px;font-weight:400;padding:6px;margin-top:10px;width:100%}
+  #acctDel:hover{border-color:#e05c5c}
+  .acctlegal{font-size:11px;color:var(--muted);text-align:center;margin:12px 0 0}
+  .acctlegal a{color:var(--muted)}
   #acctPlan{display:inline-block;padding:1px 8px;border-radius:9px;border:1px solid var(--accent);color:var(--accent);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-left:6px}
   #acctSync{color:var(--muted);font-size:12px;margin:6px 0 14px}
   @media(max-width:640px){
@@ -494,7 +498,8 @@
   <p class="sub" style="margin:34px 0 0;text-align:center;font-size:12px">
     Free &amp; open source ·
     <a href="https://github.com/PatrickDLeduc/guitar-practice-tool/issues" target="_blank" rel="noopener" style="color:var(--accent2)">Feedback &amp; bug reports</a> ·
-    <a href="https://github.com/PatrickDLeduc/guitar-practice-tool" target="_blank" rel="noopener" style="color:var(--accent2)">GitHub</a>
+    <a href="https://github.com/PatrickDLeduc/guitar-practice-tool" target="_blank" rel="noopener" style="color:var(--accent2)">GitHub</a> ·
+    <a href="privacy.html" style="color:var(--accent2)">Privacy</a>
   </p>
 </div>
 
@@ -550,9 +555,11 @@
       <p class="sub" style="margin-bottom:4px"><span id="acctWho"></span><span id="acctPlan">free</span></p>
       <p id="acctSync">&nbsp;</p>
       <div class="acctrow"><button id="acctOut">Sign out</button></div>
+      <button id="acctDel">Delete account</button>
     </div>
     <p id="acctErr"></p>
     <div class="acctrow"><button id="acctClose">Close</button></div>
+    <p class="acctlegal"><a href="privacy.html" target="_blank">Privacy policy</a></p>
   </div>
 </div>
 
@@ -2679,6 +2686,19 @@ $('acctDoUp').onclick = async ()=>{
 $('acctGoogle').onclick = ()=> sb.auth.signInWithOAuth({provider:'google',
   options:{redirectTo: location.origin + location.pathname}}).then(({error})=> acctFail(error));
 $('acctOut').onclick = ()=>{ sb.auth.signOut(); $('acctWrap').classList.remove('open'); };  // local data stays
+$('acctDel').onclick = async ()=>{
+  const b = $('acctDel');
+  if(b.textContent !== 'Really delete? This is permanent'){
+    b.textContent = 'Really delete? This is permanent';
+    setTimeout(()=> b.textContent = 'Delete account', 3000);
+    return;
+  }
+  const {error} = await sb.rpc('delete_my_account');
+  if(error){ acctFail(error); return; }
+  sb.auth.signOut();          // server call may 403 (user is gone) — local session clears regardless
+  b.textContent = 'Delete account';
+  $('acctWrap').classList.remove('open');
+};
 
 // Error beacon, part 2: ship anything the early listener buffered (and whatever comes later)
 function reportErrs(){
