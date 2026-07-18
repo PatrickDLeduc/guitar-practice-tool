@@ -1,6 +1,7 @@
 // Network-first, cache-fallback: updates arrive when online, everything works offline.
-const CACHE = 'gph-v1';
-const ASSETS = ['.', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'gph-v2';
+const LIB = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+const ASSETS = ['.', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', LIB];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -13,6 +14,8 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // never cache API traffic (Supabase auth/data) — only our own assets and the supabase-js lib
+  if (new URL(e.request.url).origin !== location.origin && e.request.url !== LIB) return;
   e.respondWith(
     fetch(e.request).then(r => {
       const copy = r.clone();

@@ -131,6 +131,25 @@
   #trainerGrp input{width:52px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:13px}
   .tlbl{color:var(--muted);font-size:12px}
   #mMore{display:none}
+  .h1row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  #acctBtn{background:var(--panel2);color:var(--muted);border:1px solid var(--border);padding:8px 14px;font-size:13px;flex:0 0 auto;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #acctBtn:hover{color:var(--text);border-color:var(--accent)}
+  #acctWrap{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:30;padding:16px}
+  #acctWrap.open{display:flex}
+  .acctbox{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:340px}
+  .acctbox h2{margin:0 0 4px;font-size:17px}
+  .acctbox .sub{margin-bottom:14px}
+  .acctbox input{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:15px;margin-bottom:8px;outline:none}
+  .acctbox input:focus{border-color:var(--accent)}
+  .acctrow{display:flex;gap:8px;margin-top:4px}
+  .acctrow button{flex:1;padding:10px;font-size:14px}
+  #acctDoIn{background:var(--accent);color:#1a1408}
+  #acctDoUp,#acctGoogle,#acctOut,#acctClose{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+  #acctGoogle{width:100%;margin-top:8px;padding:10px;font-size:14px}
+  #acctGoogle:hover,#acctDoUp:hover,#acctOut:hover,#acctClose:hover{border-color:var(--accent)}
+  #acctErr{color:#f08080;font-size:13px;min-height:16px;margin:8px 0 0}
+  #acctPlan{display:inline-block;padding:1px 8px;border-radius:9px;border:1px solid var(--accent);color:var(--accent);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-left:6px}
+  #acctSync{color:var(--muted);font-size:12px;margin:6px 0 14px}
   @media(max-width:640px){
     body{padding:16px 10px 130px}
     .inputrow{flex-direction:column}
@@ -165,7 +184,10 @@
 </head>
 <body>
 <div class="wrap">
-  <h1><span class="g">Guitar</span> Practice Helper</h1>
+  <div class="h1row">
+    <h1><span class="g">Guitar</span> Practice Helper</h1>
+    <button id="acctBtn" style="display:none">Sign in</button>
+  </div>
   <p class="sub">Describe an exercise and get tablature. Standard tuning (EADGBE).</p>
 
   <div class="tabbar">
@@ -466,6 +488,32 @@
   </div>
 </div>
 
+<div id="acctWrap">
+  <div class="acctbox">
+    <div id="acctForms">
+      <h2>Account</h2>
+      <p class="sub">Optional — sign in to sync your practice progress across devices. Everything works without it.</p>
+      <input id="acctEmail" type="email" placeholder="Email" autocomplete="email">
+      <input id="acctPass" type="password" placeholder="Password (6+ characters)" autocomplete="current-password">
+      <div class="acctrow">
+        <button id="acctDoIn">Sign in</button>
+        <button id="acctDoUp">Create account</button>
+      </div>
+      <button id="acctGoogle">Continue with Google</button>
+    </div>
+    <div id="acctInfo" style="display:none">
+      <h2>Account</h2>
+      <p class="sub" style="margin-bottom:4px"><span id="acctWho"></span><span id="acctPlan">free</span></p>
+      <p id="acctSync">&nbsp;</p>
+      <div class="acctrow"><button id="acctOut">Sign out</button></div>
+    </div>
+    <p id="acctErr"></p>
+    <div class="acctrow"><button id="acctClose">Close</button></div>
+  </div>
+</div>
+
+<!-- Optional accounts/sync. If this fails to load (offline, blocked), the app runs exactly as before. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // ===== ENGINE START =====
 const FLAT_NAMES  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
@@ -1574,6 +1622,7 @@ $('logBtn').onclick = logSession;
 $('pgClear').onclick = ()=>{
   if($('pgClear').textContent !== 'Really clear?'){ $('pgClear').textContent = 'Really clear?'; setTimeout(()=> $('pgClear').textContent='Clear all data', 2500); return; }
   try{ localStorage.removeItem('gph'); }catch(e){}
+  cloudClear();
   $('pgClear').textContent = 'Clear all data';
   renderProgress();
 };
@@ -2366,6 +2415,99 @@ $('mMore').onclick = () => $('metro').classList.toggle('open');
 // PWA: offline cache + installability (skipped when opened as a local file)
 if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
   navigator.serviceWorker.register('sw.js');
+
+// ---- Accounts & cloud sync (Supabase) — optional; app is fully usable without it ----
+// PKCE flow so the OAuth redirect uses ?code= and never touches the app's state hash.
+const sb = window.supabase
+  ? window.supabase.createClient('https://dlvdhuadhnglggayndgo.supabase.co',
+      'sb_publishable_Skuc6Noua6GMZYaQ7ZMBZw_GcDPMQne', {auth:{flowType:'pkce'}})
+  : null;
+let acctUser = null, acctPlan = 'free';
+function isPro(){ return acctPlan === 'pro'; }   // entitlement hook for future ads/subscriptions
+
+// push local -> cloud, debounced so rapid logging is one write
+let syncTimer = null;
+function scheduleSync(){ if(sb && acctUser){ clearTimeout(syncTimer); syncTimer = setTimeout(pushProgress, 3000); } }
+async function pushProgress(){
+  if(!sb || !acctUser) return;
+  const {error} = await sb.from('progress')
+    .upsert({user_id: acctUser.id, data: store.load(), updated_at: new Date().toISOString()});
+  setSync(error ? 'Sync failed — will retry on next log' : 'Synced ' + new Date().toLocaleTimeString());
+}
+const _storeSave = store.save;
+store.save = d => { _storeSave(d); scheduleSync(); };
+// "Clear all data" also empties the cloud copy (a device that still has local data will re-upload it on its next sign-in)
+function cloudClear(){
+  if(sb && acctUser) sb.from('progress').upsert({user_id: acctUser.id, data:{}, updated_at: new Date().toISOString()});
+}
+
+// merge, don't overwrite: practicing on two devices must never lose either history
+function mergeProgress(a, b){
+  const seen = new Set(), out = {};
+  out.sessions = [...(a.sessions||[]), ...(b.sessions||[])]
+    .filter(s=>{ const k = s.t + '|' + s.k; if(seen.has(k)) return false; seen.add(k); return true; })
+    .sort((x,y)=> x.t - y.t).slice(-1000);
+  out.pb = {...(a.pb||{})};
+  for(const [k,v] of Object.entries(b.pb||{})) if(!out.pb[k] || v.bpm > out.pb[k].bpm) out.pb[k] = v;
+  out.ear = {...(a.ear||{})};
+  for(const [k,v] of Object.entries(b.ear||{})){
+    const e = out.ear[k];
+    out.ear[k] = e ? {c: Math.max(e.c, v.c), t: Math.max(e.t, v.t)} : v;
+  }
+  return out;
+}
+async function pullAndMerge(){
+  const {data, error} = await sb.from('progress').select('data').eq('user_id', acctUser.id).maybeSingle();
+  if(error){ setSync('Sync failed — check your connection'); return; }
+  store.save(mergeProgress(store.load(), (data && data.data) || {}));  // save() also schedules the push back up
+  if(currentTab === 'pg') renderProgress();
+}
+async function loadPlan(){
+  const {data} = await sb.from('profiles').select('plan').eq('id', acctUser.id).maybeSingle();
+  if(data){ acctPlan = data.plan; renderAcct(); }
+}
+
+// ---- account UI ----
+function setSync(msg){ $('acctSync').textContent = msg; }
+function renderAcct(){
+  const b = $('acctBtn');
+  b.style.display = sb ? '' : 'none';
+  b.textContent = acctUser ? (acctUser.email || 'Account') : 'Sign in';
+  $('acctForms').style.display = acctUser ? 'none' : '';
+  $('acctInfo').style.display  = acctUser ? '' : 'none';
+  if(acctUser){ $('acctWho').textContent = acctUser.email || ''; $('acctPlan').textContent = acctPlan; }
+}
+function acctFail(e){ $('acctErr').textContent = e ? e.message : ''; }
+$('acctBtn').onclick   = ()=>{ acctFail(null); $('acctWrap').classList.add('open'); };
+$('acctClose').onclick = ()=> $('acctWrap').classList.remove('open');
+$('acctWrap').onclick  = e=>{ if(e.target === $('acctWrap')) $('acctWrap').classList.remove('open'); };
+$('acctPass').onkeydown = e=>{ if(e.key === 'Enter') $('acctDoIn').click(); };
+$('acctDoIn').onclick = async ()=>{
+  const {error} = await sb.auth.signInWithPassword({email: $('acctEmail').value.trim(), password: $('acctPass').value});
+  acctFail(error);
+  if(!error) $('acctWrap').classList.remove('open');
+};
+$('acctDoUp').onclick = async ()=>{
+  const {data, error} = await sb.auth.signUp({email: $('acctEmail').value.trim(), password: $('acctPass').value});
+  acctFail(error);
+  if(!error && !data.session) $('acctErr').textContent = 'Check your email to confirm your account.';
+  else if(!error) $('acctWrap').classList.remove('open');
+};
+$('acctGoogle').onclick = ()=> sb.auth.signInWithOAuth({provider:'google',
+  options:{redirectTo: location.origin + location.pathname}}).then(({error})=> acctFail(error));
+$('acctOut').onclick = ()=>{ sb.auth.signOut(); $('acctWrap').classList.remove('open'); };  // local data stays
+
+if(sb){
+  renderAcct();
+  sb.auth.onAuthStateChange((ev, session)=>{
+    const prev = acctUser && acctUser.id;
+    acctUser = session ? session.user : null;
+    if(!acctUser){ acctPlan = 'free'; clearTimeout(syncTimer); }
+    renderAcct();
+    // supabase calls are deferred out of the callback (supabase-js deadlocks otherwise)
+    if(acctUser && acctUser.id !== prev) setTimeout(()=>{ loadPlan(); pullAndMerge(); }, 0);
+  });
+}
 </script>
 </body>
 </html>

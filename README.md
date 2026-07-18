@@ -1,6 +1,6 @@
 # 🎸 Guitar Practice Helper
 
-A free, open-source practice environment for guitarists — scales, arpeggios, CAGED visualization, chord theory, ear training, jam tracks, and a practice log, all in **a single HTML file** that runs entirely in your browser. No account, no server, no install. Works offline, and installs to your phone's home screen as an app (PWA).
+A free, open-source practice environment for guitarists — scales, arpeggios, CAGED visualization, chord theory, ear training, jam tracks, and a practice log, all in **a single HTML file** that runs entirely in your browser. No install, no account required (an optional account syncs your progress across devices). Works offline, and installs to your phone's home screen as an app (PWA).
 
 **[▶ Try it live](https://patrickdleduc.github.io/guitar-practice-tool/)**
 
@@ -48,7 +48,7 @@ Interval, chord, and scale identification at three difficulty levels, with rando
 Always available at the bottom: tap tempo, accent patterns for straight and odd meters (5/4, 7/8 in both groupings, 9/8, 11/8), visual beat dots, and a **speed trainer** that steps the tempo automatically every N bars toward a target.
 
 ### Progress
-Log sessions at your current tempo; the Progress tab tracks personal-best BPM per exercise, practice-day streaks, a 14-day activity chart, and ear-training accuracy. All data stays in your browser (localStorage) — nothing is sent anywhere.
+Log sessions at your current tempo; the Progress tab tracks personal-best BPM per exercise, practice-day streaks, a 14-day activity chart, and ear-training accuracy. By default all data stays in your browser (localStorage) — nothing is sent anywhere. Optionally, **sign in** (email/password or Google) to sync progress across devices; histories from multiple devices are merged, never overwritten. Logged-out behavior is unchanged.
 
 Exercises are also **shareable**: every setting is encoded in the URL, so you can bookmark drills or send them to a friend.
 
@@ -63,7 +63,7 @@ Any of these work:
 
 ## Tech
 
-Vanilla HTML/CSS/JavaScript, zero dependencies, no build step. Audio is synthesized with the Web Audio API (lookahead-scheduled metronome, Karplus-Strong plucked strings, synthesized drums). Notation and fretboard graphics are hand-rolled SVG. PWA support (offline + home-screen install) is a web manifest and a small network-first service worker (`sw.js`).
+Vanilla HTML/CSS/JavaScript, no build step. The only dependency is supabase-js (one CDN script tag) for the optional accounts/sync — if it fails to load, the app runs exactly as before. Audio is synthesized with the Web Audio API (lookahead-scheduled metronome, Karplus-Strong plucked strings, synthesized drums). Notation and fretboard graphics are hand-rolled SVG. PWA support (offline + home-screen install) is a web manifest and a small network-first service worker (`sw.js`).
 
 > Note: browsers require a user interaction before audio can start — the first click on any play button takes care of it.
 
