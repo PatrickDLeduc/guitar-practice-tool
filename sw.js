@@ -17,7 +17,9 @@ self.addEventListener('fetch', e => {
   // never cache API traffic (Supabase auth/data) — only our own assets and the supabase-js lib
   if (new URL(e.request.url).origin !== location.origin && e.request.url !== LIB) return;
   e.respondWith(
-    fetch(e.request).then(r => {
+    // no-cache on navigations: revalidate with the server (ETag 304) instead of
+    // trusting GitHub Pages' 10-min HTTP cache, so deploys show up on next open
+    fetch(e.request, e.request.mode === 'navigate' ? { cache: 'no-cache' } : {}).then(r => {
       const copy = r.clone();
       caches.open(CACHE).then(c => c.put(e.request, copy));
       return r;
