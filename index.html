@@ -3,8 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#12141a">
-<link rel="manifest" href="manifest.webmanifest">
 <title>Guitar Practice Helper</title>
 <style>
   :root{
@@ -48,6 +46,7 @@
   .keyblock.activekey{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
   .vgrip{cursor:pointer}
   .vgrip:hover{border-color:var(--accent)}
+  .vcap{font-size:11px;color:var(--muted);text-align:center;margin-top:2px}
   #logBtn{background:var(--panel2);color:var(--muted);padding:8px 14px;font-size:13px;border:1px solid var(--border);margin-right:8px}
   #logBtn:hover{color:var(--accent);border-color:var(--accent)}
   .pgbars{display:flex;gap:5px;align-items:flex-end;height:64px;margin:12px 0 18px}
@@ -130,37 +129,8 @@
   #mDots .dot.g1{border-color:#58c98f}
   #trainerGrp input{width:52px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:13px}
   .tlbl{color:var(--muted);font-size:12px}
-  #mMore{display:none}
-  @media(max-width:640px){
-    body{padding:16px 10px 130px}
-    .inputrow{flex-direction:column}
-    #query{font-size:16px}
-    .tabbar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-    .tabbar::-webkit-scrollbar{display:none}
-    .tabbtn{flex:0 0 auto;white-space:nowrap;padding:12px 14px;font-size:15px}
-    .controls{display:grid;grid-template-columns:1fr 1fr}
-    .controls .ctl{min-width:0}
-    select,#akBars,#trainerGrp input{width:100%;min-height:44px;font-size:16px}
-    #akBars{width:56px}
-    #trainerGrp input{width:60px}
-    .chip{padding:9px 13px;font-size:13px}
-    .choice{padding:12px 16px;min-height:44px}
-    .pbtn{width:40px;height:36px;font-size:14px}
-    .mbtn{width:40px;height:40px}
-    .rowbtns button{padding:8px 12px}
-    #droneBtn,#loopBtn,#akBtn,#logBtn,#copyall{padding:11px 14px;margin-right:0}
-    .toolrow{flex-wrap:wrap;justify-content:flex-start;gap:6px}
-    table.stbl{display:block;overflow-x:auto} /* wide table scrolls instead of clipping the Try-it column */
-    /* metronome: essentials only, ⋯ expands the rest */
-    #metro{gap:8px;padding:10px 12px}
-    #mSlider{flex:1 1 80px;min-width:56px;width:auto}
-    #mTap,#beatsGrp,#trainerGrp{display:none}
-    #metro.open #mTap{display:inline-block}
-    #metro.open #beatsGrp,#metro.open #trainerGrp{display:flex}
-    #metro.open #trainerGrp{flex-wrap:wrap}
-    #metro.open #mTap{width:auto;padding:0 14px}
-    #mMore{display:inline-block}
-  }
+  @media(max-width:640px){ #mSlider{width:110px} }
+  @media(max-width:640px){ .inputrow{flex-direction:column} }
 </style>
 </head>
 <body>
@@ -255,7 +225,7 @@
   <p id="techTip" style="display:none"></p>
   <div class="toolrow">
     <button id="akBtn" title="Advance to the next key automatically as the metronome plays">Auto-advance: off</button>
-    <input id="akBars" type="number" min="1" max="99" value="4" title="Bars per key (auto-set from the exercise length; edit to override)">
+    <input id="akBars" type="number" min="1" max="16" value="4" title="Bars per key">
     <button id="loopBtn" title="Loop playback">Loop: off</button>
     <button id="droneBtn" title="Sustain the root note as a drone">Drone: C</button>
     <button id="logBtn" title="Save this exercise + current tempo to your practice log">✓ Log @ 80</button>
@@ -383,6 +353,34 @@
     </div>
     <p class="sub" id="voicSub"></p>
     <div class="shapes" id="voicOut" style="border:none;flex-wrap:wrap"></div>
+
+    <div class="hgbox" style="margin-top:14px">
+      <div class="keyhead"><span class="keyname">Voicing drill — up the neck</span><button class="pbtn" id="vdPlay" title="Strum through the sequence, 2 beats per chord, at metronome tempo">▶</button><button id="loopBtn3" class="pbtn" style="width:auto;padding:0 8px">Loop: off</button></div>
+      <p class="sub" style="margin-bottom:10px">Uses the voicing type and string set selected above. Play each grip in time; the sequence climbs the neck.</p>
+      <div class="controls" style="margin-bottom:10px">
+        <div class="ctl"><label>Drill</label><select id="vdMode">
+          <option value="inv" selected>All inversions of this chord</option>
+          <option value="key">Diatonic chords in a key</option>
+        </select></div>
+        <div class="ctl" id="vdScaleWrap" style="display:none"><label>Harmonize</label><select id="vdScale">
+          <option value="majscale" selected>Major scale</option>
+          <option value="natmin">Natural minor</option>
+          <option value="harmmin">Harmonic minor</option>
+          <option value="melmin">Melodic minor</option>
+          <option value="dorian">Dorian</option>
+          <option value="mixo">Mixolydian</option>
+          <option value="lydian">Lydian</option>
+          <option value="phrygian">Phrygian</option>
+          <option value="locrian">Locrian</option>
+        </select></div>
+        <div class="ctl"><label>Direction</label><select id="vdDir">
+          <option value="asc" selected>Ascending</option>
+          <option value="desc">Descending</option>
+          <option value="both">Asc + Desc</option>
+        </select></div>
+      </div>
+      <div class="shapes" id="vdOut" style="border:none;flex-wrap:wrap"></div>
+    </div>
   </div>
 
   <div id="viewPg" style="display:none">
@@ -441,8 +439,7 @@
   </div>
   <input id="mSlider" type="range" min="30" max="260" value="80">
   <button class="mbtn" id="mTap">Tap</button>
-  <button class="mbtn" id="mMore" title="More metronome controls">&#8943;</button>
-  <div class="mgrp" id="beatsGrp">
+  <div class="mgrp">
     <select id="mBeats">
       <option value="4/4" selected>4/4</option>
       <option value="3/4">3/4</option>
@@ -664,10 +661,6 @@ function renderTab(groups, maxWidth){
         lines[li] += (n.s === sIdx) ? fs + '-' : '-'.repeat(w);
       }
       width += w;
-      if(n.bar){
-        for(let li=0; li<6; li++) lines[li] += '|-';
-        width += 2;
-      }
     });
     for(let li=0; li<6; li++) lines[li] += '--';
     width += 2;
@@ -744,13 +737,6 @@ function renderNotationSystems(groups, rootPc, labels, nv){
         s += `<path d="M ${sx} ${fy} q 7 ${up?3:-3} 4 ${up?10:-10}" stroke="#e8eaf0" stroke-width="1.3" fill="none"/>`;
       }
       s += `<ellipse cx="${c.x}" cy="${y}" rx="4.8" ry="3.5" transform="rotate(-18 ${c.x} ${y})" ${nv==='half' ? 'fill="none" stroke="#e8eaf0" stroke-width="1.5"' : 'fill="#e8eaf0"'}/>`;
-    });
-    // bar lines through staff and tab
-    cols.forEach(c=>{
-      if(!c.n.bar) return;
-      const bx = c.x + colW/2;
-      s += `<line x1="${bx}" y1="${yOf(38)}" x2="${bx}" y2="${yOf(30)}" stroke="#6a7186" stroke-width="1.5"/>`;
-      s += `<line x1="${bx}" y1="${tabTop}" x2="${bx}" y2="${tabTop+5*TS}" stroke="#6a7186" stroke-width="1.5"/>`;
     });
     // triplet numerals over each set of three
     if(nv === 'triplet')
@@ -1262,26 +1248,6 @@ EXAMPLES.forEach(t=>{
   $('chips').appendChild(b);
 });
 
-// ---- Bar lines: one exercise note lasts noteTicks() metronome ticks ----
-function noteTicks(nv){
-  const q = {half:2, quarter:1, eighth:.5, triplet:1/3, sixteenth:.25}[nv] || 1;
-  return $('mBeats').value.includes('8') ? q*2 : q;   // x/8 meters tick in 8ths
-}
-function barTicks(){ const v = $('mBeats').value; return v==='none' ? 4 : METERS[v].length; }
-// Mark n.bar on each note that ends exactly on a barline; the renderers draw it.
-// Notes that straddle a barline (e.g. quarters in 7/8) get no line — nothing to lie about.
-function markBarLines(groups, nv){
-  const tpb = barTicks(), dt = noteTicks(nv);
-  const flat = groups.flat();
-  let t = 0;
-  flat.forEach((n,i)=>{
-    delete n.bar;
-    t += dt;
-    const r = t % tpb;
-    if(i < flat.length-1 && (r < 1e-6 || tpb - r < 1e-6)) n.bar = true;
-  });
-}
-
 function generate(){
   const rootPc=+selRoot.value, qual=selQual.value, pat=selPat.value,
         seq=selSeq.value, dir=selDir.value, oct=+selOct.value,
@@ -1304,18 +1270,8 @@ function generate(){
   if(tech !== 'none'){ tip.style.display=''; tip.textContent = `${selTech.options[selTech.selectedIndex].text}: ${TECH_TIPS[tech]}`; }
   else tip.style.display='none';
   copyText = $('summary').textContent + (tech!=='none' ? '\n' + tip.textContent : '');
-  roots.forEach((pc, ri)=>{
+  roots.forEach(pc=>{
     const ex = buildKeyExercise(pc, qual, pat, dir, oct, null, null, fing, variation, posFret);
-    markBarLines(ex.groups, selNV.value);
-    if(ri === 0){
-      // auto-fit auto-advance: bars this exercise takes in the current meter
-      const ticks = ex.groups.flat().length * noteTicks(selNV.value);
-      const perBar = $('mBeats').value==='none' ? 1 : barTicks();
-      const bars = Math.max(1, Math.min(99, Math.ceil(ticks/perBar - 1e-6)));
-      $('akBars').value = bars;
-      const meterName = $('mBeats').value==='none' ? '4/4' : $('mBeats').value.replace(/[ab]$/,'');
-      $('summary').textContent += ` · ${bars} bar${bars>1?'s':''}/key in ${meterName}`;
-    }
     copyText += '\n\n' + ex.name + '\n' + renderTab(ex.groups).join('\n\n');
     const div=document.createElement('div'); div.className='keyblock';
     const head=document.createElement('div'); head.className='keyhead';
@@ -1361,7 +1317,6 @@ function runFromText(){
 $('go').onclick = runFromText;
 $('query').addEventListener('keydown', e=>{ if(e.key==='Enter') runFromText(); });
 [selRoot,selQual,selPat,selSeq,selDir,selOct,selShapes,selNote,selFing,selVar,selTech,selPos,selNV].forEach(s=> s.addEventListener('change', generate));
-$('mBeats').addEventListener('change', generate);   // barlines follow the meter
 
 $('droneBtn').onclick = toggleDrone;
 $('loopBtn').onclick = ()=> setLoop(!playLoop);
@@ -1498,7 +1453,7 @@ document.querySelectorAll('.tabbtn').forEach(b=> b.onclick = ()=>{
   currentTab = b.dataset.tab;
   if(b.dataset.tab==='stack') renderStack();
   if(b.dataset.tab==='prog' && !progData) renderProg();
-  if(b.dataset.tab==='voic') renderVoicings();
+  if(b.dataset.tab==='voic'){ renderVoicings(); renderVoicingDrill(); }
   if(b.dataset.tab==='pg') renderProgress();
   stateToHash();
 });
@@ -1625,7 +1580,7 @@ function pluck(ctx, m, t0, dur, vol, dest){
 let playLoop = false;
 function setLoop(v){
   playLoop = v;
-  ['loopBtn','loopBtn2'].forEach(id=>{
+  ['loopBtn','loopBtn2','loopBtn3'].forEach(id=>{
     const b = document.getElementById(id); if(!b) return;
     b.textContent = 'Loop: ' + (v ? 'on' : 'off');
     b.classList.toggle('playing', v);
@@ -2110,7 +2065,133 @@ function renderVoicings(){
   });
   if(!grips.length) out.innerHTML = '<p class="sub">No playable grip found for this combination.</p>';
 }
-['vRoot','vQual','vType','vSet'].forEach(id=> $(id).addEventListener('change', renderVoicings));
+// ---- Voicing drills: sequences of grips up the neck ----
+function voicingStacks(qualKey, type, setDef){
+  const ivs = QUALITIES[qualKey].intervals;
+  if(type === 'shell'){
+    const third = ivs.find(v=>v===3||v===4) ?? ivs[1];
+    const sev   = ivs.find(v=>v===9||v===10||v===11) ?? 7;
+    return [{inv:'shell', stack: setDef.form==='173' ? [0, sev, third+12] : [0, third, sev]}];
+  }
+  const out = [];
+  for(let inv=0; inv<4; inv++){
+    const stack = [];
+    for(let k=0;k<4;k++){
+      let v = ivs[(inv+k) % 4];
+      while(stack.length && v <= stack[stack.length-1]) v += 12;
+      stack.push(v);
+    }
+    if(type==='drop2') stack[2] -= 12;
+    if(type==='drop3') stack[1] -= 12;
+    stack.sort((a,b)=>a-b);
+    out.push({inv: ['root pos','1st inv','2nd inv','3rd inv'][inv], stack});
+  }
+  return out;
+}
+// Every valid placement of every inversion, sorted low to high on the neck.
+function allGrips(rootPc, qualKey, type, setDef){
+  const res = [];
+  voicingStacks(qualKey, type, setDef).forEach(({inv, stack})=>{
+    for(let R0=24; R0<=84; R0++){
+      if(((R0 % 12) + 12) % 12 !== rootPc) continue;
+      const notes = stack.map((iv,i)=>({s:setDef.set[i], f:R0+iv-STRINGS[setDef.set[i]], iv:((iv%12)+12)%12}));
+      if(!notes.every(n=>n.f>=0 && n.f<=15)) continue;
+      const fretted = notes.map(n=>n.f).filter(f=>f>0);
+      const span = fretted.length ? Math.max(...fretted) - Math.min(...fretted) : 0;
+      if(span > 5) continue;
+      res.push({inv, notes, pos: Math.min(...notes.map(n=>n.f)), hi: Math.max(...notes.map(n=>n.f))});
+    }
+  });
+  res.sort((a,b)=> a.pos - b.pos || a.hi - b.hi);
+  return res;
+}
+let vdSeq = [];
+function renderVoicingDrill(){
+  const type = $('vType').value, setDef = VOICE_SETS[type][+$('vSet').value || 0];
+  const rootPc = +$('vRoot').value, mode = $('vdMode').value, dir = $('vdDir').value;
+  const NM = SHARP_KEYS.has(rootPc) ? SHARP_NAMES : FLAT_NAMES;
+  $('vdScaleWrap').style.display = mode==='key' ? '' : 'none';
+  let seq = [];
+  if(mode === 'inv'){
+    const q = $('vQual').value;
+    seq = allGrips(rootPc, q, type, setDef).map(g=>({
+      label: NM[rootPc] + (CHORD_SYM[q] ?? ''), sub: g.inv, grip: g}));
+  } else {
+    const chords = harmonizeMode(rootPc, $('vdScale').value);
+    // shells: use both root-6th and root-5th forms so the drill stays in position
+    const setDefs = type === 'shell' ? VOICE_SETS.shell : [setDef];
+    const gripsFor = (pc, q)=> setDefs.flatMap(sd=> allGrips(pc, q, type, sd)).sort((a,b)=>a.pos-b.pos);
+    let prev = -1;
+    chords.forEach(c=>{
+      const gs = gripsFor(c.pc, c.qual);
+      if(!gs.length) return;
+      // nearest grip, light penalty for moving down the neck (keeps drills ascending when possible)
+      let pick = gs[0], best = 1e9;
+      gs.forEach(g=>{
+        const cost = g.pos >= prev ? g.pos - prev : (prev - g.pos) + 3;
+        if(cost < best){ best = cost; pick = g; }
+      });
+      seq.push({label: NM[c.pc] + (CHORD_SYM[c.qual] ?? ''), sub: c.roman + ' · ' + pick.inv, grip: pick});
+      prev = pick.pos;
+    });
+    // cap the drill with the octave tonic if it fits
+    if(chords.length){
+      const gs = gripsFor(chords[0].pc, chords[0].qual);
+      const top = gs.find(g=>g.pos >= prev);
+      if(top) seq.push({label: NM[chords[0].pc] + (CHORD_SYM[chords[0].qual] ?? ''), sub: chords[0].roman + ' · ' + top.inv, grip: top});
+    }
+  }
+  if(dir === 'desc') seq = seq.slice().reverse();
+  else if(dir === 'both') seq = seq.concat(seq.slice(0, -1).reverse());
+  vdSeq = seq;
+  const out = $('vdOut'); out.innerHTML = '';
+  seq.forEach(it=>{
+    const cell = document.createElement('div');
+    cell.className = 'shape vgrip';
+    cell.title = 'Click to hear';
+    cell.innerHTML = shapeSVG({label: it.label, lo: Math.max(it.grip.pos,0), hi: Math.max(it.grip.hi, it.grip.pos+3), notes: it.grip.notes}) +
+      `<div class="vcap">${it.sub}</div>`;
+    cell.onclick = ()=>{
+      const ctx = ensureAudio(); const t = ctx.currentTime + 0.05;
+      it.grip.notes.forEach((n,k)=> pad(ctx, STRINGS[n.s]+n.f, t + k*0.03, 1.6, 0.09));
+    };
+    out.appendChild(cell);
+  });
+  if(!seq.length) out.innerHTML = '<p class="sub">No playable grips for this combination.</p>';
+}
+function playGripSeq(seq, btn, skipCountIn){
+  if(!seq.length) return;
+  const ctx = ensureAudio();
+  if(!skipCountIn) stopPlayback();
+  const g = ctx.createGain(); g.gain.value = 1; g.connect(metro.bus);
+  const spb = 60 / metro.bpm, cd = 2*spb;
+  const t0 = ctx.currentTime + 0.08;
+  const countDur = skipCountIn ? 0 : 4*spb;
+  if(!skipCountIn) for(let i=0;i<4;i++){
+    const o=ctx.createOscillator(), cg=ctx.createGain();
+    o.type='square'; o.frequency.value = i===0?1568:1047;
+    cg.gain.setValueAtTime(0.0001,t0+i*spb);
+    cg.gain.exponentialRampToValueAtTime(0.3,t0+i*spb+0.002);
+    cg.gain.exponentialRampToValueAtTime(0.0001,t0+i*spb+0.05);
+    o.connect(cg); cg.connect(g); o.start(t0+i*spb); o.stop(t0+i*spb+0.06);
+  }
+  const start = t0 + countDur;
+  seq.forEach((it,i)=> it.grip.notes.forEach((n,k)=> pad(ctx, STRINGS[n.s]+n.f, start + i*cd + k*0.025, cd*0.92, 0.08, g)));
+  const total = (countDur + seq.length*cd + (playLoop ? 0.02 : 0.3)) * 1000;
+  playState = {g, btn, loop: playLoop, argsG:[seq, btn],
+    endTimer: setTimeout(()=>{
+      if(playState && playState.loop){ const a = playState.argsG; playState = null; playGripSeq(a[0], a[1], true); }
+      else stopPlayback();
+    }, total)};
+  if(btn){ btn.textContent = '■'; btn.classList.add('playing'); }
+}
+$('vdPlay').onclick = ()=>{
+  if(playState && playState.btn === $('vdPlay')) stopPlayback();
+  else playGripSeq(vdSeq, $('vdPlay'));
+};
+$('loopBtn3').onclick = ()=> setLoop(!playLoop);
+['vRoot','vQual','vType','vSet'].forEach(id=> $(id).addEventListener('change', ()=>{ renderVoicings(); renderVoicingDrill(); }));
+['vdMode','vdScale','vdDir'].forEach(id=> $(id).addEventListener('change', renderVoicingDrill));
 
 // ---- Ear training ----
 const EAR_INTERVALS = {1:'minor 2nd',2:'major 2nd',3:'minor 3rd',4:'major 3rd',5:'perfect 4th',
@@ -2359,13 +2440,6 @@ metro.onBar = akOnBar;
   }
   hashReady = true;
 })();
-
-// mobile: ⋯ expands/collapses the extra metronome controls
-$('mMore').onclick = () => $('metro').classList.toggle('open');
-
-// PWA: offline cache + installability (skipped when opened as a local file)
-if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
-  navigator.serviceWorker.register('sw.js');
 </script>
 </body>
 </html>
