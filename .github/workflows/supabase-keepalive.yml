@@ -1,0 +1,22 @@
+# Supabase free-tier projects pause after ~7 days without API activity, which would
+# break sign-in and sync for everyone. This pings the REST API twice a week to stay awake.
+# Note: GitHub disables scheduled workflows after 60 days without repo activity — it
+# emails you a re-enable link if that happens.
+name: Supabase keep-alive
+on:
+  schedule:
+    - cron: '17 4 * * 1,4'   # Mon + Thu, 04:17 UTC
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          # publishable key — safe to commit, it's the same one embedded in index.html
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://dlvdhuadhnglggayndgo.supabase.co/rest/v1/progress?select=user_id&limit=1" \
+            -H "apikey: sb_publishable_Skuc6Noua6GMZYaQ7ZMBZw_GcDPMQne")
+          echo "HTTP $code"
+          [ "$code" = "200" ]

@@ -5,7 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#12141a">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Guitar Practice Helper</title>
+<meta name="description" content="Free guitar practice tool: scales, arpeggios, CAGED, chord theory, voicings, ear training, jam tracks — engraved notation + tab with a metronome, right in your browser.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Guitar Practice Helper">
+<meta property="og:description" content="Type an exercise in plain English, get tab + notation with fingerings. Scales, arpeggios, CAGED, voicings, ear training, jam tracks, and a practice log — free, in your browser.">
+<meta property="og:url" content="https://patrickdleduc.github.io/guitar-practice-tool/">
+<meta property="og:image" content="https://patrickdleduc.github.io/guitar-practice-tool/icon-512.png">
+<meta name="twitter:card" content="summary">
 <style>
   :root{
     --bg:#12141a; --panel:#1c1f28; --panel2:#232734; --text:#e8eaf0; --muted:#9aa0b0;
@@ -481,6 +490,12 @@
       <div id="eMsg">Press “New question” to start. Identify what you hear.</div>
     </div>
   </div>
+
+  <p class="sub" style="margin:34px 0 0;text-align:center;font-size:12px">
+    Free &amp; open source ·
+    <a href="https://github.com/PatrickDLeduc/guitar-practice-tool/issues" target="_blank" rel="noopener" style="color:var(--accent2)">Feedback &amp; bug reports</a> ·
+    <a href="https://github.com/PatrickDLeduc/guitar-practice-tool" target="_blank" rel="noopener" style="color:var(--accent2)">GitHub</a>
+  </p>
 </div>
 
 <div id="metro">
@@ -541,6 +556,19 @@
   </div>
 </div>
 
+<!-- Error beacon, part 1: registered before the main script so even a crash on load gets captured.
+     Buffers here; the account code at the bottom ships the buffer to Supabase (or it dies with the page — fine). -->
+<script>
+window.__errs = [];
+addEventListener('error', e => { if(window.__errs.length < 5) window.__errs.push({
+  msg: String(e.message || e).slice(0, 1000),
+  src: ((e.filename || '') + ':' + (e.lineno || 0)).slice(0, 300),
+  stack: e.error && e.error.stack ? String(e.error.stack).slice(0, 2000) : null}); });
+addEventListener('unhandledrejection', e => { if(window.__errs.length < 5) window.__errs.push({
+  msg: ('unhandledrejection: ' + String(e.reason)).slice(0, 1000),
+  src: null,
+  stack: e.reason && e.reason.stack ? String(e.reason.stack).slice(0, 2000) : null}); });
+</script>
 <!-- Optional accounts/sync. If this fails to load (offline, blocked), the app runs exactly as before. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
@@ -2651,6 +2679,15 @@ $('acctDoUp').onclick = async ()=>{
 $('acctGoogle').onclick = ()=> sb.auth.signInWithOAuth({provider:'google',
   options:{redirectTo: location.origin + location.pathname}}).then(({error})=> acctFail(error));
 $('acctOut').onclick = ()=>{ sb.auth.signOut(); $('acctWrap').classList.remove('open'); };  // local data stays
+
+// Error beacon, part 2: ship anything the early listener buffered (and whatever comes later)
+function reportErrs(){
+  if(!sb || !window.__errs || !window.__errs.length) return;
+  const batch = window.__errs.splice(0, 5).map(x=>({...x, ua: navigator.userAgent.slice(0, 300)}));
+  try{ sb.from('client_errors').insert(batch).then(()=>{}); }catch(_){}
+}
+reportErrs();
+setInterval(reportErrs, 30000);
 
 if(sb){
   renderAcct();
