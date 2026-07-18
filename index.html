@@ -69,6 +69,9 @@
   pre.tab{margin:0;overflow-x:auto;font-family:'Consolas','Menlo',monospace;font-size:13px;line-height:1.35;color:var(--tab)}
   pre.tab .sys{display:block;margin-bottom:10px}
   .notation .nsys{overflow-x:auto;margin-bottom:6px}
+  .nn,.nh{transition:fill .08s}
+  .nn.hl{fill:var(--accent)}
+  .nh.hl{fill:var(--accent);stroke:var(--accent)}
   .notation svg{display:block}
   .tabbar{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--border)}
   .tabbtn{background:none;color:var(--muted);padding:9px 18px;font-size:14px;border-radius:8px 8px 0 0;border:1px solid transparent;border-bottom:none}
@@ -889,7 +892,7 @@ function renderNotationSystems(groups, rootPc, labels, nv){
         const fy = sy2 + (up ? fi*5 : -fi*5);
         s += `<path d="M ${sx} ${fy} q 7 ${up?3:-3} 4 ${up?10:-10}" stroke="#e8eaf0" stroke-width="1.3" fill="none"/>`;
       }
-      s += `<ellipse cx="${c.x}" cy="${y}" rx="4.8" ry="3.5" transform="rotate(-18 ${c.x} ${y})" ${nv==='half' ? 'fill="none" stroke="#e8eaf0" stroke-width="1.5"' : 'fill="#e8eaf0"'}/>`;
+      s += `<ellipse class="nh" cx="${c.x}" cy="${y}" rx="4.8" ry="3.5" transform="rotate(-18 ${c.x} ${y})" ${nv==='half' ? 'fill="none" stroke="#e8eaf0" stroke-width="1.5"' : 'fill="#e8eaf0"'}/>`;
     });
     // bar lines through staff and tab
     cols.forEach(c=>{
@@ -913,7 +916,7 @@ function renderNotationSystems(groups, rootPc, labels, nv){
     }
     cols.forEach(c=>{
       const y = tabTop + (5 - c.n.s)*TS;
-      s += `<text x="${c.x}" y="${y+3.5}" text-anchor="middle" font-size="11" font-weight="600" font-family="Consolas,monospace" fill="#cdd3e0" paint-order="stroke" stroke="#1c1f28" stroke-width="5">${c.n.f}</text>`;
+      s += `<text class="nn" x="${c.x}" y="${y+3.5}" text-anchor="middle" font-size="11" font-weight="600" font-family="Consolas,monospace" fill="#cdd3e0" paint-order="stroke" stroke="#1c1f28" stroke-width="5">${c.n.f}</text>`;
     });
     return s + '</svg>';
   });
@@ -1801,12 +1804,33 @@ function setLoop(v){
   if(playState) playState.loop = v;
 }
 let playState = null;
+// follow-along: move a gold highlight across the notation in sync with the audio clock
+function trackPlayback(ctx, start, unit, count, container){
+  if(!container) return;
+  const nn = container.querySelectorAll('.nn'), nh = container.querySelectorAll('.nh');
+  if(nn.length !== count) return;   // tab-only text mode (or stale DOM) — nothing to highlight
+  const st = playState;
+  let last = -1;
+  (function tick(){
+    if(playState !== st){ if(last>=0){ nn[last].classList.remove('hl'); nh[last]?.classList.remove('hl'); } return; }
+    const i = Math.floor((ctx.currentTime - start) / unit);
+    if(i >= count){ if(last>=0){ nn[last].classList.remove('hl'); nh[last]?.classList.remove('hl'); } return; }
+    if(i !== last && i >= 0){
+      if(last >= 0){ nn[last].classList.remove('hl'); nh[last]?.classList.remove('hl'); }
+      nn[i].classList.add('hl'); nh[i]?.classList.add('hl');
+      nn[i].scrollIntoView({block:'nearest', inline:'nearest'});
+      last = i;
+    }
+    requestAnimationFrame(tick);
+  })();
+}
 function stopPlayback(){
   if(playState){
     try{ playState.g.disconnect(); }catch(e){}
     if(playState.btn){ playState.btn.textContent = '▶'; playState.btn.classList.remove('playing'); }
     clearTimeout(playState.endTimer);
     playState = null;
+    document.querySelectorAll('.nn.hl,.nh.hl').forEach(e=>e.classList.remove('hl'));
   }
 }
 // Plays a flat list of {s,f} notes as 8th notes at the metronome tempo, after a 4-click count-in.
@@ -1840,6 +1864,7 @@ function playNotes(noteList, btn, pads, skipCountIn){
         playNotes(a[0], a[1], a[2], true);
       } else stopPlayback();
     }, total)};
+  trackPlayback(ctx, start, eighth, noteList.length, btn && btn.closest('.keyblock'));
   if(btn){ btn.textContent = '■'; btn.classList.add('playing'); }
 }
 let droneNodes = null;
