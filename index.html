@@ -37,7 +37,7 @@
   .chip{background:var(--panel);border:1px solid var(--border);color:var(--muted);font-size:12px;
     padding:5px 10px;border-radius:20px;font-weight:400}
   .chip:hover{color:var(--text);border-color:var(--accent)}
-  #diceChip{color:var(--accent);border-color:var(--accent);font-weight:600}
+  .dicechip{color:var(--accent);border-color:var(--accent);font-weight:600}
   .controls{display:flex;flex-wrap:wrap;gap:10px;background:var(--panel);border:1px solid var(--border);
     border-radius:12px;padding:12px;margin-bottom:20px}
   .ctl{display:flex;flex-direction:column;gap:4px}
@@ -439,6 +439,7 @@
   </div>
 
   <div id="viewVoic" style="display:none">
+    <div class="chips"><button class="chip dicechip" id="vDice">🎲 Surprise me</button></div>
     <div class="controls">
       <div class="ctl"><label>Root</label><select id="vRoot"></select></div>
       <div class="ctl"><label>Chord</label><select id="vQual"></select></div>
@@ -1403,7 +1404,7 @@ const EXAMPLES = [
 ];
 // 🎲 random exercise for the "no idea what to practice" case: randomize the
 // musical controls, keep the advanced ones at friendly defaults
-const dice=document.createElement('button'); dice.className='chip'; dice.id='diceChip'; dice.textContent='🎲 Surprise me';
+const dice=document.createElement('button'); dice.className='chip dicechip'; dice.id='diceChip'; dice.textContent='🎲 Surprise me';
 dice.onclick=()=>{
   const pick=a=>a[Math.floor(Math.random()*a.length)];
   selRoot.value=Math.floor(Math.random()*12);
@@ -1923,6 +1924,15 @@ function renderStackPractice(){
 let progData = null;
 const PROG_PRESETS = ['ii-V-I in C','ii-V-I in Bb','blues in A','I vi ii V in G','minor ii-V-i in A',
   'Dm7 G7 Cmaj7 Fmaj7 Bm7b5 E7 Am7'];
+// 🎲 random progression: common template × random key, through the normal parser
+const progDice=document.createElement('button'); progDice.className='chip dicechip'; progDice.textContent='🎲 Surprise me';
+progDice.onclick=()=>{
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  const tpl=pick(['ii-V-I','minor ii-V-i','blues','I vi ii V','I IV V','vi IV I V','iii vi ii V','I vi IV V']);
+  $('progIn').value = `${tpl} in ${pick(FLAT_NAMES)}`;
+  renderProg();
+};
+$('progChips').appendChild(progDice);
 PROG_PRESETS.forEach(t=>{
   const b=document.createElement('button'); b.className='chip'; b.textContent=t;
   b.onclick=()=>{ $('progIn').value=t; renderProg(); };
@@ -2403,6 +2413,16 @@ $('vdPlay').onclick = ()=>{
 };
 $('loopBtn3').onclick = ()=> setLoop(!playLoop);
 ['vRoot','vQual','vType','vSet'].forEach(id=> $(id).addEventListener('change', ()=>{ renderVoicings(); renderVoicingDrill(); }));
+// 🎲 random voicing: vSet options depend on vType, so refill before picking one
+$('vDice').onclick=()=>{
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  $('vRoot').value=Math.floor(Math.random()*12);
+  $('vQual').value=pick(VOIC_QUALS);
+  $('vType').value=pick(['drop2','drop3','shell']);
+  vFillSets();
+  $('vSet').value=Math.floor(Math.random()*$('vSet').options.length);
+  renderVoicings(); renderVoicingDrill();
+};
 ['vdMode','vdScale','vdDir'].forEach(id=> $(id).addEventListener('change', renderVoicingDrill));
 
 // ---- Ear training ----
