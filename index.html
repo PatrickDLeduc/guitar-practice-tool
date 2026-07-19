@@ -2901,33 +2901,43 @@ $('mTap').onclick = ()=>{
   }
   if(taps.length > 8) taps.shift();
 };
-// ---- Chromatic tuner: autocorrelation (ACF2+) on mic input ----
-// ponytail: O(n²) correlation on 2048 samples per frame; switch to an FFT-based
-// method if low-end phones run warm
-function autoCorrelate(buf, sampleRate){
-  let SIZE = buf.length, rms = 0;
-  for(let i=0;i<SIZE;i++) rms += buf[i]*buf[i];
-  if(Math.sqrt(rms/SIZE) < 0.01) return -1;   // silence gate
-  // trim quiet edges so the correlation sees the ringing string, not the attack/decay
-  let r1 = 0, r2 = SIZE-1;
-  const thres = 0.2;
-  for(let i=0;i<SIZE/2;i++) if(Math.abs(buf[i]) < thres){ r1 = i; break; }
-  for(let i=1;i<SIZE/2;i++) if(Math.abs(buf[SIZE-i]) < thres){ r2 = SIZE-i; break; }
-  buf = buf.slice(r1, r2); SIZE = buf.length;
-  const c = new Float32Array(SIZE);
-  for(let i=0;i<SIZE;i++)
-    for(let j=0;j<SIZE-i;j++) c[i] += buf[j]*buf[j+i];
-  // skip the zero-lag peak, then take the strongest correlation = the period
-  let d = 0; while(c[d] > c[d+1]) d++;
-  let maxval = -1, maxpos = -1;
-  for(let i=d;i<SIZE;i++) if(c[i] > maxval){ maxval = c[i]; maxpos = i; }
-  if(maxpos <= 0) return -1;
-  let T0 = maxpos;
-  // parabolic interpolation around the peak for sub-sample precision
-  const x1 = c[T0-1], x2 = c[T0], x3 = c[T0+1];
+// ---- Chromatic tuner: YIN pitch detection on mic input ----
+// Cumulative mean normalized difference — unlike plain autocorrelation it doesn't
+// lock onto harmonics (octave errors), which is what phone mics provoke. Returns -1
+// unless a dip clears the confidence threshold: no reading beats a wrong reading.
+// ponytail: O(maxTau·W) per frame (~2.5M ops); FFT-accelerate if phones run warm
+function detectPitch(buf, sampleRate){
+  const maxTau = Math.min(Math.floor(sampleRate/40), buf.length >> 1);   // down to 40Hz
+  const minTau = Math.max(2, Math.floor(sampleRate/1000));               // up to 1kHz
+  const W = Math.min(buf.length - maxTau, 2048);
+  if(W < 256) return -1;
+  let rms = 0;
+  for(let i=0;i<buf.length;i++) rms += buf[i]*buf[i];
+  if(Math.sqrt(rms/buf.length) < 0.008) return -1;   // silence gate
+  const d = new Float32Array(maxTau+1);
+  for(let tau=1; tau<=maxTau; tau++){
+    let s = 0;
+    for(let j=0;j<W;j++){ const del = buf[j] - buf[j+tau]; s += del*del; }
+    d[tau] = s;
+  }
+  const nd = new Float32Array(maxTau+1);
+  nd[0] = 1;
+  let run = 0;
+  for(let tau=1; tau<=maxTau; tau++){ run += d[tau]; nd[tau] = d[tau] * tau / (run || 1); }
+  // first dip under the threshold, walked to its local minimum
+  let tau = -1;
+  for(let t=minTau; t<=maxTau; t++){
+    if(nd[t] < 0.15){
+      while(t+1 <= maxTau && nd[t+1] < nd[t]) t++;
+      tau = t; break;
+    }
+  }
+  if(tau < 0) return -1;
+  // parabolic interpolation around the minimum for sub-sample precision
+  const x1 = nd[tau-1], x2 = nd[tau], x3 = tau+1 <= maxTau ? nd[tau+1] : x2;
   const a = (x1 + x3 - 2*x2)/2, b = (x3 - x1)/2;
-  if(a) T0 = T0 - b/(2*a);
-  return sampleRate/T0;
+  const T = a ? tau - b/(2*a) : tau;
+  return sampleRate/T;
 }
 let tuner = null;
 function tunerStop(){
@@ -2941,7 +2951,7 @@ function tunerStop(){
 function tunerTick(){
   if(!tuner) return;
   tuner.an.getFloatTimeDomainData(tuner.buf);
-  const f = autoCorrelate(tuner.buf, tuner.an.context.sampleRate);
+  const f = detectPitch(tuner.buf, tuner.an.context.sampleRate);
   if(f > 30 && f < 2000){
     tuner.hist.push(f);
     if(tuner.hist.length > 5) tuner.hist.shift();
@@ -2969,7 +2979,7 @@ $('tunBtn').onclick = async ()=>{
     const stream = await navigator.mediaDevices.getUserMedia(
       {audio: {echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
     const src = ctx.createMediaStreamSource(stream);
-    const an = ctx.createAnalyser(); an.fftSize = 2048;
+    const an = ctx.createAnalyser(); an.fftSize = 4096;   // ~85ms window: steadier low strings
     src.connect(an);
     tuner = {stream, src, an, buf: new Float32Array(an.fftSize), hist: [], raf: 0};
     tunerTick();

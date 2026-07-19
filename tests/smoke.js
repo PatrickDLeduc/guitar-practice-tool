@@ -86,17 +86,28 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('prog: jam starts', (await p.locator('#jamBtn').innerText()).includes('■'));
   await p.click('#jamBtn');
 
-  // tuner: pitch detection on synthetic sines, then the modal against the fake mic
+  // tuner: YIN pitch detection on synthetic strings, then the modal against the fake mic
   const pitches = await p.evaluate(() => [82.41, 110, 329.63].map(f => {
-    const sr = 44100, buf = new Float32Array(2048);
+    const sr = 44100, buf = new Float32Array(4096);
     for (let i = 0; i < buf.length; i++)
       buf[i] = 0.6 * Math.sin(2 * Math.PI * f * i / sr) + 0.2 * Math.sin(4 * Math.PI * f * i / sr);
-    return { f, got: autoCorrelate(buf, sr) };
+    return { f, got: detectPitch(buf, sr) };
   }));
   pitches.forEach(r => assert(
     `tuner: detects ${r.f}Hz (got ${r.got.toFixed(2)})`,
     Math.abs(1200 * Math.log2(r.got / r.f)) < 5));   // within 5 cents
-  assert('tuner: silence gated', await p.evaluate(() => autoCorrelate(new Float32Array(2048), 44100) === -1));
+  // phone-mic failure mode: weak fundamental under strong harmonics must NOT read an octave up
+  const oct = await p.evaluate(() => {
+    const sr = 44100, f = 82.41, buf = new Float32Array(4096);
+    for (let i = 0; i < buf.length; i++)
+      buf[i] = 0.2 * Math.sin(2 * Math.PI * f * i / sr)
+             + 0.6 * Math.sin(4 * Math.PI * f * i / sr)
+             + 0.35 * Math.sin(6 * Math.PI * f * i / sr);
+    return detectPitch(buf, sr);
+  });
+  assert('tuner: harmonic-heavy E2 stays E2, not E3 (got ' + oct.toFixed(2) + ')',
+    Math.abs(1200 * Math.log2(oct / 82.41)) < 20);
+  assert('tuner: silence gated', await p.evaluate(() => detectPitch(new Float32Array(4096), 44100) === -1));
   await p.click('#tunBtn');
   await p.waitForTimeout(800);
   assert('tuner: modal opens on mic grant', await p.locator('#tunWrap').isVisible());
