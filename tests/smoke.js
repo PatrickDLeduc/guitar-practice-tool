@@ -9,7 +9,8 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
 (async () => {
   const browser = await chromium.launch({
     channel: 'chrome', headless: true,
-    args: ['--autoplay-policy=no-user-gesture-required'],
+    args: ['--autoplay-policy=no-user-gesture-required',
+           '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
   });
   const errs = [];
   const newPage = async vp => {
@@ -84,6 +85,23 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.click('#jamBtn'); await p.waitForTimeout(700);
   assert('prog: jam starts', (await p.locator('#jamBtn').innerText()).includes('■'));
   await p.click('#jamBtn');
+
+  // tuner: pitch detection on synthetic sines, then the modal against the fake mic
+  const pitches = await p.evaluate(() => [82.41, 110, 329.63].map(f => {
+    const sr = 44100, buf = new Float32Array(2048);
+    for (let i = 0; i < buf.length; i++)
+      buf[i] = 0.6 * Math.sin(2 * Math.PI * f * i / sr) + 0.2 * Math.sin(4 * Math.PI * f * i / sr);
+    return { f, got: autoCorrelate(buf, sr) };
+  }));
+  pitches.forEach(r => assert(
+    `tuner: detects ${r.f}Hz (got ${r.got.toFixed(2)})`,
+    Math.abs(1200 * Math.log2(r.got / r.f)) < 5));   // within 5 cents
+  assert('tuner: silence gated', await p.evaluate(() => autoCorrelate(new Float32Array(2048), 44100) === -1));
+  await p.click('#tunBtn');
+  await p.waitForTimeout(800);
+  assert('tuner: modal opens on mic grant', await p.locator('#tunWrap').isVisible());
+  await p.click('#tunClose');
+  assert('tuner: close stops and hides', !(await p.locator('#tunWrap').isVisible()) && await p.evaluate(() => tuner === null));
 
   // meter sequences: parser, UI wiring, live bar rotation
   const ms = await p.evaluate(() => {

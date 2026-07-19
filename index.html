@@ -66,6 +66,15 @@
   #favChips .fx{margin-left:7px;color:var(--muted)}
   #favChips .fx:hover{color:#e05c5c}
   #mCustom{width:150px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:13px}
+  #tunWrap{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:30;padding:16px}
+  #tunWrap.open{display:flex}
+  #tunNote{font-size:56px;font-weight:700;line-height:1.1;min-height:64px}
+  #tunNote.good{color:#58c98f}
+  #tunMeter{position:relative;height:46px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;margin:10px 0;overflow:hidden}
+  #tunMeter::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--accent);transform:translateX(-50%)}
+  #tunNeedle{position:absolute;top:4px;bottom:4px;width:3px;border-radius:2px;background:var(--accent2);left:50%;transition:left .08s linear}
+  #tunClose{background:var(--panel2);color:var(--text);border:1px solid var(--border);padding:10px 22px;font-size:14px}
+  #tunClose:hover{border-color:var(--accent)}
   .pgbars{display:flex;gap:5px;align-items:flex-end;height:64px;margin:12px 0 18px}
   .pgbar{width:22px;background:var(--accent2);border-radius:3px 3px 0 0}
   .pgbar.empty{background:var(--panel2)}
@@ -225,8 +234,8 @@
     #mPlay{width:36px;height:36px;font-size:14px}
     #mBpmVal{font-size:17px;min-width:40px}
     #mSlider{flex:1 1 80px;min-width:56px;width:auto}
-    #mTap,#mSwing,#beatsGrp,#trainerGrp{display:none}
-    #metro.open #mTap,#metro.open #mSwing{display:inline-block}
+    #mTap,#mSwing,#tunBtn,#beatsGrp,#trainerGrp{display:none}
+    #metro.open #mTap,#metro.open #mSwing,#metro.open #tunBtn{display:inline-block}
     #metro.open #beatsGrp,#metro.open #trainerGrp{display:flex}
     #metro.open #trainerGrp{flex-wrap:wrap}
     #metro.open #mTap{width:auto;padding:0 14px}
@@ -565,6 +574,7 @@
   <input id="mSlider" type="range" min="30" max="260" value="80" aria-label="Tempo">
   <button class="mbtn" id="mTap">Tap</button>
   <button class="mbtn" id="mSwing" style="width:auto;padding:0 10px" title="Swing pairs of 8th notes in playback and jam grooves">Swing: off</button>
+  <button class="mbtn" id="tunBtn" style="width:auto;padding:0 10px" title="Chromatic tuner (uses the microphone)">Tuner</button>
   <button class="mbtn" id="mMore" title="More metronome controls" aria-label="More metronome controls">&#8943;</button>
   <div class="mgrp" id="beatsGrp">
     <select id="mBeats" aria-label="Time signature">
@@ -591,6 +601,17 @@
     <span class="tlbl">to</span><input id="tTarget" type="number" min="40" max="260" value="160" aria-label="Trainer target BPM">
     <span class="tlbl">+</span><input id="tStep" type="number" min="1" max="20" value="4" aria-label="Trainer BPM increase">
     <span class="tlbl">every</span><input id="tBars" type="number" min="1" max="16" value="4" aria-label="Trainer bars between increases"><span class="tlbl">bars</span>
+  </div>
+</div>
+
+<div id="tunWrap" role="dialog" aria-label="Chromatic tuner">
+  <div class="acctbox" style="text-align:center">
+    <h2>Tuner</h2>
+    <div id="tunNote">—</div>
+    <div id="tunMeter"><div id="tunNeedle"></div></div>
+    <p id="tunHz" class="sub" style="margin-bottom:6px">listening…</p>
+    <p class="sub" style="margin-bottom:14px">E2 · A2 · D3 · G3 · B3 · E4</p>
+    <button id="tunClose">Close</button>
   </div>
 </div>
 
@@ -2880,6 +2901,84 @@ $('mTap').onclick = ()=>{
   }
   if(taps.length > 8) taps.shift();
 };
+// ---- Chromatic tuner: autocorrelation (ACF2+) on mic input ----
+// ponytail: O(n²) correlation on 2048 samples per frame; switch to an FFT-based
+// method if low-end phones run warm
+function autoCorrelate(buf, sampleRate){
+  let SIZE = buf.length, rms = 0;
+  for(let i=0;i<SIZE;i++) rms += buf[i]*buf[i];
+  if(Math.sqrt(rms/SIZE) < 0.01) return -1;   // silence gate
+  // trim quiet edges so the correlation sees the ringing string, not the attack/decay
+  let r1 = 0, r2 = SIZE-1;
+  const thres = 0.2;
+  for(let i=0;i<SIZE/2;i++) if(Math.abs(buf[i]) < thres){ r1 = i; break; }
+  for(let i=1;i<SIZE/2;i++) if(Math.abs(buf[SIZE-i]) < thres){ r2 = SIZE-i; break; }
+  buf = buf.slice(r1, r2); SIZE = buf.length;
+  const c = new Float32Array(SIZE);
+  for(let i=0;i<SIZE;i++)
+    for(let j=0;j<SIZE-i;j++) c[i] += buf[j]*buf[j+i];
+  // skip the zero-lag peak, then take the strongest correlation = the period
+  let d = 0; while(c[d] > c[d+1]) d++;
+  let maxval = -1, maxpos = -1;
+  for(let i=d;i<SIZE;i++) if(c[i] > maxval){ maxval = c[i]; maxpos = i; }
+  if(maxpos <= 0) return -1;
+  let T0 = maxpos;
+  // parabolic interpolation around the peak for sub-sample precision
+  const x1 = c[T0-1], x2 = c[T0], x3 = c[T0+1];
+  const a = (x1 + x3 - 2*x2)/2, b = (x3 - x1)/2;
+  if(a) T0 = T0 - b/(2*a);
+  return sampleRate/T0;
+}
+let tuner = null;
+function tunerStop(){
+  $('tunWrap').classList.remove('open');   // always dismiss, even if the mic was blocked
+  if(!tuner) return;
+  cancelAnimationFrame(tuner.raf);
+  tuner.stream.getTracks().forEach(t=>t.stop());
+  try{ tuner.src.disconnect(); }catch(e){}
+  tuner = null;
+}
+function tunerTick(){
+  if(!tuner) return;
+  tuner.an.getFloatTimeDomainData(tuner.buf);
+  const f = autoCorrelate(tuner.buf, tuner.an.context.sampleRate);
+  if(f > 30 && f < 2000){
+    tuner.hist.push(f);
+    if(tuner.hist.length > 5) tuner.hist.shift();
+    const fs = tuner.hist.slice().sort((a,b)=>a-b);
+    const fm = fs[Math.floor(fs.length/2)];   // median beats the odd bad reading
+    const midi = 69 + 12*Math.log2(fm/440);
+    const near = Math.round(midi);
+    const cents = Math.max(-50, Math.min(50, (midi - near)*100));
+    const good = Math.abs(cents) <= 5;
+    $('tunNote').textContent = SHARP_NAMES[((near % 12) + 12) % 12] + (Math.floor(near/12) - 1);
+    $('tunNote').classList.toggle('good', good);
+    $('tunNeedle').style.left = (50 + cents) + '%';
+    $('tunNeedle').style.background = good ? '#58c98f' : 'var(--accent2)';
+    $('tunHz').textContent = fm.toFixed(1) + ' Hz · ' + (cents > 0 ? '+' : '') + Math.round(cents) + ' cents';
+  }
+  tuner.raf = requestAnimationFrame(tunerTick);
+}
+$('tunBtn').onclick = async ()=>{
+  if(tuner){ tunerStop(); return; }
+  $('tunWrap').classList.add('open');
+  $('tunNote').textContent = '—'; $('tunNote').classList.remove('good');
+  $('tunHz').textContent = 'listening…';
+  try{
+    const ctx = ensureAudio();
+    const stream = await navigator.mediaDevices.getUserMedia(
+      {audio: {echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+    const src = ctx.createMediaStreamSource(stream);
+    const an = ctx.createAnalyser(); an.fftSize = 2048;
+    src.connect(an);
+    tuner = {stream, src, an, buf: new Float32Array(an.fftSize), hist: [], raf: 0};
+    tunerTick();
+  }catch(e){
+    $('tunHz').textContent = 'Microphone blocked — allow mic access for this site and try again';
+  }
+};
+$('tunClose').onclick = tunerStop;
+$('tunWrap').onclick = e=>{ if(e.target === $('tunWrap')) tunerStop(); };
 document.addEventListener('keydown', e=>{
   if(e.code === 'Space' && document.activeElement.tagName !== 'INPUT'){
     e.preventDefault(); $('mPlay').onclick();
