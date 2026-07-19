@@ -60,8 +60,12 @@
   .vgrip{cursor:pointer}
   .vgrip:hover{border-color:var(--accent)}
   .vcap{font-size:11px;color:var(--muted);text-align:center;margin-top:2px}
-  #logBtn{background:var(--panel2);color:var(--muted);padding:8px 14px;font-size:13px;border:1px solid var(--border);margin-right:8px}
-  #logBtn:hover{color:var(--accent);border-color:var(--accent)}
+  #logBtn,#favBtn{background:var(--panel2);color:var(--muted);padding:8px 14px;font-size:13px;border:1px solid var(--border);margin-right:8px}
+  #logBtn:hover,#favBtn:hover{color:var(--accent);border-color:var(--accent)}
+  #favChips .chip{border-color:var(--accent);color:var(--text)}
+  #favChips .fx{margin-left:7px;color:var(--muted)}
+  #favChips .fx:hover{color:#e05c5c}
+  #mCustom{width:150px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:13px}
   .pgbars{display:flex;gap:5px;align-items:flex-end;height:64px;margin:12px 0 18px}
   .pgbar{width:22px;background:var(--accent2);border-radius:3px 3px 0 0}
   .pgbar.empty{background:var(--panel2)}
@@ -212,7 +216,8 @@
     .pbtn{width:40px;height:36px;font-size:14px}
     .mbtn{width:40px;height:40px}
     .rowbtns button{padding:8px 12px}
-    #droneBtn,#loopBtn,#akBtn,#logBtn,#copyall{padding:11px 14px;margin-right:0}
+    #droneBtn,#loopBtn,#akBtn,#logBtn,#favBtn,#copyall{padding:11px 14px;margin-right:0}
+    #mCustom{flex:1 1 110px;width:auto;min-height:40px;font-size:16px}
     .toolrow{flex-wrap:wrap;justify-content:flex-start;gap:6px}
     table.stbl{display:block;overflow-x:auto} /* wide table scrolls instead of clipping the Try-it column */
     /* metronome: slim bar docked above the tab bar; ⋯ expands the rest */
@@ -220,8 +225,8 @@
     #mPlay{width:36px;height:36px;font-size:14px}
     #mBpmVal{font-size:17px;min-width:40px}
     #mSlider{flex:1 1 80px;min-width:56px;width:auto}
-    #mTap,#beatsGrp,#trainerGrp{display:none}
-    #metro.open #mTap{display:inline-block}
+    #mTap,#mSwing,#beatsGrp,#trainerGrp{display:none}
+    #metro.open #mTap,#metro.open #mSwing{display:inline-block}
     #metro.open #beatsGrp,#metro.open #trainerGrp{display:flex}
     #metro.open #trainerGrp{flex-wrap:wrap}
     #metro.open #mTap{width:auto;padding:0 14px}
@@ -254,6 +259,7 @@
   </div>
 
   <div class="chips" id="chips"></div>
+  <div class="chips" id="favChips" style="display:none"></div>
 
   <div id="sheetBack"></div>
   <div class="controls" id="exControls">
@@ -330,6 +336,7 @@
     <input id="akBars" type="number" min="1" max="99" value="4" aria-label="Bars per key" title="Bars per key (auto-set from the exercise length; edit to override)">
     <button id="loopBtn" title="Loop playback">Loop: off</button>
     <button id="droneBtn" title="Sustain the root note as a drone">Drone: C</button>
+    <button id="favBtn" title="Save this exercise to My exercises">★ Save</button>
     <button id="logBtn" title="Save this exercise + current tempo to your practice log">✓ Log @ 80</button>
     <button id="copyall">Copy all tabs</button>
   </div>
@@ -397,6 +404,13 @@
       <div class="ctl"><label>Notes per chord</label><select id="progN">
         <option value="4">4</option>
         <option value="8" selected>8</option>
+      </select></div>
+      <div class="ctl"><label>Jam style</label><select id="jamStyle">
+        <option value="rock" selected>Rock</option>
+        <option value="swing">Swing / jazz</option>
+        <option value="shuffle">Shuffle blues</option>
+        <option value="bossa">Bossa</option>
+        <option value="funk">Funk</option>
       </select></div>
       <div class="ctl"><label>Jam comp sound</label><select id="jamComp">
         <option value="pads" selected>Soft pads</option>
@@ -550,6 +564,7 @@
   </div>
   <input id="mSlider" type="range" min="30" max="260" value="80" aria-label="Tempo">
   <button class="mbtn" id="mTap">Tap</button>
+  <button class="mbtn" id="mSwing" style="width:auto;padding:0 10px" title="Swing pairs of 8th notes in playback and jam grooves">Swing: off</button>
   <button class="mbtn" id="mMore" title="More metronome controls" aria-label="More metronome controls">&#8943;</button>
   <div class="mgrp" id="beatsGrp">
     <select id="mBeats" aria-label="Time signature">
@@ -564,7 +579,11 @@
       <option value="9/8">9/8 (3+3+3)</option>
       <option value="11/8">11/8 (3+3+3+2)</option>
       <option value="none">No accent</option>
+      <option value="custom">Custom…</option>
     </select>
+    <input id="mCustom" type="text" placeholder="3x5/8 + 7/8" aria-label="Custom meter sequence"
+      title="Bar sequence: 5/8+7/8 alternates, 3x5/8+7/8 repeats, 7/8(2+2+3) sets accents" style="display:none">
+    <span id="mBarPos" class="tlbl"></span>
     <div id="mDots" aria-hidden="true"></div>
   </div>
   <div class="mgrp" id="trainerGrp">
@@ -1430,20 +1449,24 @@ EXAMPLES.forEach(t=>{
 // ---- Bar lines: one exercise note lasts noteTicks() metronome ticks ----
 function noteTicks(nv){
   const q = {half:2, quarter:1, eighth:.5, triplet:1/3, sixteenth:.25}[nv] || 1;
-  return $('mBeats').value.includes('8') ? q*2 : q;   // x/8 meters tick in 8ths
+  const v = $('mBeats').value;
+  // x/8 meters tick in 8ths; custom sequences follow their first bar's denominator
+  const in8 = v === 'custom' ? !!(metro.bars && metro.bars[0].label.includes('/8')) : v.includes('8');
+  return in8 ? q*2 : q;
 }
-function barTicks(){ const v = $('mBeats').value; return v==='none' ? 4 : METERS[v].length; }
+function barTicks(){ return barSeqTicks()[0]; }
 // Mark n.bar on each note that ends exactly on a barline; the renderers draw it.
 // Notes that straddle a barline (e.g. quarters in 7/8) get no line — nothing to lie about.
+// Bar lengths cycle through the meter sequence (plain meters are a 1-bar cycle).
 function markBarLines(groups, nv){
-  const tpb = barTicks(), dt = noteTicks(nv);
+  const seq = barSeqTicks(), dt = noteTicks(nv);
   const flat = groups.flat();
-  let t = 0;
+  let t = 0, bi = 0, next = seq[0];
   flat.forEach((n,i)=>{
     delete n.bar;
     t += dt;
-    const r = t % tpb;
-    if(i < flat.length-1 && (r < 1e-6 || tpb - r < 1e-6)) n.bar = true;
+    if(i < flat.length-1 && Math.abs(t - next) < 1e-6) n.bar = true;
+    while(next - t < 1e-6){ bi++; next += seq[bi % seq.length]; }
   });
 }
 
@@ -1475,10 +1498,18 @@ function generate(){
     if(ri === 0){
       // auto-fit auto-advance: bars this exercise takes in the current meter
       const ticks = ex.groups.flat().length * noteTicks(selNV.value);
-      const perBar = $('mBeats').value==='none' ? 1 : barTicks();
-      const bars = Math.max(1, Math.min(99, Math.ceil(ticks/perBar - 1e-6)));
+      let bars;
+      if($('mBeats').value === 'none') bars = Math.max(1, Math.min(99, Math.ceil(ticks - 1e-6)));
+      else {   // walk the bar cycle so mixed-length bars count correctly
+        const seq = barSeqTicks();
+        let remain = ticks; bars = 0;
+        while(remain > 1e-6 && bars < 99){ remain -= seq[bars % seq.length]; bars++; }
+        bars = Math.max(1, bars);
+      }
       $('akBars').value = bars;
-      const meterName = $('mBeats').value==='none' ? '4/4' : $('mBeats').value.replace(/[ab]$/,'');
+      const meterName = $('mBeats').value==='none' ? '4/4'
+        : $('mBeats').value==='custom' ? ($('mCustom').value.trim() || 'custom')
+        : $('mBeats').value.replace(/[ab]$/,'');
       $('summary').textContent += ` · ${bars} bar${bars>1?'s':''}/key in ${meterName}`;
     }
     copyText += '\n\n' + ex.name + '\n' + renderTab(ex.groups).join('\n\n');
@@ -1567,11 +1598,11 @@ $('akBtn').onclick = ()=>{
 let currentTab = 'ex';
 let hashReady = false;
 const EX_DEFAULTS = ['0','maj7','straight','single','asc','2','pos','5','none','none','neck','on','quarter'];
+const EX_SELS = [selRoot,selQual,selPat,selSeq,selDir,selOct,selFing,selPos,selVar,selTech,selShapes,selNote,selNV];
 function stateToHash(){
   if(!hashReady) return;
   try{
-    const ex = [selRoot.value,selQual.value,selPat.value,selSeq.value,selDir.value,selOct.value,
-                selFing.value,selPos.value,selVar.value,selTech.value,selShapes.value,selNote.value,selNV.value];
+    const ex = EX_SELS.map(s=>s.value);
     // trim trailing fields that match the defaults
     let end = ex.length;
     while(end > 0 && ex[end-1] === EX_DEFAULTS[end-1]) end--;
@@ -1696,6 +1727,43 @@ function logSession(){
   $('logBtn').textContent = 'Logged ✓';
   setTimeout(()=> $('logBtn').textContent = '✓ Log @ ' + metro.bpm, 1200);
 }
+// ---- Saved exercises (favorites) — live in the same gph store, so they cloud-sync ----
+function renderFavChips(){
+  const favs = store.load().favs || [];
+  const row = $('favChips'); row.innerHTML = '';
+  row.style.display = favs.length ? '' : 'none';
+  favs.slice().reverse().forEach(f=>{
+    const b = document.createElement('button'); b.className = 'chip';
+    b.title = f.n;
+    b.textContent = '★ ' + (f.n.length > 46 ? f.n.slice(0,44) + '…' : f.n);
+    const x = document.createElement('span'); x.className = 'fx'; x.textContent = '×';
+    x.title = 'Remove from My exercises';
+    x.onclick = ev=>{
+      ev.stopPropagation();
+      const d = store.load();
+      d.favs = (d.favs||[]).filter(o=> o.v.join('.') !== f.v.join('.'));
+      store.save(d); renderFavChips();
+    };
+    b.appendChild(x);
+    b.onclick = ()=>{
+      EX_SELS.forEach((s,i)=>{ if(f.v[i] !== undefined) s.value = f.v[i]; });
+      $('query').value = '';
+      generate();
+    };
+    row.appendChild(b);
+  });
+}
+$('favBtn').onclick = ()=>{
+  const d = store.load();
+  const v = EX_SELS.map(s=>s.value);
+  d.favs = (d.favs||[]).filter(o=> o.v.join('.') !== v.join('.'));   // re-saving moves it to the front
+  d.favs.push({n: $('summary').textContent.split(' · ').slice(0,4).join(' · '), v, t: Date.now()});
+  d.favs = d.favs.slice(-50);
+  store.save(d);
+  renderFavChips();
+  $('favBtn').textContent = 'Saved ★'; setTimeout(()=> $('favBtn').textContent = '★ Save', 1200);
+};
+renderFavChips();
 function earLog(cat, firstTryCorrect){
   const d = store.load();
   d.ear = d.ear || {};
@@ -1810,7 +1878,13 @@ function pluck(ctx, m, t0, dur, vol, dest){
   src.connect(g); g.connect(dest || metro.bus);
   src.start(t0);
 }
-let playLoop = false;
+let playLoop = false, swingOn = false;
+$('mSwing').onclick = ()=>{
+  swingOn = !swingOn;
+  $('mSwing').textContent = 'Swing: ' + (swingOn ? 'ON' : 'off');
+  $('mSwing').style.borderColor = swingOn ? 'var(--accent)' : '';
+  $('mSwing').style.color = swingOn ? 'var(--accent)' : '';
+};
 function setLoop(v){
   playLoop = v;
   ['loopBtn','loopBtn2','loopBtn3'].forEach(id=>{
@@ -1822,15 +1896,19 @@ function setLoop(v){
 }
 let playState = null;
 // follow-along: move a gold highlight across the notation in sync with the audio clock
-function trackPlayback(ctx, start, unit, count, container){
+function trackPlayback(ctx, start, unit, count, container, sw){
   if(!container) return;
   const nn = container.querySelectorAll('.nn'), nh = container.querySelectorAll('.nh');
   if(nn.length !== count) return;   // tab-only text mode (or stale DOM) — nothing to highlight
   const st = playState;
+  sw = sw || 0;
   let last = -1;
   (function tick(){
     if(playState !== st){ if(last>=0){ nn[last].classList.remove('hl'); nh[last]?.classList.remove('hl'); } return; }
-    const i = Math.floor((ctx.currentTime - start) / unit);
+    // pairwise mapping so the highlight lands on swung 8ths at their delayed onsets
+    const el = ctx.currentTime - start;
+    const pair = Math.floor(el / (2*unit));
+    const i = pair*2 + (el - pair*2*unit >= (1+sw)*unit ? 1 : 0);
     if(i >= count){ if(last>=0){ nn[last].classList.remove('hl'); nh[last]?.classList.remove('hl'); } return; }
     if(i !== last && i >= 0){
       if(last >= 0){ nn[last].classList.remove('hl'); nh[last]?.classList.remove('hl'); }
@@ -1870,9 +1948,11 @@ function playNotes(noteList, btn, pads, skipCountIn){
     o.connect(cg); cg.connect(g); o.start(t0+i*spb); o.stop(t0+i*spb+0.06);
   }
   const start = t0 + countDur;
-  noteList.forEach((n,i)=> pluck(ctx, STRINGS[n.s]+n.f, start + i*eighth, eighth, 0.16, g));
+  // swing: delay every 2nd 8th by a third of the unit (2:1 triplet feel)
+  const sw = swingOn && (nvSel ? nvSel.value : 'quarter') === 'eighth' ? 1/3 : 0;
+  noteList.forEach((n,i)=> pluck(ctx, STRINGS[n.s]+n.f, start + (i + (i%2 ? sw : 0))*eighth, eighth, 0.16, g));
   if(pads) pads.forEach(p=> p.pitches.forEach(m=> tone(ctx, m, start + p.at*eighth, p.dur*eighth, 0.06, 'sine', g)));
-  const total = (countDur + noteList.length*eighth + (playLoop ? 0.02 : 0.3)) * 1000;
+  const total = (countDur + (noteList.length + sw)*eighth + (playLoop ? 0.02 : 0.3)) * 1000;
   playState = {g, btn, loop: playLoop, args:[noteList, btn, pads],
     endTimer: setTimeout(()=>{
       if(playState && playState.loop){
@@ -1881,7 +1961,7 @@ function playNotes(noteList, btn, pads, skipCountIn){
         playNotes(a[0], a[1], a[2], true);
       } else stopPlayback();
     }, total)};
-  trackPlayback(ctx, start, eighth, noteList.length, btn && btn.closest('.keyblock'));
+  trackPlayback(ctx, start, eighth, noteList.length, btn && btn.closest('.keyblock'), sw);
   if(btn){ btn.textContent = '■'; btn.classList.add('playing'); }
 }
 let droneNodes = null;
@@ -2026,12 +2106,12 @@ function noiseBuffer(ctx){
   }
   return noiseBuf;
 }
-function drumKick(ctx, t, dest){
+function drumKick(ctx, t, dest, vol){
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.type = 'sine';
   o.frequency.setValueAtTime(150, t);
   o.frequency.exponentialRampToValueAtTime(45, t+0.12);
-  g.gain.setValueAtTime(0.55, t);
+  g.gain.setValueAtTime(vol || 0.55, t);
   g.gain.exponentialRampToValueAtTime(0.001, t+0.2);
   o.connect(g); g.connect(dest); o.start(t); o.stop(t+0.22);
 }
@@ -2069,20 +2149,64 @@ function scheduleJamPass(ctx, g, chords, t0){
   const compMode = $('jamComp') ? $('jamComp').value : 'pads';
   chords.forEach((c, bi)=>{
     const bt = t0 + bi*bar;
-    // drums: kick 1 & 3, snare 2 & 4, hats on 8ths
-    drumKick(ctx, bt, g); drumKick(ctx, bt+2*spb, g);
-    drumNoise(ctx, bt+spb, g, 1600, 0.28, 0.12);
-    drumNoise(ctx, bt+3*spb, g, 1600, 0.28, 0.12);
-    for(let e=0;e<8;e++) drumNoise(ctx, bt+e*spb/2, g, 8000, e%2?0.06:0.1, 0.04);
-    // bass: root, fifth, chromatic approach to the next root
-    // E2-based, not E1 — phone speakers can't reproduce 41Hz, only its buzz
+    // bass targets (E2-based, not E1 — phone speakers can't reproduce 41Hz, only its buzz)
     const rootM = 40 + ((c.pc - 4 + 12) % 12);
-    pluck(ctx, rootM, bt, spb*1.7, 0.30, g);
-    const fifth = QUALITIES[c.qual].intervals.find(v=>v===7||v===6||v===8) ?? 7;
-    pluck(ctx, rootM+fifth, bt+2*spb, spb*1.3, 0.26, g);
+    const ivs = QUALITIES[c.qual].intervals;
+    const fifth = ivs.find(v=>v===7||v===6||v===8) ?? 7;
+    const third = ivs.find(v=>v===3||v===4) ?? 4;
     const next = chords[(bi+1) % chords.length];
     const nextRoot = 40 + ((next.pc - 4 + 12) % 12);
-    pluck(ctx, nextRoot + (nextRoot >= rootM ? -1 : 1), bt+3.5*spb, spb*0.5, 0.22, g);
+    const appr = nextRoot + (nextRoot >= rootM ? -1 : 1);
+    const style = $('jamStyle') ? $('jamStyle').value : 'rock';
+    if(style === 'swing'){
+      // ride quarters + swung skips on 2 & 4, pedal hat 2 & 4, feathered kick; walking bass
+      for(let b=0;b<4;b++){
+        drumNoise(ctx, bt+b*spb, g, 6000, 0.13, 0.22);
+        if(b%2){ drumNoise(ctx, bt+b*spb+spb*2/3, g, 6000, 0.07, 0.12);
+                 drumNoise(ctx, bt+b*spb, g, 3000, 0.1, 0.05); }
+        drumKick(ctx, bt+b*spb, g, 0.1);
+      }
+      [rootM, rootM+third, rootM+fifth, appr].forEach((m,b)=> pluck(ctx, m, bt+b*spb, spb*0.95, 0.27, g));
+    } else if(style === 'shuffle'){
+      // kick 1 & 3, snare 2 & 4, shuffled hats; walking bass
+      drumKick(ctx, bt, g); drumKick(ctx, bt+2*spb, g);
+      drumNoise(ctx, bt+spb, g, 1600, 0.26, 0.12);
+      drumNoise(ctx, bt+3*spb, g, 1600, 0.26, 0.12);
+      for(let b=0;b<4;b++){
+        drumNoise(ctx, bt+b*spb, g, 8000, 0.1, 0.04);
+        drumNoise(ctx, bt+b*spb+spb*2/3, g, 8000, 0.06, 0.04);
+      }
+      [rootM, rootM+third, rootM+fifth, appr].forEach((m,b)=> pluck(ctx, m, bt+b*spb, spb*0.95, 0.27, g));
+    } else if(style === 'bossa'){
+      // surdo-style kick, soft straight hats, rim pattern; root–five bass
+      [0, 1.5, 2, 3.5].forEach(b=> drumKick(ctx, bt+b*spb, g, 0.4));
+      for(let e=0;e<8;e++) drumNoise(ctx, bt+e*spb/2, g, 8000, e%2?0.04:0.06, 0.03);
+      [0, 1.5, 3].forEach(b=> drumNoise(ctx, bt+b*spb, g, 2500, 0.13, 0.03));
+      pluck(ctx, rootM, bt, spb*1.4, 0.30, g);
+      pluck(ctx, rootM+fifth, bt+1.5*spb, spb*0.4, 0.22, g);
+      pluck(ctx, rootM, bt+2*spb, spb*1.4, 0.28, g);
+      pluck(ctx, rootM+fifth, bt+3.5*spb, spb*0.5, 0.22, g);
+    } else if(style === 'funk'){
+      // syncopated kick, snare 2 & 4, 16th hats with accents + open hat pickup
+      [0, 0.75, 2.5].forEach(b=> drumKick(ctx, bt+b*spb, g));
+      drumNoise(ctx, bt+spb, g, 1600, 0.28, 0.12);
+      drumNoise(ctx, bt+3*spb, g, 1600, 0.28, 0.12);
+      for(let e=0;e<16;e++) drumNoise(ctx, bt+e*spb/4, g, 8000, e%4===0?0.09:0.045, 0.03);
+      drumNoise(ctx, bt+3.5*spb, g, 7000, 0.12, 0.12);
+      pluck(ctx, rootM, bt, spb*0.6, 0.32, g);
+      pluck(ctx, rootM, bt+0.75*spb, spb*0.4, 0.24, g);
+      pluck(ctx, rootM+fifth, bt+2.5*spb, spb*0.6, 0.26, g);
+      pluck(ctx, appr, bt+3.5*spb, spb*0.4, 0.22, g);
+    } else {
+      // rock: kick 1 & 3, snare 2 & 4, 8th hats (swung if the Swing toggle is on)
+      drumKick(ctx, bt, g); drumKick(ctx, bt+2*spb, g);
+      drumNoise(ctx, bt+spb, g, 1600, 0.28, 0.12);
+      drumNoise(ctx, bt+3*spb, g, 1600, 0.28, 0.12);
+      for(let e=0;e<8;e++) drumNoise(ctx, bt+e*spb/2 + (e%2 && swingOn ? spb/6 : 0), g, 8000, e%2?0.06:0.1, 0.04);
+      pluck(ctx, rootM, bt, spb*1.7, 0.30, g);
+      pluck(ctx, rootM+fifth, bt+2*spb, spb*1.3, 0.26, g);
+      pluck(ctx, appr, bt+3.5*spb, spb*0.5, 0.22, g);
+    }
     // comping
     let cr = 52 + c.pc; if(cr > 63) cr -= 12;
     const tones = QUALITIES[c.qual].intervals.slice(0,4).map(iv=>cr+iv);
@@ -2587,10 +2711,48 @@ const METERS = {
   'none':[0],
 };
 const metro = {
-  ctx:null, playing:false, bpm:80, beats:4, beat:0, nextTime:0, timer:null,
+  ctx:null, playing:false, bpm:80, beats:4, beat:0, beatInBar:0, nextTime:0, timer:null,
   LOOKAHEAD_MS:25, AHEAD:0.1,
   trainer:false, barCount:0, accents:[2,0,0,0],
+  bars:null, barIdx:0,   // custom meter sequence: [{acc:[...], label:'5/8'}, ...]
 };
+// "3x5/8 + 7/8(2+2+3)" → [{acc,label} x3, {acc,label}] — or null if nothing parses.
+// Default accents: /8 groups into 3s then 2s (5=3+2, 7=3+2+2); /4 and /2 accent beat 1.
+function parseMeterSeq(str){
+  const re = /(?:(\d{1,2})\s*[x×*]\s*)?(\d{1,2})\/(2|4|8)(?:\s*\(\s*([\d\s+]+)\s*\))?/g;
+  const bars = []; let m;
+  while((m = re.exec(str))){
+    const rep = Math.min(16, +(m[1] || 1)), n = +m[2], den = +m[3];
+    if(n < 1 || n > 15) return null;
+    let groups;
+    if(m[4]){
+      groups = m[4].split('+').map(s=>+s.trim()).filter(x=>x>0);
+      if(groups.reduce((a,b)=>a+b,0) !== n) return null;
+    } else if(den === 8){
+      groups = [];
+      let r = n;
+      while(r > 0){ const g = (r === 4 || r === 2) ? 2 : (r === 1 ? 1 : 3); groups.push(g); r -= g; }
+    } else groups = [n];
+    const acc = [];
+    groups.forEach((g,gi)=>{ acc.push(gi===0 ? 2 : 1); for(let i=1;i<g;i++) acc.push(0); });
+    for(let r=0;r<rep && bars.length<64;r++) bars.push({acc, label: n+'/'+den});
+  }
+  return bars.length ? bars : null;
+}
+// ticks per bar across one cycle of the current meter ([4] for plain 4/4)
+function barSeqTicks(){
+  if($('mBeats').value === 'custom')
+    return (metro.bars || [{acc: metro.accents}]).map(b=>b.acc.length);
+  const v = $('mBeats').value;
+  return [v === 'none' ? 4 : METERS[v].length];
+}
+function applyMeterBar(){
+  const b = metro.bars[metro.barIdx];
+  metro.accents = b.acc; metro.beats = b.acc.length;
+  buildDots();
+  $('mBarPos').textContent = metro.bars.length > 1
+    ? `${b.label} · bar ${metro.barIdx+1}/${metro.bars.length}` : '';
+}
 function metroClick(time, level){
   const osc = metro.ctx.createOscillator(), g = metro.ctx.createGain();
   osc.type = 'square';
@@ -2611,23 +2773,34 @@ function metroFlash(beatIdx, level, delayMs){
 }
 function metroScheduler(){
   while(metro.nextTime < metro.ctx.currentTime + metro.AHEAD){
-    const idx = metro.beat % metro.beats;
-    // speed trainer: bump tempo at bar boundaries
-    if(metro.trainer && idx === 0 && metro.beat > 0){
-      metro.barCount++;
-      const barsPer = Math.max(1, +$('tBars').value || 4);
-      if(metro.barCount >= barsPer){
-        metro.barCount = 0;
-        const target = Math.max(30, Math.min(260, +$('tTarget').value || 160));
-        const step = Math.max(1, +$('tStep').value || 4);
-        if(metro.bpm < target) setBpm(Math.min(target, metro.bpm + step));
-        else if(metro.bpm > target) setBpm(Math.max(target, metro.bpm - step));
+    // bar boundary: rotate the meter sequence, run trainer + auto-advance hooks
+    if(metro.beatInBar >= metro.beats){
+      metro.beatInBar = 0;
+      if(metro.bars){
+        metro.barIdx = (metro.barIdx + 1) % metro.bars.length;
+        const delay = (metro.nextTime - metro.ctx.currentTime) * 1000;
+        setTimeout(applyMeterBar, Math.max(delay, 0));
+        const b = metro.bars[metro.barIdx];
+        metro.accents = b.acc; metro.beats = b.acc.length;
       }
+      if(metro.trainer){
+        metro.barCount++;
+        const barsPer = Math.max(1, +$('tBars').value || 4);
+        if(metro.barCount >= barsPer){
+          metro.barCount = 0;
+          const target = Math.max(30, Math.min(260, +$('tTarget').value || 160));
+          const step = Math.max(1, +$('tStep').value || 4);
+          if(metro.bpm < target) setBpm(Math.min(target, metro.bpm + step));
+          else if(metro.bpm > target) setBpm(Math.max(target, metro.bpm - step));
+        }
+      }
+      if(metro.onBar) metro.onBar((metro.nextTime - metro.ctx.currentTime) * 1000);
     }
-    if(idx === 0 && metro.beat > 0 && metro.onBar) metro.onBar((metro.nextTime - metro.ctx.currentTime) * 1000);
+    const idx = metro.beatInBar;
     const level = metro.accents[idx] ?? 0;
     metroClick(metro.nextTime, level);
     metroFlash(idx, level, (metro.nextTime - metro.ctx.currentTime) * 1000);
+    metro.beatInBar++;
     metro.beat++;
     metro.nextTime += 60 / metro.bpm;
   }
@@ -2635,7 +2808,8 @@ function metroScheduler(){
 function metroStart(){
   if(!metro.ctx) metro.ctx = new (window.AudioContext || window.webkitAudioContext)();
   if(metro.ctx.state === 'suspended') metro.ctx.resume();
-  metro.beat = 0;
+  metro.beat = 0; metro.beatInBar = 0;
+  if(metro.bars){ metro.barIdx = 0; applyMeterBar(); }
   metro.nextTime = metro.ctx.currentTime + 0.08;
   metro.timer = setInterval(metroScheduler, metro.LOOKAHEAD_MS);
   metro.playing = true;
@@ -2666,11 +2840,26 @@ $('mSlider').addEventListener('input', e=> setBpm(+e.target.value));
 $('mUp').onclick = ()=> setBpm(metro.bpm + 1);
 $('mDown').onclick = ()=> setBpm(metro.bpm - 1);
 $('mBeats').addEventListener('change', e=>{
+  const custom = e.target.value === 'custom';
+  $('mCustom').style.display = custom ? '' : 'none';
+  if(custom){ applyCustomMeter(); return; }
+  metro.bars = null; metro.barIdx = 0;
+  $('mBarPos').textContent = '';
   metro.accents = METERS[e.target.value] || [2,0,0,0];
   metro.beats = metro.accents.length;
-  metro.beat = 0; metro.barCount = 0;
+  metro.beat = 0; metro.beatInBar = 0; metro.barCount = 0;
   buildDots();
 });
+function applyCustomMeter(){
+  const bars = parseMeterSeq($('mCustom').value);
+  $('mCustom').style.borderColor = bars ? '' : '#e05c5c';
+  if(!bars) return;
+  metro.bars = bars; metro.barIdx = 0;
+  metro.beat = 0; metro.beatInBar = 0; metro.barCount = 0;
+  applyMeterBar();
+  if(typeof generate === 'function' && currentTab === 'ex') generate();   // barlines follow the sequence
+}
+$('mCustom').addEventListener('change', applyCustomMeter);
 $('mTrain').onclick = ()=>{
   metro.trainer = !metro.trainer; metro.barCount = 0;
   $('mTrain').textContent = metro.trainer ? 'Trainer: ON' : 'Trainer: off';
@@ -2769,12 +2958,17 @@ function mergeProgress(a, b){
     const e = out.ear[k];
     out.ear[k] = e ? {c: Math.max(e.c, v.c), t: Math.max(e.t, v.t)} : v;
   }
+  const fseen = new Set();
+  out.favs = [...(a.favs||[]), ...(b.favs||[])]
+    .filter(f=>{ const k = f.v.join('.'); if(fseen.has(k)) return false; fseen.add(k); return true; })
+    .sort((x,y)=> x.t - y.t).slice(-50);
   return out;
 }
 async function pullAndMerge(){
   const {data, error} = await sb.from('progress').select('data').eq('user_id', acctUser.id).maybeSingle();
   if(error){ setSync('Sync failed — check your connection'); return; }
   store.save(mergeProgress(store.load(), (data && data.data) || {}));  // save() also schedules the push back up
+  renderFavChips();
   if(currentTab === 'pg') renderProgress();
 }
 async function loadPlan(){

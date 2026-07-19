@@ -85,6 +85,83 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('prog: jam starts', (await p.locator('#jamBtn').innerText()).includes('■'));
   await p.click('#jamBtn');
 
+  // meter sequences: parser, UI wiring, live bar rotation
+  const ms = await p.evaluate(() => {
+    const a = parseMeterSeq('3x5/8 + 7/8');
+    const b = parseMeterSeq('7/8(2+2+3)');
+    const c = parseMeterSeq('4/4 + 6/8');
+    return {
+      aLens: a && a.map(x => x.acc.length), aLabel: a && a[3].label,
+      bAcc: b && b[0].acc.join(''),
+      cLens: c && c.map(x => x.acc.length),
+      badSum: parseMeterSeq('7/8(3+3)'), badNoise: parseMeterSeq('hello'),
+    };
+  });
+  assert('meter: 3x5/8+7/8 → [5,5,5,7]', JSON.stringify(ms.aLens) === '[5,5,5,7]' && ms.aLabel === '7/8');
+  assert('meter: 7/8(2+2+3) accents 2010100', ms.bAcc === '2010100');
+  assert('meter: mixed denominators parse', JSON.stringify(ms.cLens) === '[4,6]');
+  assert('meter: wrong group sum and garbage rejected', ms.badSum === null && ms.badNoise === null);
+
+  await p.click('.tabbtn[data-tab="ex"]');
+  await p.selectOption('#mBeats', 'custom');
+  await p.fill('#mCustom', '5/8+7/8');
+  await p.dispatchEvent('#mCustom', 'change');
+  const seqState = await p.evaluate(() => ({
+    bars: metro.bars && metro.bars.length, ticks: barSeqTicks(),
+    summary: $('summary').textContent,
+  }));
+  assert('meter: custom seq applied (bars=' + seqState.bars + ', ticks=' + JSON.stringify(seqState.ticks) + ')',
+    seqState.bars === 2 && JSON.stringify(seqState.ticks) === '[5,7]');
+  assert('meter: summary shows custom meter', seqState.summary.includes('5/8+7/8'));
+  await p.evaluate(() => { setBpm(240); metroStart(); });
+  await p.waitForTimeout(2200);   // bar of 5 at 240bpm = 1.25s → should be in bar 2
+  const barIdx = await p.evaluate(() => { const i = metro.barIdx; metroStop(); setBpm(80); return i; });
+  assert('meter: metronome rotates bars (barIdx=' + barIdx + ')', barIdx >= 1);
+  await p.selectOption('#mBeats', '4/4');
+
+  // swing: toggle + swung playback highlight still tracks
+  await p.click('#mSwing');
+  assert('swing: toggle turns on', (await p.locator('#mSwing').innerText()).includes('ON'));
+  await p.selectOption('#selNV', 'eighth');
+  await p.waitForTimeout(300);
+  await p.click('.keyblock .pbtn');
+  await p.waitForTimeout(4200);
+  const swIdx = await p.evaluate(() => [...document.querySelectorAll('.keyblock .nn')].findIndex(e => e.classList.contains('hl')));
+  assert('swing: highlight tracks swung 8ths (idx ' + swIdx + ')', swIdx >= 0);
+  await p.click('.keyblock .pbtn');
+  await p.click('#mSwing');
+  await p.selectOption('#selNV', 'quarter');
+  await p.waitForTimeout(300);
+
+  // favorites: save, apply, delete, persist across reload
+  await p.click('#favBtn');
+  assert('fav: chip appears after save', (await p.locator('#favChips .chip').count()) === 1);
+  const savedQual = await p.evaluate(() => selQual.value);
+  await p.click('#diceChip'); await p.waitForTimeout(150);
+  await p.click('#favBtn');
+  assert('fav: second save', (await p.locator('#favChips .chip').count()) === 2);
+  await p.locator('#favChips .chip').last().click();   // last = oldest (first saved)
+  await p.waitForTimeout(150);
+  assert('fav: clicking chip restores exercise', (await p.evaluate(() => selQual.value)) === savedQual);
+  await p.reload(); await p.waitForTimeout(1200);
+  assert('fav: chips persist after reload', (await p.locator('#favChips .chip').count()) === 2);
+  await p.locator('#favChips .fx').first().click();
+  assert('fav: delete removes chip', (await p.locator('#favChips .chip').count()) === 1);
+
+  // jam styles: every style schedules without errors
+  await p.click('.tabbtn[data-tab="prog"]');
+  await p.click('#progChips .dicechip');
+  await p.waitForTimeout(200);
+  for (const style of ['rock', 'swing', 'shuffle', 'bossa', 'funk']) {
+    await p.selectOption('#jamStyle', style);
+    await p.click('#jamBtn');
+    await p.waitForTimeout(500);
+    const on = (await p.locator('#jamBtn').innerText()).includes('■');
+    await p.click('#jamBtn');
+    assert('jam style ' + style + ' runs', on);
+  }
+  await p.click('.tabbtn[data-tab="ex"]');
+
   // voicings: dice keeps string set consistent with type; grips keyboard-accessible
   await p.click('.tabbtn[data-tab="voic"]');
   for (let i = 0; i < 4; i++) {
