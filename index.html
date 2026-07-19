@@ -21,6 +21,7 @@
     --accent:#e8a33d; --accent2:#5ab0f0; --border:#333846; --tab:#cdd3e0;
   }
   *{box-sizing:border-box}
+  :focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
   body{margin:0;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;padding:24px 16px 110px}
   .wrap{max-width:960px;margin:0 auto}
   h1{font-size:26px;margin:0 0 4px}
@@ -237,12 +238,12 @@
   <p class="sub">Describe an exercise and get tablature. Standard tuning (EADGBE).</p>
 
   <div class="tabbar">
-    <button class="tabbtn active" data-tab="ex"><svg class="ticon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/></svg><span class="tl">Exercises</span><span class="ts">Exercises</span></button>
-    <button class="tabbtn" data-tab="stack"><svg class="ticon" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="8.5" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="14" width="16" height="3" rx="1" fill="currentColor"/></svg><span class="tl">Chord stacking</span><span class="ts">Stack</span></button>
-    <button class="tabbtn" data-tab="prog"><svg class="ticon" viewBox="0 0 20 20"><circle cx="4" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="10" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/></svg><span class="tl">Progressions</span><span class="ts">Prog</span></button>
-    <button class="tabbtn" data-tab="voic"><svg class="ticon" viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="3" y="11" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="11" width="6" height="6" rx="1" fill="currentColor"/></svg><span class="tl">Voicings</span><span class="ts">Voicings</span></button>
-    <button class="tabbtn" data-tab="ear"><svg class="ticon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="currentColor"/></svg><span class="tl">Ear training</span><span class="ts">Ear</span></button>
-    <button class="tabbtn" data-tab="pg"><svg class="ticon" viewBox="0 0 20 20"><rect x="3" y="11" width="4" height="7" fill="currentColor"/><rect x="8" y="7" width="4" height="11" fill="currentColor"/><rect x="13" y="2" width="4" height="16" fill="currentColor"/></svg><span class="tl">Progress</span><span class="ts">Progress</span></button>
+    <button class="tabbtn active" data-tab="ex"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/></svg><span class="tl">Exercises</span><span class="ts">Exercises</span></button>
+    <button class="tabbtn" data-tab="stack"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="8.5" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="14" width="16" height="3" rx="1" fill="currentColor"/></svg><span class="tl">Chord stacking</span><span class="ts">Stack</span></button>
+    <button class="tabbtn" data-tab="prog"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="4" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="10" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/></svg><span class="tl">Progressions</span><span class="ts">Prog</span></button>
+    <button class="tabbtn" data-tab="voic"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="3" y="11" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="11" width="6" height="6" rx="1" fill="currentColor"/></svg><span class="tl">Voicings</span><span class="ts">Voicings</span></button>
+    <button class="tabbtn" data-tab="ear"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="currentColor"/></svg><span class="tl">Ear training</span><span class="ts">Ear</span></button>
+    <button class="tabbtn" data-tab="pg"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="3" y="11" width="4" height="7" fill="currentColor"/><rect x="8" y="7" width="4" height="11" fill="currentColor"/><rect x="13" y="2" width="4" height="16" fill="currentColor"/></svg><span class="tl">Progress</span><span class="ts">Progress</span></button>
   </div>
 
   <div id="viewEx">
@@ -322,11 +323,11 @@
   </div>
   <button id="custBtn">Customize exercise &#8964;</button>
 
-  <p id="summary"></p>
+  <p id="summary" aria-live="polite"></p>
   <p id="techTip" style="display:none"></p>
   <div class="toolrow">
     <button id="akBtn" title="Advance to the next key automatically as the metronome plays">Auto-advance: off</button>
-    <input id="akBars" type="number" min="1" max="99" value="4" title="Bars per key (auto-set from the exercise length; edit to override)">
+    <input id="akBars" type="number" min="1" max="99" value="4" aria-label="Bars per key" title="Bars per key (auto-set from the exercise length; edit to override)">
     <button id="loopBtn" title="Loop playback">Loop: off</button>
     <button id="droneBtn" title="Sustain the root note as a drone">Drone: C</button>
     <button id="logBtn" title="Save this exercise + current tempo to your practice log">✓ Log @ 80</button>
@@ -436,7 +437,7 @@
     </div>
 
     <div class="keyblock" id="progBlock" style="display:none">
-      <div class="keyhead"><span class="keyname" id="progName"></span><button class="pbtn" id="progPlay">▶</button><button id="loopBtn2" class="pbtn" style="width:auto;padding:0 8px">Loop: off</button><button id="jamBtn" class="pbtn" style="width:auto;padding:0 10px" title="Looping backing track: drums, bass, comping — solo over it">Jam ▶</button></div>
+      <div class="keyhead"><span class="keyname" id="progName"></span><button class="pbtn" id="progPlay" aria-label="Play progression">▶</button><button id="loopBtn2" class="pbtn" style="width:auto;padding:0 8px">Loop: off</button><button id="jamBtn" class="pbtn" style="width:auto;padding:0 10px" title="Looping backing track: drums, bass, comping — solo over it">Jam ▶</button></div>
       <div class="notation" id="progOut"></div>
     </div>
   </div>
@@ -457,7 +458,7 @@
     <div class="shapes" id="voicOut" style="border:none;flex-wrap:wrap"></div>
 
     <div class="hgbox" style="margin-top:14px">
-      <div class="keyhead"><span class="keyname">Voicing drill — up the neck</span><button class="pbtn" id="vdPlay" title="Strum through the sequence, 2 beats per chord, at metronome tempo">▶</button><button id="loopBtn3" class="pbtn" style="width:auto;padding:0 8px">Loop: off</button></div>
+      <div class="keyhead"><span class="keyname">Voicing drill — up the neck</span><button class="pbtn" id="vdPlay" title="Strum through the sequence, 2 beats per chord, at metronome tempo" aria-label="Play voicing drill">▶</button><button id="loopBtn3" class="pbtn" style="width:auto;padding:0 8px">Loop: off</button></div>
       <p class="sub" style="margin-bottom:10px">Uses the voicing type and string set selected above. Play each grip in time; the sequence climbs the neck.</p>
       <div class="controls" style="margin-bottom:10px">
         <div class="ctl"><label>Drill</label><select id="vdMode">
@@ -527,7 +528,7 @@
         <div id="eScore">0 / 0 · streak 0</div>
       </div>
       <div id="eChoices"></div>
-      <div id="eMsg">Press “New question” to start. Identify what you hear.</div>
+      <div id="eMsg" aria-live="polite">Press “New question” to start. Identify what you hear.</div>
     </div>
   </div>
 
@@ -541,17 +542,17 @@
 </div>
 
 <div id="metro">
-  <button id="mPlay" title="Start/stop metronome">&#9654;</button>
+  <button id="mPlay" title="Start/stop metronome" aria-label="Start or stop metronome">&#9654;</button>
   <div class="mgrp">
-    <button class="mbtn" id="mDown">&minus;</button>
+    <button class="mbtn" id="mDown" aria-label="Slower">&minus;</button>
     <div id="mBpmVal">80<small>BPM</small></div>
-    <button class="mbtn" id="mUp">+</button>
+    <button class="mbtn" id="mUp" aria-label="Faster">+</button>
   </div>
-  <input id="mSlider" type="range" min="30" max="260" value="80">
+  <input id="mSlider" type="range" min="30" max="260" value="80" aria-label="Tempo">
   <button class="mbtn" id="mTap">Tap</button>
-  <button class="mbtn" id="mMore" title="More metronome controls">&#8943;</button>
+  <button class="mbtn" id="mMore" title="More metronome controls" aria-label="More metronome controls">&#8943;</button>
   <div class="mgrp" id="beatsGrp">
-    <select id="mBeats">
+    <select id="mBeats" aria-label="Time signature">
       <option value="4/4" selected>4/4</option>
       <option value="3/4">3/4</option>
       <option value="2/4">2/4</option>
@@ -564,13 +565,13 @@
       <option value="11/8">11/8 (3+3+3+2)</option>
       <option value="none">No accent</option>
     </select>
-    <div id="mDots"></div>
+    <div id="mDots" aria-hidden="true"></div>
   </div>
   <div class="mgrp" id="trainerGrp">
     <button class="mbtn" id="mTrain" title="Auto-increase tempo" style="width:auto;padding:0 10px">Trainer: off</button>
-    <span class="tlbl">to</span><input id="tTarget" type="number" min="40" max="260" value="160">
-    <span class="tlbl">+</span><input id="tStep" type="number" min="1" max="20" value="4">
-    <span class="tlbl">every</span><input id="tBars" type="number" min="1" max="16" value="4"><span class="tlbl">bars</span>
+    <span class="tlbl">to</span><input id="tTarget" type="number" min="40" max="260" value="160" aria-label="Trainer target BPM">
+    <span class="tlbl">+</span><input id="tStep" type="number" min="1" max="20" value="4" aria-label="Trainer BPM increase">
+    <span class="tlbl">every</span><input id="tBars" type="number" min="1" max="16" value="4" aria-label="Trainer bars between increases"><span class="tlbl">bars</span>
   </div>
 </div>
 
@@ -1486,6 +1487,7 @@ function generate(){
     head.innerHTML = `<span class="keyname">${ex.name}</span>`;
     const pb=document.createElement('button'); pb.className='pbtn'; pb.textContent='▶';
     pb.title='Play this exercise (8th notes at metronome tempo, 4-click count-in)';
+    pb.setAttribute('aria-label', 'Play ' + ex.name);
     pb.onclick = ()=>{ if(playState && playState.btn===pb) stopPlayback(); else playNotes(ex.groups.flat(), pb); };
     head.appendChild(pb);
     div.appendChild(head);
@@ -1667,6 +1669,11 @@ document.querySelectorAll('.tabbtn').forEach(b=> b.onclick = ()=>{
   if(b.dataset.tab==='pg') renderProgress();
   stateToHash();
 });
+// a11y: give every .ctl select/input its label's text as an accessible name
+document.querySelectorAll('.ctl').forEach(c=>{
+  const l=c.querySelector('label'), s=c.querySelector('select,input');
+  if(l && s && !s.hasAttribute('aria-label')) s.setAttribute('aria-label', l.textContent);
+});
 // mobile: exercise controls open as a bottom sheet
 const sheet = on => document.body.classList.toggle('sheet', on);
 $('custBtn').onclick = ()=> sheet(true);
@@ -1780,8 +1787,18 @@ function pluckBuffer(ctx, freq, dur){
   const buf = ctx.createBuffer(1, N, sr);
   const d = buf.getChannelData(0);
   const P = Math.max(2, Math.round(sr/freq));
-  for(let i=0;i<P;i++) d[i] = Math.random()*2-1;
-  for(let i=P;i<N;i++) d[i] = 0.996 * 0.5 * (d[i-P] + d[i-P+1]);
+  // pick-style excitation: lowpassed noise, so low strings thump instead of hissing
+  const k = 1 - Math.exp(-6.283 * Math.min(6000, freq*7) / sr);
+  let lp = 0, mean = 0, peak = 0;
+  for(let i=0;i<P;i++){ lp += k*((Math.random()*2-1) - lp); d[i] = lp; mean += lp; }
+  mean /= P;
+  for(let i=0;i<P;i++){ d[i] -= mean; peak = Math.max(peak, Math.abs(d[i])); }
+  for(let i=0;i<P;i++) d[i] /= peak || 1;
+  // per-period loss set from pitch so every note rings for ~the same time,
+  // instead of 0.996-per-period which let bass notes buzz ~6x longer than treble
+  const t60 = freq < 110 ? 1.4 : 2.2;
+  const rho = Math.pow(0.001, 1/(freq*t60));
+  for(let i=P;i<N;i++) d[i] = rho * 0.5 * (d[i-P] + d[i-P+1]);
   if(pluckCache.size > 200) pluckCache.clear();
   pluckCache.set(key, buf);
   return buf;
@@ -2058,12 +2075,13 @@ function scheduleJamPass(ctx, g, chords, t0){
     drumNoise(ctx, bt+3*spb, g, 1600, 0.28, 0.12);
     for(let e=0;e<8;e++) drumNoise(ctx, bt+e*spb/2, g, 8000, e%2?0.06:0.1, 0.04);
     // bass: root, fifth, chromatic approach to the next root
-    const rootM = 28 + ((c.pc - 4 + 12) % 12);
+    // E2-based, not E1 — phone speakers can't reproduce 41Hz, only its buzz
+    const rootM = 40 + ((c.pc - 4 + 12) % 12);
     pluck(ctx, rootM, bt, spb*1.7, 0.30, g);
     const fifth = QUALITIES[c.qual].intervals.find(v=>v===7||v===6||v===8) ?? 7;
     pluck(ctx, rootM+fifth, bt+2*spb, spb*1.3, 0.26, g);
     const next = chords[(bi+1) % chords.length];
-    const nextRoot = 28 + ((next.pc - 4 + 12) % 12);
+    const nextRoot = 40 + ((next.pc - 4 + 12) % 12);
     pluck(ctx, nextRoot + (nextRoot >= rootM ? -1 : 1), bt+3.5*spb, spb*0.5, 0.22, g);
     // comping
     let cr = 52 + c.pc; if(cr > 63) cr -= 12;
@@ -2291,6 +2309,12 @@ function vFillSets(){
     const o=document.createElement('option'); o.value=i; o.textContent=s.label; sel.appendChild(o);
   });
 }
+// a11y: clickable grip divs get button semantics + keyboard activation
+function gripA11y(cell, label){
+  cell.setAttribute('role','button'); cell.tabIndex = 0;
+  cell.setAttribute('aria-label', label);
+  cell.onkeydown = e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); cell.onclick(); } };
+}
 function renderVoicings(){
   vFillSets();
   const rootPc=+$('vRoot').value, q=$('vQual').value, type=$('vType').value;
@@ -2304,6 +2328,7 @@ function renderVoicings(){
     cell.className = 'shape vgrip';
     cell.title = 'Click to hear';
     cell.innerHTML = shapeSVG({label:g.inv, lo:Math.max(g.lo,0), hi:Math.max(g.hi, g.lo+3), notes:g.notes});
+    gripA11y(cell, 'Play voicing ' + g.inv);
     cell.onclick = ()=>{
       const ctx = ensureAudio(); const t = ctx.currentTime + 0.05;
       g.notes.forEach((n,i)=> pluck(ctx, STRINGS[n.s]+n.f, t + i*0.05, 1.8, 0.16));
@@ -2398,6 +2423,7 @@ function renderVoicingDrill(){
     cell.title = 'Click to hear';
     cell.innerHTML = shapeSVG({label: it.label, lo: Math.max(it.grip.pos,0), hi: Math.max(it.grip.hi, it.grip.pos+3), notes: it.grip.notes}) +
       `<div class="vcap">${it.sub}</div>`;
+    gripA11y(cell, 'Play ' + it.label + ' ' + it.sub);
     cell.onclick = ()=>{
       const ctx = ensureAudio(); const t = ctx.currentTime + 0.05;
       it.grip.notes.forEach((n,k)=> pad(ctx, STRINGS[n.s]+n.f, t + k*0.03, 1.6, 0.09));

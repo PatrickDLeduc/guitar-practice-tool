@@ -1,0 +1,14 @@
+name: CI
+on:
+  push:
+    branches: [main, accounts]
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest   # ships with Chrome, which playwright-core reuses
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install --no-save playwright-core
+      - run: python3 -m http.server 8741 &
+      - run: node tests/smoke.js
