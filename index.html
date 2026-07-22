@@ -1497,7 +1497,7 @@ function polySetRatio(a, b){
     polyRebuild();
     poly.eventIdx = 0; poly.cycleCount = 0;
     poly.cycleStartTime = ctx.currentTime + 0.05;
-  } else if(poly.ctx) polyRebuild();
+  } else if(poly.ctx){ polyRebuild(); poly.eventIdx = 0; poly.cycleCount = 0; }
   if($('polyEventTable').style.display !== 'none') polyRenderEventTable();
   polySavePrefs();
 }
@@ -1950,7 +1950,9 @@ function renderPoly(){
   polyRenderAnalysis();
   polyRenderShapes();
 }
-function polyTabLeave(){}
+function polyTabLeave(){
+  if(poly.playing) polyPause();
+}
 
 // ---- CAGED SVG rendering ----
 const IV_COLORS = {0:'#e8a33d', 3:'#5ab0f0', 4:'#5ab0f0', 10:'#d97fb8', 11:'#d97fb8'};

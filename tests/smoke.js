@@ -270,6 +270,13 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.click('#polyStop');
 
   await p.click('.tabbtn[data-tab="poly"]');
+  await p.click('#polyPlay');
+  await p.waitForTimeout(200);
+  await p.click('.tabbtn[data-tab="ex"]');
+  const stopped = await p.evaluate(() => ({ playing: poly.playing, timer: poly.timer }));
+  assert('poly: switching tabs away stops playback and clears the scheduler', !stopped.playing && stopped.timer === null);
+
+  await p.click('.tabbtn[data-tab="poly"]');
   await p.click('#polyMuteA');
   const m1 = await p.evaluate(() => poly.muteA);
   assert('poly: mute A toggles state', m1 === true);
@@ -464,6 +471,8 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.click('#diceChip');
   await p.waitForTimeout(200);
   assert('mobile: exercise dice works', (await p.locator('.keyblock').count()) > 0);
+  await p.click('.tabbtn[data-tab="poly"]');
+  assert('mobile: poly tab opens and shows ratio controls', await p.locator('#polyA').isVisible());
   await p.context().close();
 
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'no page errors');
