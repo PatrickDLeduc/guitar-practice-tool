@@ -498,12 +498,7 @@
     <div class="controls">
       <div class="ctl"><label>Root</label><select id="vRoot"></select></div>
       <div class="ctl"><label>Chord</label><select id="vQual"></select></div>
-      <div class="ctl"><label>Voicing</label><select id="vType">
-        <option value="drop2" selected>Drop 2</option>
-        <option value="drop3">Drop 3</option>
-        <option value="shell">Shell (R-3-7 / R-7-3)</option>
-        <option value="triad">Triad (3-note)</option>
-      </select></div>
+      <div class="ctl"><label>Voicing</label><select id="vType"></select></div>
       <div class="ctl"><label>String set</label><select id="vSet"></select></div>
     </div>
     <p class="sub" id="voicSub"></p>
@@ -1296,24 +1291,27 @@ const SEVENTH_QUALS = {
   '0,3,6,9':'dim7', '0,3,7,11':'minmaj7', '0,4,8,11':'maj7s5',
 };
 const ROMAN_BASE = {0:'I',1:'♭II',2:'II',3:'♭III',4:'III',5:'IV',6:'♭V',7:'V',8:'♭VI',9:'VI',10:'♭VII',11:'VII'};
+const TRIAD_QUALS_BY_IV = {'0,4,7':'maj', '0,3,7':'min', '0,3,6':'dim', '0,4,8':'aug'};
 // Harmonize each degree of a 7-note mode (stacked 3rds within the mode).
-function harmonizeMode(keyPc, modeKey){
+// size=4 gives 7th chords (default); size=3 gives plain triads.
+function harmonizeMode(keyPc, modeKey, size){
+  size = size || 4;
   const m = QUALITIES[modeKey].intervals;   // must be 7 notes
   const out = [];
   for(let d=0; d<7; d++){
     const rootIv = m[d];
-    const ivs = [0,1,2,3].map(k=>{
+    const ivs = Array.from({length:size}, (_,k)=>k).map(k=>{
       const x = m[(d + 2*k) % 7];
       return ((x - rootIv) % 12 + 12) % 12;
     }).sort((a,b)=>a-b);
-    const qual = SEVENTH_QUALS[ivs.join(',')] || 'maj7';
+    const qual = size === 3 ? (TRIAD_QUALS_BY_IV[ivs.join(',')] || 'maj') : (SEVENTH_QUALS[ivs.join(',')] || 'maj7');
     const pc = (keyPc + rootIv) % 12;
     const off = ((pc - keyPc) % 12 + 12) % 12;
     let roman = ROMAN_BASE[off];
-    const minorish = ['min7','m7b5','dim7','minmaj7'].includes(qual);
+    const minorish = size === 3 ? ['min','dim'].includes(qual) : ['min7','m7b5','dim7','minmaj7'].includes(qual);
     if(minorish) roman = roman.replace(/(I|V)+$/, s=>s.toLowerCase());
-    if(qual==='m7b5') roman += 'ø';
-    else if(qual==='dim7') roman += '°';
+    if(size === 3){ if(qual==='dim') roman += '°'; }
+    else { if(qual==='m7b5') roman += 'ø'; else if(qual==='dim7') roman += '°'; }
     out.push({degree:d+1, pc, qual, roman});
   }
   return out;
@@ -3121,8 +3119,7 @@ const VOICE_SETS = {
     {label:'strings 6-5-4 (bottom)', set:[0,1,2]},
   ],
 };
-const VOIC_QUALS = ['maj7','dom7','min7','m7b5','dim7','minmaj7','maj6','min6','maj7s5'];
-const TRIAD_QUALS = ['maj','min','dim','aug'];
+const VOIC_QUALS = ['maj7','dom7','min7','m7b5','dim7','minmaj7','maj6','min6','maj7s5','maj','min','dim','aug'];
 function placeVoicing(rootPc, stack, set){
   let best = null, bestScore = 1e9;
   for(let R0=24; R0<=84; R0++){
@@ -3166,14 +3163,21 @@ function buildGrips(rootPc, qualKey, type, setDef){
 }
 FLAT_NAMES.forEach((n,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=n; $('vRoot').appendChild(o); });
 VOIC_QUALS.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=QUALITIES[k].label; $('vQual').appendChild(o); });
-$('vQual').dataset.type = 'chord';
-function vFillQuals(){
-  const sel = $('vQual'), key = $('vType').value === 'triad' ? 'triad' : 'chord';
+// The Voicing dropdown's choices depend on the selected Chord's note count:
+// a triad only has one sensible voicing style (close position on 3 strings),
+// while a 4-note chord offers real voicing techniques.
+const VTYPE_OPTS = {
+  chord4: [['drop2','Drop 2'],['drop3','Drop 3'],['shell','Shell (R-3-7 / R-7-3)']],
+  triad:  [['triad','Close voicing']],
+};
+function vFillTypes(){
+  const sel = $('vType'), isTriad = QUALITIES[$('vQual').value].intervals.length === 3;
+  const key = isTriad ? 'triad' : 'chord4';
   if(sel.dataset.type === key) return;
   sel.dataset.type = key;
   sel.innerHTML = '';
-  (key === 'triad' ? TRIAD_QUALS : VOIC_QUALS).forEach(k=>{
-    const o=document.createElement('option'); o.value=k; o.textContent=QUALITIES[k].label; sel.appendChild(o);
+  VTYPE_OPTS[key].forEach(([v,label])=>{
+    const o=document.createElement('option'); o.value=v; o.textContent=label; sel.appendChild(o);
   });
 }
 function vFillSets(){
@@ -3192,7 +3196,7 @@ function gripA11y(cell, label){
   cell.onkeydown = e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); cell.onclick(); } };
 }
 function renderVoicings(){
-  vFillQuals();
+  vFillTypes();
   vFillSets();
   const rootPc=+$('vRoot').value, q=$('vQual').value, type=$('vType').value;
   const setDef = VOICE_SETS[type][+$('vSet').value || 0];
@@ -3258,10 +3262,6 @@ function allGrips(rootPc, qualKey, type, setDef){
 let vdSeq = [];
 function renderVoicingDrill(){
   const type = $('vType').value, setDef = VOICE_SETS[type][+$('vSet').value || 0];
-  // "Diatonic chords in a key" harmonizes in 7th chords (4-note stacks) — not
-  // meaningful for 3-note triad voicings, so fall back to the inversions drill.
-  $('vdMode').querySelector('option[value="key"]').disabled = (type === 'triad');
-  if(type === 'triad' && $('vdMode').value === 'key'){ $('vdMode').value = 'inv'; }
   const rootPc = +$('vRoot').value, mode = $('vdMode').value, dir = $('vdDir').value;
   const NM = SHARP_KEYS.has(rootPc) ? SHARP_NAMES : FLAT_NAMES;
   $('vdScaleWrap').style.display = mode==='key' ? '' : 'none';
@@ -3271,7 +3271,7 @@ function renderVoicingDrill(){
     seq = allGrips(rootPc, q, type, setDef).map(g=>({
       label: NM[rootPc] + (CHORD_SYM[q] ?? ''), sub: g.inv, grip: g}));
   } else {
-    const chords = harmonizeMode(rootPc, $('vdScale').value);
+    const chords = harmonizeMode(rootPc, $('vdScale').value, type==='triad' ? 3 : 4);
     // shells: use both root-6th and root-5th forms so the drill stays in position
     const setDefs = type === 'shell' ? VOICE_SETS.shell : [setDef];
     const gripsFor = (pc, q)=> setDefs.flatMap(sd=> allGrips(pc, q, type, sd)).sort((a,b)=>a.pos-b.pos);
@@ -3346,13 +3346,13 @@ $('vdPlay').onclick = ()=>{
 };
 $('loopBtn3').onclick = ()=> setLoop(!playLoop);
 ['vRoot','vQual','vType','vSet'].forEach(id=> $(id).addEventListener('change', ()=>{ renderVoicings(); renderVoicingDrill(); }));
-// 🎲 random voicing: vSet options depend on vType, so refill before picking one
+// 🎲 random voicing: vType/vSet options depend on vQual, so refill before picking
 $('vDice').onclick=()=>{
   const pick=a=>a[Math.floor(Math.random()*a.length)];
   $('vRoot').value=Math.floor(Math.random()*12);
-  $('vType').value=pick(['drop2','drop3','shell','triad']);
-  vFillQuals();
-  $('vQual').value=pick($('vType').value==='triad' ? TRIAD_QUALS : VOIC_QUALS);
+  $('vQual').value=pick(VOIC_QUALS);
+  vFillTypes();
+  $('vType').value=pick([...$('vType').options].map(o=>o.value));
   vFillSets();
   $('vSet').value=Math.floor(Math.random()*$('vSet').options.length);
   renderVoicings(); renderVoicingDrill();
