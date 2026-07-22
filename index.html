@@ -558,6 +558,24 @@
   </div>
 
   <div id="viewPoly" style="display:none">
+    <div class="chips" id="polyPresets">
+      <button class="chip" data-a="2" data-b="3">2:3</button>
+      <button class="chip" data-a="3" data-b="4">3:4</button>
+      <button class="chip" data-a="4" data-b="5">4:5</button>
+      <button class="chip" data-a="5" data-b="7">5:7</button>
+      <button class="chip" data-a="7" data-b="8">7:8</button>
+    </div>
+    <div class="controls">
+      <div class="ctl"><label for="polyA">Rhythm A</label><input id="polyA" type="number" min="1" max="16" value="3"></div>
+      <div class="ctl"><label for="polyB">Rhythm B</label><input id="polyB" type="number" min="1" max="16" value="4"></div>
+      <div class="ctl"><label>&nbsp;</label><button id="polySwap" aria-label="Swap rhythm A and B">⇄ Swap</button></div>
+    </div>
+    <p class="sub" id="polySameNote" style="display:none">A equals B — this plays both rhythms in unison, not a polyrhythm.</p>
+
+    <div class="hgbox">
+      <div class="keyhead"><span class="keyname" id="polyRatioTitle">3:4</span></div>
+      <pre id="polyPatternText" class="sub" style="font-family:monospace;white-space:pre-wrap;color:var(--text)"></pre>
+    </div>
   </div>
 
   <p class="sub" style="margin:34px 0 0;text-align:center;font-size:12px">
@@ -1368,9 +1386,39 @@ function polyEvents(a, b, cycleMs, phaseMsB){
   return evs;
 }
 
-// ---- Polyrhythm UI (filled in by later tasks) ----
+// ---- Polyrhythm state ----
+const poly = {
+  a: 3, b: 4,
+};
+function polySetRatio(a, b){
+  poly.a = Math.max(1, Math.min(16, Math.round(a) || 1));
+  poly.b = Math.max(1, Math.min(16, Math.round(b) || 1));
+  $('polyA').value = poly.a; $('polyB').value = poly.b;
+  $('polySameNote').style.display = poly.a === poly.b ? '' : 'none';
+  polyRenderAnalysis();
+}
+function polyRenderAnalysis(){
+  const { a, b } = poly;
+  const g = gcdOf(a, b), lcm = lcmOf(a, b), simp = simplifyRatio(a, b);
+  const pat = polyPattern(a, b);
+  $('polyRatioTitle').textContent = `${a}:${b}`;
+  const simpNote = (simp.a !== a || simp.b !== b) ? ` (simplifies to ${simp.a}:${simp.b})` : '';
+  $('polyPatternText').textContent =
+    `${a}:${b}${simpNote}\nGCD ${g} · LCM ${lcm} · ${lcm} shared subdivisions\n\n` +
+    `Rhythm A:\n${pat.lineA}\n\nRhythm B:\n${pat.lineB}\n\nCombined (◎ = both, A/B = single, . = rest):\n${pat.lineC}`;
+}
 let polyInited = false;
-function renderPoly(){ polyInited = true; }
+function renderPoly(){
+  if(!polyInited){
+    polyInited = true;
+    document.querySelectorAll('#polyPresets .chip').forEach(btn =>
+      btn.onclick = () => polySetRatio(+btn.dataset.a, +btn.dataset.b));
+    $('polyA').addEventListener('change', () => polySetRatio(+$('polyA').value, poly.b));
+    $('polyB').addEventListener('change', () => polySetRatio(poly.a, +$('polyB').value));
+    $('polySwap').onclick = () => polySetRatio(poly.b, poly.a);
+  }
+  polyRenderAnalysis();
+}
 function polyTabLeave(){}
 
 // ---- CAGED SVG rendering ----

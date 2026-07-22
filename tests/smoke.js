@@ -231,6 +231,20 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
 
   await p.click('.tabbtn[data-tab="poly"]');
   assert('poly: tab switches panel visible', await p.locator('#viewPoly').isVisible());
+
+  await p.click('#polyPresets .chip[data-a="5"][data-b="7"]');
+  const r1 = await p.evaluate(() => ({ a: poly.a, b: poly.b, aVal: +$('polyA').value, bVal: +$('polyB').value }));
+  assert('poly: preset 5:7 sets ratio and inputs', r1.a === 5 && r1.b === 7 && r1.aVal === 5 && r1.bVal === 7);
+  await p.click('#polySwap');
+  const r2 = await p.evaluate(() => ({ a: poly.a, b: poly.b }));
+  assert('poly: swap flips ratio', r2.a === 7 && r2.b === 5);
+  await p.fill('#polyA', '99');
+  await p.dispatchEvent('#polyA', 'change');
+  const r3 = await p.evaluate(() => poly.a);
+  assert('poly: ratio input clamps to max 16', r3 === 16);
+  const analysis = await p.evaluate(() => $('polyPatternText').textContent);
+  assert('poly: analysis panel shows LCM and pattern text', analysis.includes('LCM') && analysis.includes('X'));
+
   await p.click('.tabbtn[data-tab="ex"]');
 
   await p.context().close();
