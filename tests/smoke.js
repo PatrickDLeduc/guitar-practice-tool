@@ -328,6 +328,33 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   const headerText = await p.evaluate(() => $('polyEventTable').textContent);
   assert('poly: event table has expected columns', headerText.includes('%') && headerText.includes('Shared'));
 
+  // practice modes: random challenge bounds, alternating focus cadence, progressive tempo cap
+  const rc = await p.evaluate(() => {
+    const results = [];
+    for(let i = 0; i < 50; i++){
+      const ch = generateRandomChallenge({ min: 3, max: 8, maxLcm: 20, minBpm: 60, maxBpm: 90, allowReducible: false });
+      results.push({ ...ch, lcm: lcmOf(ch.a, ch.b), gcd: gcdOf(ch.a, ch.b) });
+    }
+    return results;
+  });
+  assert('poly: random challenge stays within min/max/maxLcm/tempo bounds',
+    rc.every(r => r.a >= 3 && r.a <= 8 && r.b >= 3 && r.b <= 8 && r.lcm <= 20 && r.bpm >= 60 && r.bpm <= 90 && r.gcd === 1));
+
+  await p.evaluate(() => { poly.mode = 'alternate'; poly.modeCycles = 2; practiceModeReset(); });
+  const alt = await p.evaluate(() => {
+    const phases = [poly.modeState.phase];
+    for(let i = 1; i <= 5; i++){ practiceModeOnCycle(i); phases.push(poly.modeState.phase); }
+    return phases;
+  });
+  assert('poly: alternating focus cycles a -> b -> both -> a on the configured cadence',
+    JSON.stringify(alt) === JSON.stringify(['a','a','b','b','both','both']));
+
+  await p.evaluate(() => { poly.mode = 'progressive'; poly.modeCycles = 1; poly.modeCfg = { step: 10, maxBpm: 100 }; poly.bpm = 90; practiceModeReset(); });
+  await p.evaluate(() => { practiceModeOnCycle(1); practiceModeOnCycle(2); practiceModeOnCycle(3); });
+  const bpmAfter = await p.evaluate(() => poly.bpm);
+  assert('poly: progressive tempo stops increasing at configured max', bpmAfter === 100);
+  await p.evaluate(() => { poly.mode = 'none'; });
+
   await p.click('.tabbtn[data-tab="ex"]');
 
   await p.context().close();

@@ -627,6 +627,37 @@
       <thead><tr><th>#</th><th>Time (ms)</th><th>% cycle</th><th>A</th><th>B</th><th>Shared</th></tr></thead>
       <tbody></tbody>
     </table>
+
+    <div class="hgbox">
+      <div class="keyhead"><span class="keyname">Practice mode</span></div>
+      <div class="controls">
+        <div class="ctl"><label for="polyMode">Mode</label><select id="polyMode">
+          <option value="none" selected>Listen &amp; follow</option>
+          <option value="isolation">Rhythm isolation</option>
+          <option value="alternate">Alternating focus</option>
+          <option value="progressive">Progressive tempo</option>
+          <option value="random">Random challenge</option>
+        </select></div>
+        <div class="ctl" id="polyModeCyclesWrap"><label for="polyModeCycles">Cycles per phase</label><input id="polyModeCycles" type="number" min="1" max="32" value="4"></div>
+        <div class="ctl" id="polyIsoSideWrap" style="display:none"><label for="polyIsoSide">Fade out</label><select id="polyIsoSide"><option value="a">Rhythm A</option><option value="b">Rhythm B</option></select></div>
+        <div class="ctl" id="polyProgWrap" style="display:none">
+          <label for="polyProgStep">Tempo step</label><select id="polyProgStep"><option value="1">+1</option><option value="2">+2</option><option value="5" selected>+5</option><option value="10">+10</option></select>
+        </div>
+        <div class="ctl" id="polyProgMaxWrap" style="display:none"><label for="polyProgMax">Max BPM</label><input id="polyProgMax" type="number" min="20" max="300" value="160"></div>
+      </div>
+      <div class="controls" id="polyRandWrap" style="display:none">
+        <div class="ctl"><label for="polyRandMin">Min value</label><input id="polyRandMin" type="number" min="1" max="16" value="2"></div>
+        <div class="ctl"><label for="polyRandMax">Max value</label><input id="polyRandMax" type="number" min="1" max="16" value="9"></div>
+        <div class="ctl"><label for="polyRandMaxLcm">Max LCM</label><input id="polyRandMaxLcm" type="number" min="4" max="240" value="40"></div>
+        <div class="ctl"><label for="polyRandMinBpm">Min BPM</label><input id="polyRandMinBpm" type="number" min="20" max="300" value="60"></div>
+        <div class="ctl"><label for="polyRandMaxBpm">Max BPM</label><input id="polyRandMaxBpm" type="number" min="20" max="300" value="120"></div>
+        <div class="ctl"><label><input id="polyRandAllowReducible" type="checkbox"> Allow reducible ratios</label></div>
+        <div class="ctl"><label><input id="polyRandHide" type="checkbox"> Hide ratio until reveal</label></div>
+        <div class="ctl"><label>&nbsp;</label><button id="polyRandGenerate">Generate challenge</button></div>
+        <div class="ctl" id="polyRandRevealWrap" style="display:none"><label>&nbsp;</label><button id="polyRandReveal">Reveal ratio</button></div>
+      </div>
+      <p class="sub" id="polyModeStatus"></p>
+    </div>
   </div>
 
   <p class="sub" style="margin:34px 0 0;text-align:center;font-size:12px">
@@ -1475,6 +1506,62 @@ function polyRenderEventTable(){
   $('polyEventTable').querySelector('tbody').innerHTML = rows;
 }
 
+// ---- Polyrhythm practice modes ----
+function generateRandomChallenge(cfg){
+  let a = cfg.min, b = cfg.min, tries = 0;
+  do {
+    a = cfg.min + Math.floor(Math.random() * (cfg.max - cfg.min + 1));
+    b = cfg.min + Math.floor(Math.random() * (cfg.max - cfg.min + 1));
+    tries++;
+  } while(tries < 300 && (a === b || lcmOf(a, b) > cfg.maxLcm || (!cfg.allowReducible && gcdOf(a, b) !== 1)));
+  const bpm = cfg.minBpm + Math.round(Math.random() * (cfg.maxBpm - cfg.minBpm));
+  return { a, b, bpm };
+}
+Object.assign(poly, { mode: 'none', modeCycles: 4, modeCfg: {}, modeState: {}, phaseMsB: 0 });
+function practiceModeReset(){
+  poly.modeState = { cyclesInPhase: 0, phase: 'a' };
+  poly.muteA = false; poly.muteB = false; poly.volA = +$('polyVolA').value; poly.volB = +$('polyVolB').value;
+  applyPracticeMode();
+}
+function applyPracticeMode(){
+  if(poly.mode === 'isolation'){
+    const side = poly.modeCfg.isolateSide || 'b';
+    const frac = Math.min(1, poly.modeState.cyclesInPhase / Math.max(1, poly.modeCycles));
+    const baseVol = 0.8;
+    if(side === 'a') poly.volA = baseVol * (1 - frac); else poly.volB = baseVol * (1 - frac);
+  } else if(poly.mode === 'alternate'){
+    const phase = poly.modeState.phase;
+    poly.muteA = phase === 'b'; poly.muteB = phase === 'a';
+  }
+  polyRenderModeStatus();
+}
+function practiceModeOnCycle(count){
+  if(poly.mode === 'none' || poly.mode === 'random') return;
+  poly.modeState.cyclesInPhase++;
+  if(poly.mode === 'isolation'){
+    applyPracticeMode();
+  } else if(poly.mode === 'alternate'){
+    if(poly.modeState.cyclesInPhase >= poly.modeCycles){
+      poly.modeState.cyclesInPhase = 0;
+      poly.modeState.phase = poly.modeState.phase === 'a' ? 'b' : poly.modeState.phase === 'b' ? 'both' : 'a';
+      applyPracticeMode();
+    }
+  } else if(poly.mode === 'progressive'){
+    if(poly.modeState.cyclesInPhase >= poly.modeCycles){
+      poly.modeState.cyclesInPhase = 0;
+      const step = poly.modeCfg.step || 5, max = poly.modeCfg.maxBpm || 200;
+      if(poly.bpm < max) polySetTempo(Math.min(max, poly.bpm + step));
+    }
+  }
+  polyRenderModeStatus();
+}
+function polyRenderModeStatus(){
+  if(poly.mode === 'alternate') $('polyModeStatus').textContent = 'Focus: ' + poly.modeState.phase.toUpperCase();
+  else if(poly.mode === 'isolation') $('polyModeStatus').textContent = `Fading ${(poly.modeCfg.isolateSide || 'b').toUpperCase()} — vol A ${poly.volA.toFixed(2)}, vol B ${poly.volB.toFixed(2)}`;
+  else if(poly.mode === 'progressive') $('polyModeStatus').textContent = `Tempo ${poly.bpm} BPM (max ${poly.modeCfg.maxBpm || 200})`;
+  else $('polyModeStatus').textContent = '';
+}
+
 // ---- Polyrhythm playback scheduler ----
 Object.assign(poly, {
   bpm: 90, bpmRef: 'cycle', countIn: false,
@@ -1536,7 +1623,7 @@ function polyScheduler(){
       poly.cycleCount++;
       const boundaryTime = poly.cycleStartTime + poly.cycleCount * poly.cycleMs / 1000;
       const delay = (boundaryTime - poly.ctx.currentTime) * 1000;
-      setTimeout(() => { $('polyCycleCount').textContent = 'Cycle ' + poly.cycleCount; }, Math.max(delay, 0));
+      setTimeout(() => { $('polyCycleCount').textContent = 'Cycle ' + poly.cycleCount; practiceModeOnCycle(poly.cycleCount); }, Math.max(delay, 0));
     }
   }
 }
@@ -1706,6 +1793,33 @@ function renderPoly(){
       $('polyEventTableToggle').textContent = show ? 'Hide event table' : 'Show event table';
       if(show) polyRenderEventTable();
     };
+    $('polyMode').addEventListener('change', () => {
+      poly.mode = $('polyMode').value;
+      $('polyIsoSideWrap').style.display = poly.mode === 'isolation' ? '' : 'none';
+      $('polyProgWrap').style.display = poly.mode === 'progressive' ? '' : 'none';
+      $('polyProgMaxWrap').style.display = poly.mode === 'progressive' ? '' : 'none';
+      $('polyRandWrap').style.display = poly.mode === 'random' ? '' : 'none';
+      $('polyModeCyclesWrap').style.display = poly.mode === 'random' ? 'none' : '';
+      practiceModeReset();
+    });
+    $('polyModeCycles').addEventListener('change', () => { poly.modeCycles = Math.max(1, +$('polyModeCycles').value); });
+    $('polyIsoSide').addEventListener('change', () => { poly.modeCfg.isolateSide = $('polyIsoSide').value; practiceModeReset(); });
+    $('polyProgStep').addEventListener('change', () => { poly.modeCfg.step = +$('polyProgStep').value; });
+    $('polyProgMax').addEventListener('change', () => { poly.modeCfg.maxBpm = +$('polyProgMax').value; });
+    $('polyRandGenerate').onclick = () => {
+      const cfg = {
+        min: +$('polyRandMin').value, max: +$('polyRandMax').value, maxLcm: +$('polyRandMaxLcm').value,
+        minBpm: +$('polyRandMinBpm').value, maxBpm: +$('polyRandMaxBpm').value,
+        allowReducible: $('polyRandAllowReducible').checked,
+      };
+      const ch = generateRandomChallenge(cfg);
+      poly.pendingChallenge = ch;
+      const hide = $('polyRandHide').checked;
+      $('polyRandRevealWrap').style.display = hide ? '' : 'none';
+      if(hide){ $('polyRatioTitle').textContent = '? : ?'; polySetTempo(ch.bpm); }
+      else { polySetRatio(ch.a, ch.b); polySetTempo(ch.bpm); }
+    };
+    $('polyRandReveal').onclick = () => { if(poly.pendingChallenge) polySetRatio(poly.pendingChallenge.a, poly.pendingChallenge.b); };
     requestAnimationFrame(polyRAF);
   }
   polyRenderAnalysis();
