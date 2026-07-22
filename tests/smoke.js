@@ -413,11 +413,21 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.dispatchEvent('#polyPhasePct', 'change');
   await p.selectOption('#polyMode', 'isolation');
   await p.dispatchEvent('#polyMode', 'change');
+  await p.click('#polyMuteA');
   await p.reload();
   await p.waitForTimeout(1200);
   await p.click('.tabbtn[data-tab="poly"]');
   const persisted = await p.evaluate(() => ({ a: poly.a, b: poly.b, bpm: poly.bpm }));
   assert('poly: ratio and tempo persist across reload', persisted.a === 4 && persisted.b === 5 && persisted.bpm === 120);
+
+  // regression: restoring a saved non-default mode via polyLoadPrefs must not wipe
+  // restored mute state (previously the mode-change listener's dispatch triggered
+  // practiceModeReset(), silently clearing poly.muteA/muteB right after they were restored)
+  const muteAfterReload = await p.evaluate(() => ({
+    muteA: poly.muteA, muteAButtonOn: $('polyMuteA').textContent.includes('ON'),
+  }));
+  assert('poly: muteA persists across reload with restored mode', muteAfterReload.muteA === true);
+  assert('poly: mute A button still shows ON after reload', muteAfterReload.muteAButtonOn === true);
 
   // persistence: phase offset inputs re-sync from saved poly.phaseMsB after reload
   const phaseAfterReload = await p.evaluate(() => ({

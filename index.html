@@ -1575,6 +1575,15 @@ function polyRenderModeStatus(){
   else if(poly.mode === 'progressive') $('polyModeStatus').textContent = `Tempo ${poly.bpm} BPM (max ${poly.modeCfg.maxBpm || 200})`;
   else $('polyModeStatus').textContent = '';
 }
+// Toggle visibility of the mode-specific sub-panels to match poly.mode, with no other side effects
+// (no practice-mode reset, no prefs save) — safe to call during preference restoration.
+function polySyncModePanels(){
+  $('polyIsoSideWrap').style.display = poly.mode === 'isolation' ? '' : 'none';
+  $('polyProgWrap').style.display = poly.mode === 'progressive' ? '' : 'none';
+  $('polyProgMaxWrap').style.display = poly.mode === 'progressive' ? '' : 'none';
+  $('polyRandWrap').style.display = poly.mode === 'random' ? '' : 'none';
+  $('polyModeCyclesWrap').style.display = poly.mode === 'random' ? 'none' : '';
+}
 
 // ---- Polyrhythm playback scheduler ----
 Object.assign(poly, {
@@ -1742,7 +1751,7 @@ function polyLoadPrefs(){
   $('polyMuteB').style.color = poly.muteB ? 'var(--accent)' : '';
   $('polySubClick').checked = poly.subClick; $('polyAudioOn').checked = poly.audioOn;
   $('polyMode').value = poly.mode; $('polyModeCycles').value = poly.modeCycles; $('polyDelayCycles').value = poly.delayCycles;
-  $('polyMode').dispatchEvent(new Event('change'));
+  polySyncModePanels();
   const cycleMs = poly.cycleMs || (60000 / poly.bpm);
   polySetPhase(poly.phaseMsB / cycleMs * 100);
 }
@@ -1891,11 +1900,7 @@ function renderPoly(){
     };
     $('polyMode').addEventListener('change', () => {
       poly.mode = $('polyMode').value;
-      $('polyIsoSideWrap').style.display = poly.mode === 'isolation' ? '' : 'none';
-      $('polyProgWrap').style.display = poly.mode === 'progressive' ? '' : 'none';
-      $('polyProgMaxWrap').style.display = poly.mode === 'progressive' ? '' : 'none';
-      $('polyRandWrap').style.display = poly.mode === 'random' ? '' : 'none';
-      $('polyModeCyclesWrap').style.display = poly.mode === 'random' ? 'none' : '';
+      polySyncModePanels();
       practiceModeReset();
       polySavePrefs();
     });
