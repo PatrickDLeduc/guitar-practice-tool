@@ -322,6 +322,12 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('poly: circular playhead rotates during playback', angle1 !== angle2);
   await p.click('#polyStop');
 
+  await p.click('#polyEventTableToggle');
+  const rows = await p.evaluate(() => document.querySelectorAll('#polyEventTable tbody tr').length);
+  assert('poly: event table shows one row per shared subdivision event', rows > 0);
+  const headerText = await p.evaluate(() => $('polyEventTable').textContent);
+  assert('poly: event table has expected columns', headerText.includes('%') && headerText.includes('Shared'));
+
   await p.click('.tabbtn[data-tab="ex"]');
 
   await p.context().close();

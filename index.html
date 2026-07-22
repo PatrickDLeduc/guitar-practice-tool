@@ -621,6 +621,12 @@
       <div class="keyhead"><span class="keyname">Linear grid</span><span class="sub" id="polyCyclePct" style="margin:0 0 0 auto">0%</span></div>
       <div style="overflow-x:auto"><svg id="polyLinSvg" viewBox="0 0 300 84" role="img" aria-label="Linear grid polyrhythm visualization"></svg></div>
     </div>
+
+    <button id="polyEventTableToggle" class="mbtn" style="width:auto;padding:0 12px;margin-bottom:8px">Show event table</button>
+    <table class="stbl" id="polyEventTable" style="display:none">
+      <thead><tr><th>#</th><th>Time (ms)</th><th>% cycle</th><th>A</th><th>B</th><th>Shared</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 
   <p class="sub" style="margin:34px 0 0;text-align:center;font-size:12px">
@@ -1448,6 +1454,7 @@ function polySetRatio(a, b){
     poly.eventIdx = 0; poly.cycleCount = 0;
     poly.cycleStartTime = ctx.currentTime + 0.05;
   } else if(poly.ctx) polyRebuild();
+  if($('polyEventTable').style.display !== 'none') polyRenderEventTable();
 }
 function polyRenderAnalysis(){
   const { a, b } = poly;
@@ -1458,6 +1465,14 @@ function polyRenderAnalysis(){
   $('polyPatternText').textContent =
     `${a}:${b}${simpNote}\nGCD ${g} · LCM ${lcm} · ${lcm} shared subdivisions\n\n` +
     `Rhythm A:\n${pat.lineA}\n\nRhythm B:\n${pat.lineB}\n\nCombined (◎ = both, A/B = single, . = rest):\n${pat.lineC}`;
+}
+function polyRenderEventTable(){
+  const cycleMs = poly.cycleMs || (60000 / poly.bpm);
+  const evs = polyEvents(poly.a, poly.b, cycleMs, poly.phaseMsB || 0).filter(e => e.isA || e.isB);
+  const rows = evs.map((e, n) =>
+    `<tr><td>${n + 1}</td><td>${Math.round(e.tMs)}</td><td>${Math.round(e.tMs / cycleMs * 100)}%</td>` +
+    `<td>${e.isA ? '✓' : ''}</td><td>${e.isB ? '✓' : ''}</td><td>${e.isA && e.isB ? '✓' : ''}</td></tr>`).join('');
+  $('polyEventTable').querySelector('tbody').innerHTML = rows;
 }
 
 // ---- Polyrhythm playback scheduler ----
@@ -1685,6 +1700,12 @@ function renderPoly(){
     };
     $('polySubClick').addEventListener('change', () => poly.subClick = $('polySubClick').checked);
     $('polyAudioOn').addEventListener('change', () => poly.audioOn = $('polyAudioOn').checked);
+    $('polyEventTableToggle').onclick = () => {
+      const show = $('polyEventTable').style.display === 'none';
+      $('polyEventTable').style.display = show ? '' : 'none';
+      $('polyEventTableToggle').textContent = show ? 'Hide event table' : 'Show event table';
+      if(show) polyRenderEventTable();
+    };
     requestAnimationFrame(polyRAF);
   }
   polyRenderAnalysis();
