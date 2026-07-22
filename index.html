@@ -593,6 +593,16 @@
       <button class="pbtn" id="polyStop" aria-label="Stop">■</button>
       <span class="keyname" id="polyCycleCount" style="font-size:14px">Cycle 0</span>
     </div>
+    <div class="controls">
+      <div class="ctl"><label for="polyVolA">Rhythm A volume</label><input id="polyVolA" type="range" min="0" max="1" step="0.05" value="0.8"></div>
+      <div class="ctl"><label>&nbsp;</label><button id="polyMuteA" class="mbtn" aria-label="Mute rhythm A">Mute A</button></div>
+      <div class="ctl"><label>&nbsp;</label><button id="polySoloA" class="mbtn" aria-label="Solo rhythm A">Solo A</button></div>
+      <div class="ctl"><label for="polyVolB">Rhythm B volume</label><input id="polyVolB" type="range" min="0" max="1" step="0.05" value="0.8"></div>
+      <div class="ctl"><label>&nbsp;</label><button id="polyMuteB" class="mbtn" aria-label="Mute rhythm B">Mute B</button></div>
+      <div class="ctl"><label>&nbsp;</label><button id="polySoloB" class="mbtn" aria-label="Solo rhythm B">Solo B</button></div>
+      <div class="ctl"><label><input id="polySubClick" type="checkbox"> Subdivision click</label></div>
+      <div class="ctl"><label><input id="polyAudioOn" type="checkbox" checked> Audio on</label></div>
+    </div>
   </div>
 
   <p class="sub" style="margin:34px 0 0;text-align:center;font-size:12px">
@@ -1438,6 +1448,8 @@ Object.assign(poly, {
   events: [], eventIdx: 0,
   ctx: null, timer: null, playing: false,
   LOOKAHEAD_MS: 25, AHEAD: 0.1,
+  volA: 0.8, volB: 0.8, muteA: false, muteB: false, soloA: false, soloB: false,
+  subClick: false, audioOn: true,
 });
 function polyCycleMs(){
   if(poly.bpmRef === 'a') return 60000 / poly.bpm * poly.a;
@@ -1449,11 +1461,27 @@ function polyRebuild(){
   poly.events = polyEvents(poly.a, poly.b, poly.cycleMs, poly.phaseMsB || 0);
 }
 function polyClick(time, ev){
-  const ctx = poly.ctx, osc = ctx.createOscillator(), g = ctx.createGain();
-  const both = ev.isA && ev.isB;
-  osc.type = both ? 'square' : ev.isA ? 'triangle' : 'sine';
-  osc.frequency.value = both ? 1568 : ev.isA ? 880 : 587;
-  const vol = both ? 0.9 : 0.6;
+  if(!poly.audioOn) return;
+  const solo = poly.soloA || poly.soloB;
+  const playA = ev.isA && !poly.muteA && (!solo || poly.soloA);
+  const playB = ev.isB && !poly.muteB && (!solo || poly.soloB);
+  const ctx = poly.ctx;
+  if(!playA && !playB){
+    if(poly.subClick && ev.grid){
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = 'sine'; osc.frequency.value = 300;
+      g.gain.setValueAtTime(0.0001, time);
+      g.gain.exponentialRampToValueAtTime(0.12, time + 0.001);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + 0.02);
+      osc.connect(g); g.connect(metro.bus);
+      osc.start(time); osc.stop(time + 0.03);
+    }
+    return;
+  }
+  const both = playA && playB, osc = ctx.createOscillator(), g = ctx.createGain();
+  osc.type = both ? 'square' : playA ? 'triangle' : 'sine';
+  osc.frequency.value = both ? 1568 : playA ? 880 : 587;
+  const vol = both ? 0.9 : 0.6 * (playA ? poly.volA : poly.volB);
   g.gain.setValueAtTime(0.0001, time);
   g.gain.exponentialRampToValueAtTime(vol, time + 0.002);
   g.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
@@ -1465,7 +1493,7 @@ function polyScheduler(){
     const ev = poly.events[poly.eventIdx];
     const t = poly.cycleStartTime + poly.cycleCount * poly.cycleMs / 1000 + ev.tMs / 1000;
     if(t >= poly.ctx.currentTime + poly.AHEAD) break;
-    if(ev.isA || ev.isB) polyClick(t, ev);
+    polyClick(t, ev);
     poly.eventIdx++;
     if(poly.eventIdx >= poly.events.length){
       poly.eventIdx = 0;
@@ -1549,6 +1577,14 @@ function renderPoly(){
     $('polyBpmSlider').addEventListener('input', () => polySetTempo(+$('polyBpmSlider').value));
     $('polyBpmRef').addEventListener('change', () => { poly.bpmRef = $('polyBpmRef').value; if(poly.playing) polySetTempo(poly.bpm); else polyRebuild(); });
     $('polyCountIn').addEventListener('change', () => { poly.countIn = $('polyCountIn').checked; });
+    $('polyVolA').addEventListener('input', () => poly.volA = +$('polyVolA').value);
+    $('polyVolB').addEventListener('input', () => poly.volB = +$('polyVolB').value);
+    $('polyMuteA').onclick = () => { poly.muteA = !poly.muteA; $('polyMuteA').classList.toggle('playing', poly.muteA); };
+    $('polyMuteB').onclick = () => { poly.muteB = !poly.muteB; $('polyMuteB').classList.toggle('playing', poly.muteB); };
+    $('polySoloA').onclick = () => { poly.soloA = !poly.soloA; $('polySoloA').classList.toggle('playing', poly.soloA); };
+    $('polySoloB').onclick = () => { poly.soloB = !poly.soloB; $('polySoloB').classList.toggle('playing', poly.soloB); };
+    $('polySubClick').addEventListener('change', () => poly.subClick = $('polySubClick').checked);
+    $('polyAudioOn').addEventListener('change', () => poly.audioOn = $('polyAudioOn').checked);
   }
   polyRenderAnalysis();
 }

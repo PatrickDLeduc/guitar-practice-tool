@@ -269,6 +269,20 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('poly: starting poly playback stops the main metronome', !mutex.metro && mutex.poly);
   await p.click('#polyStop');
 
+  await p.click('.tabbtn[data-tab="poly"]');
+  await p.click('#polyMuteA');
+  const m1 = await p.evaluate(() => poly.muteA);
+  assert('poly: mute A toggles state', m1 === true);
+  await p.click('#polyMuteA');
+  await p.click('#polySoloB');
+  const m2 = await p.evaluate(() => poly.soloB);
+  assert('poly: solo B toggles state', m2 === true);
+  await p.click('#polySoloB');
+  await p.click('#polyAudioOn');
+  const a1 = await p.evaluate(() => poly.audioOn);
+  assert('poly: audio toggle turns off', a1 === false);
+  await p.click('#polyAudioOn');
+
   await p.click('.tabbtn[data-tab="ex"]');
 
   await p.context().close();
