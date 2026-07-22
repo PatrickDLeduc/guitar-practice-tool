@@ -1032,7 +1032,7 @@ function renderNotationSystems(groups, rootPc, labels, nv){
     for(let d=30; d<=38; d+=2)
       s += `<line x1="12" y1="${yOf(d)}" x2="${W-6}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
     // treble clef
-    s += `<text x="14" y="${yOf(30)+9}" font-size="${SP*5.2}" fill="#cdd3e0" font-family="'Segoe UI Symbol','Noto Music',serif">\u{1D11E}</text>`;
+    s += `<text x="14" y="${yOf(30)-8}" font-size="${SP*5.2}" fill="#cdd3e0" font-family="'Segoe UI Symbol','Noto Music',serif">\u{1D11E}</text>`;
     // notes
     cols.forEach(c=>{
       const y = yOf(c.sp.dval);
