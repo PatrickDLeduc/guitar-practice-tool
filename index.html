@@ -291,6 +291,7 @@
       <option value="straight">Straight</option>
       <option value="thirds">In 3rds</option>
       <option value="fourths">In 4ths</option>
+      <option value="sixths">In 6ths</option>
       <option value="groups3">Groups of 3</option>
       <option value="groups4">Groups of 4</option>
     </select></div>
@@ -322,8 +323,22 @@
       <option value="pos" selected>Position (auto)</option>
       <option value="3nps">3 notes per string</option>
       <option value="fixed">One position, all keys</option>
+      <option value="caged">CAGED shape isolation</option>
     </select></div>
     <div class="ctl" id="posWrap" style="display:none"><label>Neck position</label><select id="selPos"></select></div>
+    <div class="ctl" id="shapeWrap" style="display:none"><label>CAGED shape</label><select id="selShape">
+      <option value="0">Lowest position</option>
+      <option value="1">2nd position</option>
+      <option value="2">3rd position</option>
+      <option value="3">4th position</option>
+      <option value="4">5th position</option>
+      <option value="cycle">Cycle all 5</option>
+    </select></div>
+    <div class="ctl" id="tapWrap" style="display:none"><label>Tap note (3nps)</label><select id="selTap">
+      <option value="none" selected>Off</option>
+      <option value="octave">Tap octave</option>
+      <option value="fifth">Tap 5th</option>
+    </select></div>
     <div class="ctl"><label>Variation</label><select id="selVar">
       <option value="none" selected>Normal</option>
       <option value="rev">Reversed groups</option>
@@ -835,6 +850,7 @@ function patternGroups(n, pat){
   if(pat === 'straight'){ const a=[]; for(let i=0;i<n;i++) a.push(i); g.push(a); }
   else if(pat === 'thirds'){ for(let i=0;i<=n-3;i++) g.push([i, i+2]); }
   else if(pat === 'fourths'){ for(let i=0;i<=n-4;i++) g.push([i, i+3]); }
+  else if(pat === 'sixths'){ for(let i=0;i<=n-6;i++) g.push([i, i+5]); }
   else if(pat === 'groups3'){ for(let i=0;i<=n-3;i++) g.push([i, i+1, i+2]); }
   else if(pat === 'groups4'){ for(let i=0;i<=n-4;i++) g.push([i, i+1, i+2, i+3]); }
   return g;
@@ -893,8 +909,8 @@ function rootSequence(startPc, seq){
 }
 
 // Full exercise for one key -> {name, groups:[[{s,f},...],...], noteNames}
-function buildKeyExercise(rootPc, qualKey, pat, dir, octaves, customIvs, customName, fingering, variation, posFret){
-  let pool, posMap = null;
+function buildKeyExercise(rootPc, qualKey, pat, dir, octaves, customIvs, customName, fingering, variation, posFret, shapeIdx, tapIv){
+  let pool, posMap = null, shapeLabel = null;
   if(fingering === 'fixed'){
     // every tone of the key that falls inside the 5-fret window, low to high
     const ivs = customIvs || QUALITIES[qualKey].intervals;
@@ -906,6 +922,17 @@ function buildKeyExercise(rootPc, qualKey, pat, dir, octaves, customIvs, customN
         const p = STRINGS[s] + f;
         if(ivSet.has(((p - rootPc) % 12 + 12) % 12)) notes.push({p, s, f});
       }
+    notes.sort((a,b)=> a.p - b.p || a.s - b.s);
+    const seen = new Set(); const uniq = [];
+    notes.forEach(n=>{ if(!seen.has(n.p)){ seen.add(n.p); uniq.push(n); } });
+    pool = uniq.map(n=>n.p);
+    posMap = uniq.map(n=>({s:n.s, f:n.f}));
+  } else if(fingering === 'caged'){
+    // one CAGED-style shape window (works for any quality, incl. triads)
+    const shapes = cagedShapes(rootPc, qualKey);
+    const shape = shapes[Math.max(0, Math.min(shapeIdx||0, shapes.length-1))];
+    shapeLabel = shape.label + ' shape';
+    const notes = shape.notes.map(n => ({p: STRINGS[n.s]+n.f, s:n.s, f:n.f}));
     notes.sort((a,b)=> a.p - b.p || a.s - b.s);
     const seen = new Set(); const uniq = [];
     notes.forEach(n=>{ if(!seen.has(n.p)){ seen.add(n.p); uniq.push(n); } });
@@ -923,7 +950,7 @@ function buildKeyExercise(rootPc, qualKey, pat, dir, octaves, customIvs, customN
   const flatIdx = [];
   groups.forEach(grp => grp.forEach(i => flatIdx.push(i)));
   let fing;
-  if(fingering === 'fixed'){
+  if(fingering === 'fixed' || fingering === 'caged'){
     fing = flatIdx.map(i => posMap[i]);
   } else if(fingering === '3nps'){
     // adaptive walk: 3 notes per string, but shift strings when a fret would
@@ -939,12 +966,31 @@ function buildKeyExercise(rootPc, qualKey, pat, dir, octaves, customIvs, customN
       return {s, f};
     });
     fing = flatIdx.map(i => map3[i]);
+    // tap the 3rd note per string up an octave/5th — only a coherent lick
+    // when played straight through in one ascending pass
+    if(tapIv && tapIv !== 'none' && pat === 'straight' && dir === 'asc'){
+      const tapCounts = [0,0,0,0,0,0];
+      const tapped = [];
+      fing.forEach(fp=>{
+        tapped.push(fp);
+        tapCounts[fp.s]++;
+        if(tapCounts[fp.s] === 3){
+          const add = tapIv === 'octave' ? 12 : 7;
+          const tf = fp.f + add;
+          // if the tap would fall off the neck, skip it rather than wrapping
+          // down an octave (which can land back on the fret just played)
+          if(tf <= MAX_FRET) tapped.push({s: fp.s, f: tf, tap:true});
+        }
+      });
+      fing = tapped;
+      groups = [ fing.map((_,i)=>i) ];
+    }
   } else {
     fing = assignFingering(flatIdx.map(i => pool[i]));
   }
   const fgroups = []; let k = 0;
   groups.forEach(grp => { fgroups.push(fing.slice(k, k+grp.length)); k += grp.length; });
-  const name = customName || (FLAT_NAMES[rootPc] + ' ' + QUALITIES[qualKey].label);
+  const name = customName || (FLAT_NAMES[rootPc] + ' ' + QUALITIES[qualKey].label + (shapeLabel ? ' — ' + shapeLabel : ''));
   return { name, groups: fgroups };
 }
 
@@ -962,11 +1008,11 @@ function renderTab(groups, maxWidth){
   };
   groups.forEach((grp, gi) => {
     // column width for this group
-    let cols = grp.map(n => String(n.f));
+    let cols = grp.map(n => String(n.f) + (n.tap ? 't' : ''));
     let gw = cols.reduce((a,c)=>a+c.length+1, 0) + 2; // + group gap
     if(width + gw > maxWidth) flush();
     grp.forEach((n, ni) => {
-      const fs = String(n.f), w = fs.length + 1;
+      const fs = String(n.f) + (n.tap ? 't' : ''), w = fs.length + 1;
       for(let li=0; li<6; li++){
         const sIdx = 5 - li;             // display line -> string index
         lines[li] += (n.s === sIdx) ? fs + '-' : '-'.repeat(w);
@@ -2064,7 +2110,8 @@ function shapesRow(rootPc, qualKey){
 const $ = id => document.getElementById(id);
 const selRoot=$('selRoot'), selQual=$('selQual'), selPat=$('selPat'),
       selSeq=$('selSeq'), selDir=$('selDir'), selOct=$('selOct'), selShapes=$('selShapes'), selNote=$('selNote'),
-      selFing=$('selFing'), selVar=$('selVar'), selTech=$('selTech'), selNV=$('selNV');
+      selFing=$('selFing'), selVar=$('selVar'), selTech=$('selTech'), selNV=$('selNV'),
+      selShape=$('selShape'), selTap=$('selTap');
 let copyText = '';
 const TECH_TIPS = {
   alternate: 'Strict down–up picking throughout — start each group on a downstroke. Keep it clean at a slow metronome setting before speeding up.',
@@ -2108,14 +2155,26 @@ dice.onclick=()=>{
   const pick=a=>a[Math.floor(Math.random()*a.length)];
   selRoot.value=Math.floor(Math.random()*12);
   selQual.value=pick(Object.values(QUAL_GROUPS).flat());
-  selPat.value=pick(['straight','thirds','fourths','groups3','groups4']);
+  selPat.value=pick(['straight','thirds','fourths','sixths','groups3','groups4']);
   selSeq.value=pick(['single','cycle4','cycle5','chromatic','whole']);
   selDir.value=pick(['asc','desc','both']);
   selOct.value='2'; selNV.value='quarter'; selFing.value='pos'; selVar.value='none'; selTech.value='none';
+  selShape.value='0'; selTap.value='none';
   $('query').value='';
   generate();
 };
 $('chips').appendChild(dice);
+// One-click preset: walk a major triad's 5 CAGED-style voicings up the neck —
+// same "caged" fingering engine as the shape-isolation drill, just with a
+// triad quality selected instead of a scale.
+const triadChip=document.createElement('button'); triadChip.className='chip'; triadChip.textContent='🎸 Triads up the neck';
+triadChip.onclick=()=>{
+  selQual.value='maj'; selPat.value='straight'; selSeq.value='single'; selDir.value='asc';
+  selFing.value='caged'; selShape.value='cycle'; selTap.value='none';
+  $('query').value='';
+  generate();
+};
+$('chips').appendChild(triadChip);
 EXAMPLES.forEach(t=>{
   const b=document.createElement('button'); b.className='chip'; b.textContent=t;
   b.onclick=()=>{ $('query').value=t; runFromText(); };
@@ -2149,16 +2208,24 @@ function markBarLines(groups, nv){
 function generate(){
   const rootPc=+selRoot.value, qual=selQual.value, pat=selPat.value,
         seq=selSeq.value, dir=selDir.value, oct=+selOct.value,
-        fing=selFing.value, variation=selVar.value, tech=selTech.value, posFret=+selPos.value;
+        fing=selFing.value, variation=selVar.value, tech=selTech.value, posFret=+selPos.value,
+        shapeSel=selShape.value, tapIv=selTap.value;
   $('posWrap').style.display = fing==='fixed' ? '' : 'none';
+  $('shapeWrap').style.display = fing==='caged' ? '' : 'none';
+  $('tapWrap').style.display = fing==='3nps' ? '' : 'none';
   const roots = rootSequence(rootPc, seq);
+  const shapeIdxs = fing==='caged' ? (shapeSel==='cycle' ? [0,1,2,3,4] : [+shapeSel]) : [null];
+  const jobs = [];
+  roots.forEach(pc => shapeIdxs.forEach(si => jobs.push({pc, si})));
   const out = $('out'); out.innerHTML='';
-  const patName = {straight:'straight',thirds:'in 3rds',fourths:'in 4ths',groups3:'groups of 3',groups4:'groups of 4'}[pat];
+  const patName = {straight:'straight',thirds:'in 3rds',fourths:'in 4ths',sixths:'in 6ths',groups3:'groups of 3',groups4:'groups of 4'}[pat];
   const seqName = {single:'',cycle4:' → cycle of 4ths',cycle5:' → cycle of 5ths',chromatic:' → chromatic',whole:' → whole steps'}[seq];
   const dirName = {asc:'ascending',desc:'descending',both:'asc + desc'}[dir];
   const varName = {none:'',rev:' · reversed groups',zigzag:' · zigzag',pedal:' · pedal root'}[variation];
-  const fingName = fing==='3nps' ? ' · 3 notes/string' : fing==='fixed' ? ` · position ${posFret} (frets ${posFret}–${posFret+4})` : '';
-  const rangeName = fing==='fixed' ? 'full position' : `${oct} octave${oct>1?'s':''}`;
+  const fingName = fing==='3nps' ? (' · 3 notes/string' + (tapIv!=='none' ? ` · tap ${tapIv}` : ''))
+    : fing==='fixed' ? ` · position ${posFret} (frets ${posFret}–${posFret+4})`
+    : fing==='caged' ? (shapeSel==='cycle' ? ' · CAGED shapes (all 5)' : ' · CAGED shape') : '';
+  const rangeName = (fing==='fixed'||fing==='caged') ? 'full position' : `${oct} octave${oct>1?'s':''}`;
   const nvName = {half:'half notes', quarter:'quarter notes', eighth:'8th notes', triplet:'triplets', sixteenth:'16th notes'}[selNV.value];
   $('summary').textContent = `${QUALITIES[qual].label} · ${patName} · ${dirName} · ${nvName} · ${rangeName}${fingName}${varName}${seqName}`;
   $('droneBtn').textContent = 'Drone: ' + FLAT_NAMES[rootPc];
@@ -2168,10 +2235,10 @@ function generate(){
   if(tech !== 'none'){ tip.style.display=''; tip.textContent = `${selTech.options[selTech.selectedIndex].text}: ${TECH_TIPS[tech]}`; }
   else tip.style.display='none';
   copyText = $('summary').textContent + (tech!=='none' ? '\n' + tip.textContent : '');
-  roots.forEach((pc, ri)=>{
-    const ex = buildKeyExercise(pc, qual, pat, dir, oct, null, null, fing, variation, posFret);
+  jobs.forEach(({pc, si}, ji)=>{
+    const ex = buildKeyExercise(pc, qual, pat, dir, oct, null, null, fing, variation, posFret, si, tapIv);
     markBarLines(ex.groups, selNV.value);
-    if(ri === 0){
+    if(ji === 0){
       // auto-fit auto-advance: bars this exercise takes in the current meter
       const ticks = ex.groups.flat().length * noteTicks(selNV.value);
       let bars;
@@ -2199,7 +2266,12 @@ function generate(){
     head.appendChild(pb);
     div.appendChild(head);
     if(selShapes.value === 'on') div.appendChild(shapesRow(pc, qual));
-    else if(selShapes.value === 'neck') div.appendChild(neckRow(pc, qual, fing==='fixed' ? {lo:posFret, hi:posFret+4} : null));
+    else if(selShapes.value === 'neck'){
+      let win = null;
+      if(fing==='fixed') win = {lo:posFret, hi:posFret+4};
+      else if(fing==='caged'){ const sh = cagedShapes(pc, qual)[Math.max(0, Math.min(si, 4))]; win = {lo:sh.lo, hi:sh.hi}; }
+      div.appendChild(neckRow(pc, qual, win));
+    }
     if(selNote.value === 'on'){
       const nd=document.createElement('div'); nd.className='notation';
       nd.innerHTML = renderNotationSystems(ex.groups, pc, null, selNV.value).map(s=>`<div class="nsys">${s}</div>`).join('');
@@ -2233,7 +2305,7 @@ function runFromText(){
 
 $('go').onclick = runFromText;
 $('query').addEventListener('keydown', e=>{ if(e.key==='Enter') runFromText(); });
-[selRoot,selQual,selPat,selSeq,selDir,selOct,selShapes,selNote,selFing,selVar,selTech,selPos,selNV].forEach(s=> s.addEventListener('change', generate));
+[selRoot,selQual,selPat,selSeq,selDir,selOct,selShapes,selNote,selFing,selVar,selTech,selPos,selNV,selShape,selTap].forEach(s=> s.addEventListener('change', generate));
 $('mBeats').addEventListener('change', generate);   // barlines follow the meter
 
 $('droneBtn').onclick = toggleDrone;
@@ -2273,8 +2345,8 @@ $('akBtn').onclick = ()=>{
 // ---- Shareable URL state (compact: only non-default settings) ----
 let currentTab = 'ex';
 let hashReady = false;
-const EX_DEFAULTS = ['0','maj7','straight','single','asc','2','pos','5','none','none','neck','on','quarter'];
-const EX_SELS = [selRoot,selQual,selPat,selSeq,selDir,selOct,selFing,selPos,selVar,selTech,selShapes,selNote,selNV];
+const EX_DEFAULTS = ['0','maj7','straight','single','asc','2','pos','5','none','none','neck','on','quarter','0','none'];
+const EX_SELS = [selRoot,selQual,selPat,selSeq,selDir,selOct,selFing,selPos,selVar,selTech,selShapes,selNote,selNV,selShape,selTap];
 function stateToHash(){
   if(!hashReady) return;
   try{
