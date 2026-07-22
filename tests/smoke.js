@@ -303,6 +303,30 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('poly: muted A hit does not trigger subdivision click', subClickTest.mutedCount === 0);
   assert('poly: empty grid position triggers subdivision click when enabled', subClickTest.emptyGridCount === 1);
 
+  const delayTest = await p.evaluate(() => {
+    let oscCount = 0;
+    const fakeCtx = {
+      createOscillator: () => { oscCount++; return { type: '', frequency: { value: 0 }, connect(){}, start(){}, stop(){} }; },
+      createGain: () => ({ gain: { setValueAtTime(){}, exponentialRampToValueAtTime(){} }, connect(){} }),
+      currentTime: 0
+    };
+    const saved = { ctx: poly.ctx, delayCycles: poly.delayCycles, cycleCount: poly.cycleCount, audioOn: poly.audioOn };
+    poly.ctx = fakeCtx; poly.audioOn = true; poly.delayCycles = 2;
+    poly.cycleCount = 0;
+    polyClick(0, { isA: false, isB: true }); // pure B hit, cycle 0 of 2 — should be gated silent
+    const beforeEntry = oscCount;
+    polyClick(0, { isA: true, isB: true }); // shared A+B hit during delay — A component still plays
+    const sharedDuringDelay = oscCount;
+    poly.cycleCount = 2;
+    polyClick(0, { isA: false, isB: true }); // cycle 2 reached — Rhythm B has "entered"
+    const afterEntry = oscCount;
+    Object.assign(poly, saved);
+    return { beforeEntry, sharedDuringDelay, afterEntry };
+  });
+  assert('poly: pure Rhythm B hit is silent before delayCycles elapses', delayTest.beforeEntry === 0);
+  assert('poly: shared A+B hit still plays during the delay window', delayTest.sharedDuringDelay === 1);
+  assert('poly: pure Rhythm B hit plays once delayCycles has elapsed', delayTest.afterEntry === 2);
+
   await p.click('.tabbtn[data-tab="poly"]');
   const dots = await p.evaluate(() => document.querySelectorAll('#polyCircSvg .polydot').length + document.querySelectorAll('#polyLinSvg .polydot').length);
   assert('poly: visualization renders pulse dots for both views', dots > 0);
@@ -354,6 +378,32 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   const bpmAfter = await p.evaluate(() => poly.bpm);
   assert('poly: progressive tempo stops increasing at configured max', bpmAfter === 100);
   await p.evaluate(() => { poly.mode = 'none'; });
+
+  // phase offset, delayed entry, keyboard shortcuts, reset-to-default
+  await p.click('.tabbtn[data-tab="poly"]');
+  await p.click('.chip[data-a="3"][data-b="4"]');
+  await p.evaluate(() => polySetTempo(90));
+  await p.fill('#polyPhasePct', '25');
+  await p.dispatchEvent('#polyPhasePct', 'change');
+  const synced = await p.evaluate(() => ({ deg: +$('polyPhaseDeg').value, sub: +$('polyPhaseSub').value }));
+  assert('poly: phase offset syncs degrees/subdivisions from %', Math.abs(synced.deg - 90) < 1 && Math.abs(synced.sub - 3) < 0.01);
+
+  // typing space/r inside a number field must NOT trigger shortcuts (focus still in #polyPhasePct here)
+  await p.keyboard.press('Space');
+  await p.waitForTimeout(150);
+  const playingWhileFocused = await p.evaluate(() => poly.playing);
+  assert('poly: spacebar in a text field does not trigger play', playingWhileFocused === false);
+
+  await p.evaluate(() => document.activeElement.blur());
+  await p.keyboard.press('Space');
+  await p.waitForTimeout(150);
+  const playing1 = await p.evaluate(() => poly.playing);
+  assert('poly: spacebar toggles play when Poly tab is active', playing1 === true);
+  await p.keyboard.press('Space');
+
+  await p.click('#polyReset');
+  const reset = await p.evaluate(() => ({ a: poly.a, b: poly.b, bpm: poly.bpm, phase: poly.phaseMsB }));
+  assert('poly: reset restores defaults', reset.a === 3 && reset.b === 4 && reset.bpm === 90 && reset.phase === 0);
 
   await p.click('.tabbtn[data-tab="ex"]');
 

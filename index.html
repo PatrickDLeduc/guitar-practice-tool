@@ -658,6 +658,19 @@
       </div>
       <p class="sub" id="polyModeStatus"></p>
     </div>
+
+    <div class="hgbox">
+      <div class="keyhead"><span class="keyname">Advanced</span></div>
+      <div class="controls">
+        <div class="ctl"><label for="polyPhaseDeg">Phase offset (°)</label><input id="polyPhaseDeg" type="number" min="0" max="359" value="0"></div>
+        <div class="ctl"><label for="polyPhaseSub">Phase offset (subdivisions)</label><input id="polyPhaseSub" type="number" min="0" step="0.1" value="0"></div>
+        <div class="ctl"><label for="polyPhaseMs">Phase offset (ms)</label><input id="polyPhaseMs" type="number" min="0" value="0"></div>
+        <div class="ctl"><label for="polyPhasePct">Phase offset (%)</label><input id="polyPhasePct" type="number" min="0" max="99.9" step="0.1" value="0"></div>
+        <div class="ctl"><label for="polyDelayCycles">Delay Rhythm B entry (cycles)</label><input id="polyDelayCycles" type="number" min="0" max="16" value="0"></div>
+        <div class="ctl"><label>&nbsp;</label><button id="polyReset">Reset to defaults</button></div>
+      </div>
+      <p class="sub">Keyboard (while this tab is focused): Space = play/pause, R = restart, &uarr;/&darr; = tempo &plusmn;1.</p>
+    </div>
   </div>
 
   <p class="sub" style="margin:34px 0 0;text-align:center;font-size:12px">
@@ -1517,7 +1530,7 @@ function generateRandomChallenge(cfg){
   const bpm = cfg.minBpm + Math.round(Math.random() * (cfg.maxBpm - cfg.minBpm));
   return { a, b, bpm };
 }
-Object.assign(poly, { mode: 'none', modeCycles: 4, modeCfg: {}, modeState: {}, phaseMsB: 0 });
+Object.assign(poly, { mode: 'none', modeCycles: 4, modeCfg: {}, modeState: {}, phaseMsB: 0, delayCycles: 0 });
 function practiceModeReset(){
   poly.modeState = { cyclesInPhase: 0, phase: 'a' };
   poly.muteA = false; poly.muteB = false; poly.volA = +$('polyVolA').value; poly.volB = +$('polyVolB').value;
@@ -1583,6 +1596,7 @@ function polyRebuild(){
 }
 function polyClick(time, ev){
   if(!poly.audioOn) return;
+  if(ev.isB && !ev.isA && poly.cycleCount < (poly.delayCycles || 0)) return;
   const solo = poly.soloA || poly.soloB;
   const playA = ev.isA && !poly.muteA && (!solo || poly.soloA);
   const playB = ev.isB && !poly.muteB && (!solo || poly.soloB);
@@ -1682,6 +1696,45 @@ function polySetTempo(bpm){
     poly.eventIdx = 0; poly.cycleCount = 0;
     poly.cycleStartTime = ctx.currentTime + 0.05;
   } else polyRebuild();
+}
+function polySetPhase(pct){
+  const cycleMs = poly.cycleMs || (60000 / poly.bpm);
+  poly.phaseMsB = Math.max(0, Math.min(cycleMs * 0.999, cycleMs * pct / 100));
+  const lcm = lcmOf(poly.a, poly.b);
+  $('polyPhasePct').value = (poly.phaseMsB / cycleMs * 100).toFixed(1);
+  $('polyPhaseDeg').value = Math.round(poly.phaseMsB / cycleMs * 360);
+  $('polyPhaseSub').value = (poly.phaseMsB / cycleMs * lcm).toFixed(2);
+  $('polyPhaseMs').value = Math.round(poly.phaseMsB);
+  if(poly.ctx) polyRebuild();
+}
+function polyDefaults(){
+  return { a: 3, b: 4, bpm: 90, bpmRef: 'cycle', volA: 0.8, volB: 0.8, muteA: false, muteB: false,
+    soloA: false, soloB: false, subClick: false, audioOn: true, mode: 'none', modeCycles: 4,
+    phaseMsB: 0, delayCycles: 0 };
+}
+function polyResetDefaults(){
+  const d = polyDefaults();
+  Object.assign(poly, d);
+  polyStop();
+  $('polyBpm').value = d.bpm; $('polyBpmSlider').value = d.bpm; $('polyBpmRef').value = d.bpmRef;
+  $('polyVolA').value = d.volA; $('polyVolB').value = d.volB;
+  $('polyMuteA').textContent = 'Mute A'; $('polyMuteA').style.borderColor = ''; $('polyMuteA').style.color = '';
+  $('polyMuteB').textContent = 'Mute B'; $('polyMuteB').style.borderColor = ''; $('polyMuteB').style.color = '';
+  $('polySoloA').textContent = 'Solo A'; $('polySoloA').style.borderColor = ''; $('polySoloA').style.color = '';
+  $('polySoloB').textContent = 'Solo B'; $('polySoloB').style.borderColor = ''; $('polySoloB').style.color = '';
+  $('polySubClick').checked = d.subClick; $('polyAudioOn').checked = d.audioOn;
+  $('polyMode').value = d.mode; $('polyModeCycles').value = d.modeCycles;
+  $('polyDelayCycles').value = d.delayCycles;
+  poly.modeCfg = {}; poly.modeState = {}; poly.pendingChallenge = null;
+  $('polyIsoSideWrap').style.display = 'none';
+  $('polyProgWrap').style.display = 'none';
+  $('polyProgMaxWrap').style.display = 'none';
+  $('polyRandWrap').style.display = 'none';
+  $('polyRandRevealWrap').style.display = 'none';
+  $('polyModeCyclesWrap').style.display = '';
+  $('polyModeStatus').textContent = '';
+  polySetRatio(d.a, d.b);
+  polySetPhase(0);
 }
 
 // ---- Polyrhythm visualization (circular + linear grid) ----
@@ -1820,6 +1873,28 @@ function renderPoly(){
       else { polySetRatio(ch.a, ch.b); polySetTempo(ch.bpm); }
     };
     $('polyRandReveal').onclick = () => { if(poly.pendingChallenge) polySetRatio(poly.pendingChallenge.a, poly.pendingChallenge.b); };
+    ['polyPhaseDeg','polyPhaseSub','polyPhaseMs','polyPhasePct'].forEach(id => {
+      $(id).addEventListener('change', () => {
+        const cycleMs = poly.cycleMs || (60000 / poly.bpm), lcm = lcmOf(poly.a, poly.b);
+        let pct;
+        if(id === 'polyPhaseDeg') pct = +$(id).value / 360 * 100;
+        else if(id === 'polyPhaseSub') pct = +$(id).value / lcm * 100;
+        else if(id === 'polyPhaseMs') pct = +$(id).value / cycleMs * 100;
+        else pct = +$(id).value;
+        polySetPhase(pct);
+      });
+    });
+    $('polyDelayCycles').addEventListener('change', () => poly.delayCycles = Math.max(0, +$('polyDelayCycles').value));
+    $('polyReset').onclick = polyResetDefaults;
+    document.addEventListener('keydown', e => {
+      if(currentTab !== 'poly') return;
+      const tag = (e.target.tagName || '').toLowerCase();
+      if(tag === 'input' || tag === 'select' || tag === 'textarea') return;
+      if(e.code === 'Space'){ e.preventDefault(); polyTogglePlay(); }
+      else if(e.code === 'KeyR'){ e.preventDefault(); polyRestart(); }
+      else if(e.code === 'ArrowUp'){ e.preventDefault(); polySetTempo(poly.bpm + 1); }
+      else if(e.code === 'ArrowDown'){ e.preventDefault(); polySetTempo(poly.bpm - 1); }
+    });
     requestAnimationFrame(polyRAF);
   }
   polyRenderAnalysis();
