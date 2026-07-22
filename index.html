@@ -324,6 +324,8 @@
       <option value="3nps">3 notes per string</option>
       <option value="fixed">One position, all keys</option>
       <option value="caged">CAGED shape isolation</option>
+      <option value="2str">2 strings, up the neck</option>
+      <option value="shift">Position-shift connector</option>
     </select></div>
     <div class="ctl" id="posWrap" style="display:none"><label>Neck position</label><select id="selPos"></select></div>
     <div class="ctl" id="shapeWrap" style="display:none"><label>CAGED shape</label><select id="selShape">
@@ -804,6 +806,9 @@ const QUALITIES = {
   min:     {label:'minor triad',     intervals:[0,3,7]},
   dim:     {label:'dim triad',       intervals:[0,3,6]},
   aug:     {label:'aug triad',       intervals:[0,4,8]},
+  sus2:    {label:'sus2',            intervals:[0,2,7]},
+  sus4:    {label:'sus4',            intervals:[0,5,7]},
+  '7sus4': {label:'7sus4',           intervals:[0,5,7,10]},
   majscale:{label:'major scale',     intervals:[0,2,4,5,7,9,11]},
   natmin:  {label:'natural minor',   intervals:[0,2,3,5,7,8,10]},
   harmmin: {label:'harmonic minor',  intervals:[0,2,3,5,7,8,11]},
@@ -864,17 +869,17 @@ function applyDirection(groups, n, dir){
 // Greedy fingering: pick string/fret per note, staying near a moving hand position.
 const STRINGS = [40,45,50,55,59,64];   // E A D G B e (low to high)
 const MAX_FRET = 22;
-function candidates(p){
+function candidates(p, strs){
   const c = [];
-  for(let s=0;s<6;s++){ const f = p - STRINGS[s]; if(f>=0 && f<=MAX_FRET) c.push({s,f}); }
+  for(const s of (strs || [0,1,2,3,4,5])){ const f = p - STRINGS[s]; if(f>=0 && f<=MAX_FRET) c.push({s,f}); }
   return c;
 }
-function assignFingering(pitches){
+function assignFingering(pitches, strs){
   if(!pitches.length) return [];
   const out = [];
   // Anchor: root position, prefer a low string with fret 1..10.
   let first = null, best = 1e9;
-  for(const c of candidates(pitches[0])){
+  for(const c of candidates(pitches[0], strs)){
     const cost = Math.abs(c.f - 5) + c.s*1.2 + (c.f===0 ? 2 : 0);
     if(cost < best){ best = cost; first = c; }
   }
@@ -882,7 +887,7 @@ function assignFingering(pitches){
   out.push(first);
   for(let i=1;i<pitches.length;i++){
     let pick = null, bc = 1e9;
-    for(const c of candidates(pitches[i])){
+    for(const c of candidates(pitches[i], strs)){
       const eff = c.f===0 ? 1 : c.f;
       const cost = Math.abs(eff - hand)*1.6 + Math.abs(c.s - prevS)*0.8;
       if(cost < bc){ bc = cost; pick = c; }
@@ -934,6 +939,37 @@ function buildKeyExercise(rootPc, qualKey, pat, dir, octaves, customIvs, customN
     notes.forEach(n=>{ if(!seen.has(n.p)){ seen.add(n.p); uniq.push(n); } });
     pool = uniq.map(n=>n.p);
     posMap = uniq.map(n=>({s:n.s, f:n.f}));
+  } else if(fingering === '2str'){
+    // scale confined to one adjacent string pair, sliding up the neck.
+    // Anchored on the pair's own lower string (not the usual low-E anchor,
+    // which is unreachable from high pairs like B-e).
+    const sA = Math.max(0, Math.min(shapeIdx||0, 4)), sB = sA+1;
+    const ivs = customIvs || QUALITIES[qualKey].intervals;
+    shapeLabel = STRING_LABELS[5-sA] + '-' + STRING_LABELS[5-sB] + ' strings';
+    const anchor = STRINGS[sA] + (((rootPc - STRINGS[sA]) % 12) + 12) % 12;
+    const raw = [];
+    for(let o=0;o<octaves;o++) ivs.forEach(x => raw.push(anchor + 12*o + x));
+    raw.push(anchor + 12*octaves);
+    pool = raw.filter(p => p <= STRINGS[sB] + MAX_FRET);
+    posMap = assignFingering(pool, [sA, sB]);
+  } else if(fingering === 'shift'){
+    // bridge from the top of CAGED shape i into shape i+1, ascending —
+    // the greedy hand-tracking fingering naturally glides between boxes.
+    // The last pair wraps the highest shape into the lowest one, an octave
+    // up, so the 5 shapes form one continuous cycle around the neck.
+    const shapes = cagedShapes(rootPc, qualKey);
+    const i = Math.max(0, Math.min(shapeIdx||0, shapes.length-1));
+    const wrap = i === shapes.length-1;
+    const shapeA = shapes[i];
+    const shapeB = wrap
+      ? {label: shapes[0].label, notes: shapes[0].notes.filter(n=>n.f+12<=MAX_FRET).map(n=>({s:n.s, f:n.f+12}))}
+      : shapes[i+1];
+    shapeLabel = shapeA.label + '→' + shapeB.label + ' shift' + (wrap ? ' (up an octave)' : '');
+    const notesA = shapeA.notes.map(n => STRINGS[n.s]+n.f);
+    const topA = Math.max(...notesA);
+    const notesB = shapeB.notes.map(n => STRINGS[n.s]+n.f).filter(p => p > topA);
+    pool = [...new Set(notesA.concat(notesB))].sort((a,b)=>a-b);
+    posMap = assignFingering(pool);
   } else {
     pool = buildPool(rootPc, qualKey, octaves, customIvs);
     if(fingering === '3nps' && pool.length > 18) pool = pool.slice(0, 18);   // 6 strings × 3
@@ -946,7 +982,7 @@ function buildKeyExercise(rootPc, qualKey, pat, dir, octaves, customIvs, customN
   const flatIdx = [];
   groups.forEach(grp => grp.forEach(i => flatIdx.push(i)));
   let fing;
-  if(fingering === 'fixed' || fingering === 'caged'){
+  if(fingering === 'fixed' || fingering === 'caged' || fingering === '2str' || fingering === 'shift'){
     fing = flatIdx.map(i => posMap[i]);
   } else if(fingering === '3nps'){
     // adaptive walk: 3 notes per string, but shift strings when a fret would
@@ -1394,6 +1430,9 @@ function parseQuery(raw){
     [/min(or)?[ /]?maj(or)? ?7|minmaj7|melodic minor 7/, 'minmaj7'],
     [/maj(or)? ?7(th)?s?|major sev/, 'maj7'],
     [/min(or)? ?7(th)?s?|\bm7s?\b/, 'min7'],
+    [/7\s?sus\s?4|sus\s?4\s?7/, '7sus4'],
+    [/sus\s?4/, 'sus4'],
+    [/sus\s?2/, 'sus2'],
     [/dom(inant)? ?7?|\b7(th)?s? (arp|chord)/, 'dom7'],
     [/maj(or)? ?6(th)?|\b6(th)? (arp|chord)/, 'maj6'],
     [/min(or)? ?6(th)?|\bm6\b/, 'min6'],
@@ -1434,6 +1473,8 @@ function parseQuery(raw){
   if(pm){ res.fing = 'fixed'; res.pos = Math.min(12, Math.max(1, +pm[1])); }
   else if(/one (neck )?position|single position|fixed position|stay(ing)? in (one )?position|same position/.test(q)) res.fing = 'fixed';
   else if(/3 ?(notes? )?per ?string|3 ?nps|three notes per string/.test(q)) res.fing = '3nps';
+  else if(/2 ?[- ]?strings?|two strings?|string pair/.test(q)) res.fing = '2str';
+  else if(/position[- ]?shift|shift(ing)? position|connector( lick)?|bridg(e|ing) (positions|shapes|boxes)/.test(q)) res.fing = 'shift';
   else if(/position playing/.test(q)) res.fing = 'pos';
   if(/zig ?zag|alternat(e|ing) direction/.test(q)) res.variation = 'zigzag';
   else if(/revers(ed|e)( groups| inside)?|backwards/.test(q)) res.variation = 'rev';
@@ -2126,7 +2167,9 @@ FLAT_NAMES.forEach((n,i)=>{ const o=document.createElement('option'); o.value=i;
 const selPos = $('selPos');
 for(let p=1;p<=12;p++){ const o=document.createElement('option'); o.value=p; o.textContent=`${p} (frets ${p}–${p+4})`; if(p===5) o.selected=true; selPos.appendChild(o); }
 const QUAL_GROUPS = {
-  'Arpeggios': ['maj7','dom7','min7','m7b5','dim7','minmaj7','maj6','min6','maj','min','dim','aug'],
+  'Arpeggios': ['maj','min','dim','aug','sus2','sus4',
+    'maj7','dom7','min7','m7b5','dim7','minmaj7','7sus4',
+    'maj6','min6'],
   'Scales & modes': ['majscale','natmin','harmmin','melmin','harmmaj','dorian','phrygian','lydian','mixo','locrian',
     'majpent','minpent','blues','wholetone','dimWH','dimHW','altered','phrygdom','lyddom','bebopdom','bebopmaj','hungmin','dblharm'],
 };
@@ -2137,7 +2180,7 @@ for(const [gname, keys] of Object.entries(QUAL_GROUPS)){
 }
 
 const EXAMPLES = [
-  'major 7 arpeggios in 3rds along the cycle of 4ths',
+  'major arpeggios in 3rds along the cycle of 4ths',
   'minor 7 arpeggios, groups of 4, cycle of 5ths',
   'C major scale in 3rds, ascending and descending',
   'dominant 7 arpeggios up and down in all 12 keys',
@@ -2202,7 +2245,9 @@ function generate(){
   $('posWrap').style.display = fing==='fixed' ? '' : 'none';
   $('shapeWrap').style.display = fing==='caged' ? '' : 'none';
   const roots = rootSequence(rootPc, seq);
-  const shapeIdxs = fing==='caged' ? (shapeSel==='cycle' ? [0,1,2,3,4] : [+shapeSel]) : [null];
+  const shapeIdxs = fing==='caged' ? (shapeSel==='cycle' ? [0,1,2,3,4] : [+shapeSel])
+    : fing==='2str' ? [0,1,2,3,4]
+    : fing==='shift' ? [0,1,2,3,4] : [null];
   const jobs = [];
   roots.forEach(pc => shapeIdxs.forEach(si => jobs.push({pc, si})));
   stopPlayback();
@@ -2213,9 +2258,11 @@ function generate(){
   const varName = {none:'',rev:' · reversed groups',zigzag:' · zigzag',pedal:' · pedal root'}[variation];
   const fingName = fing==='3nps' ? ' · 3 notes/string'
     : fing==='fixed' ? ` · position ${posFret} (frets ${posFret}–${posFret+4})`
-    : fing==='caged' ? (shapeSel==='cycle' ? ' · CAGED shapes (all 5)' : ' · CAGED shape') : '';
+    : fing==='caged' ? (shapeSel==='cycle' ? ' · CAGED shapes (all 5)' : ' · CAGED shape')
+    : fing==='2str' ? ' · 2-string pairs (all 5)'
+    : fing==='shift' ? ' · position-shift connector' : '';
   const tapName = tapIv!=='none' ? ` · tap ${tapIv}` : '';
-  const rangeName = (fing==='fixed'||fing==='caged') ? 'full position' : `${oct} octave${oct>1?'s':''}`;
+  const rangeName = (fing==='fixed'||fing==='caged'||fing==='shift') ? 'full position' : `${oct} octave${oct>1?'s':''}`;
   const nvName = {half:'half notes', quarter:'quarter notes', eighth:'8th notes', triplet:'triplets', sixteenth:'16th notes'}[selNV.value];
   $('summary').textContent = `${QUALITIES[qual].label} · ${patName} · ${dirName} · ${nvName} · ${rangeName}${fingName}${tapName}${varName}${seqName}`;
   $('droneBtn').textContent = 'Drone: ' + FLAT_NAMES[rootPc];
@@ -2260,6 +2307,10 @@ function generate(){
       let win = null;
       if(fing==='fixed') win = {lo:posFret, hi:posFret+4};
       else if(fing==='caged'){ const sh = cagedShapes(pc, qual)[Math.max(0, Math.min(si, 4))]; win = {lo:sh.lo, hi:sh.hi}; }
+      else if(fing==='shift'){
+        const shs = cagedShapes(pc, qual), i = Math.max(0, Math.min(si, shs.length-1));
+        win = i === shs.length-1 ? {lo: shs[i].lo, hi: shs[0].hi+12} : {lo: shs[i].lo, hi: shs[i+1].hi};
+      }
       div.appendChild(neckRow(pc, qual, win));
     }
     if(selNote.value === 'on'){
@@ -2335,7 +2386,7 @@ $('akBtn').onclick = ()=>{
 // ---- Shareable URL state (compact: only non-default settings) ----
 let currentTab = 'ex';
 let hashReady = false;
-const EX_DEFAULTS = ['0','maj7','straight','single','asc','2','pos','5','none','none','neck','on','quarter','0','none'];
+const EX_DEFAULTS = ['0','maj','straight','single','asc','2','pos','5','none','none','neck','on','quarter','0','none'];
 const EX_SELS = [selRoot,selQual,selPat,selSeq,selDir,selOct,selFing,selPos,selVar,selTech,selShapes,selNote,selNV,selShape,selTap];
 function stateToHash(){
   if(!hashReady) return;
@@ -3132,7 +3183,7 @@ const VOICE_SETS = {
     {label:'strings 6-5-4 (bottom)', set:[0,1,2]},
   ],
 };
-const VOIC_QUALS = ['maj7','dom7','min7','m7b5','dim7','minmaj7','maj6','min6','maj7s5','maj','min','dim','aug'];
+const VOIC_QUALS = ['maj7','dom7','min7','m7b5','dim7','minmaj7','maj6','min6','maj7s5','7sus4','maj','min','dim','aug','sus2','sus4'];
 function placeVoicing(rootPc, stack, set){
   let best = null, bestScore = 1e9;
   for(let R0=24; R0<=84; R0++){

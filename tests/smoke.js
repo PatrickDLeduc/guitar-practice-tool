@@ -177,6 +177,45 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.locator('#favChips .fx').first().click();
   assert('fav: delete removes chip', (await p.locator('#favChips .chip').count()) === 1);
 
+  // fingering: 2-string exercise cycles all 5 adjacent string pairs, notes stay on the pair
+  await p.selectOption('#selSeq', 'single');   // isolate from leftover random-dice state (cycle4/etc.)
+  await p.selectOption('#selFing', '2str');
+  await p.waitForTimeout(150);
+  const twoStr = await p.evaluate(() => {
+    const blocks = [...document.querySelectorAll('#out .keyblock .keyname')].map(e => e.textContent);
+    const ex = buildKeyExercise(+selRoot.value, selQual.value, 'straight', 'asc', +selOct.value, null, null, '2str', 'none', 5, 2, 'none');
+    return { blockCount: blocks.length, allOnPair: ex.groups.flat().every(n => n.s === 2 || n.s === 3), sample: blocks[0] };
+  });
+  assert('2str: cycles all 5 string pairs into separate blocks (got ' + twoStr.blockCount + ')', twoStr.blockCount === 5);
+  assert('2str: every note stays on the chosen string pair', twoStr.allOnPair);
+  assert('2str: block name shows the string-pair label (' + twoStr.sample + ')', /strings/.test(twoStr.sample));
+
+  // fingering: position-shift connector cycles all 5 CAGED shape pairs (wrapping the
+  // last shape into the first, an octave up, so the cycle is continuous), ascends smoothly
+  await p.selectOption('#selFing', 'shift');
+  await p.waitForTimeout(150);
+  const shift = await p.evaluate(() => {
+    const blocks = [...document.querySelectorAll('#out .keyblock .keyname')].map(e => e.textContent);
+    const ex = buildKeyExercise(+selRoot.value, selQual.value, 'straight', 'asc', +selOct.value, null, null, 'shift', 'none', 5, 1, 'none');
+    const pitches = ex.groups.flat().map(n => STRINGS[n.s] + n.f);
+    const wrapEx = buildKeyExercise(+selRoot.value, selQual.value, 'straight', 'asc', +selOct.value, null, null, 'shift', 'none', 5, 4, 'none');
+    const wrapPitches = wrapEx.groups.flat().map(n => STRINGS[n.s] + n.f);
+    return {
+      blockCount: blocks.length,
+      ascending: pitches.every((v,i) => i===0 || v >= pitches[i-1]),
+      sample: blocks[0],
+      wrapAscending: wrapPitches.every((v,i) => i===0 || v >= wrapPitches[i-1]),
+      wrapHasNotes: wrapPitches.length > 0,
+    };
+  });
+  assert('shift: cycles all 5 CAGED shape pairs, wrapping continuously (got ' + shift.blockCount + ')', shift.blockCount === 5);
+  assert('shift: notes ascend smoothly across the position shift', shift.ascending);
+  assert('shift: block name shows the shift label (' + shift.sample + ')', /shift/.test(shift.sample));
+  assert('shift: wrap-around pair (last shape -> first shape, up an octave) produces notes', shift.wrapHasNotes);
+  assert('shift: wrap-around pair still ascends smoothly', shift.wrapAscending);
+  await p.selectOption('#selFing', 'pos');
+  await p.waitForTimeout(150);
+
   // jam styles: every style schedules without errors
   await p.click('.tabbtn[data-tab="prog"]');
   await p.click('#progChips .dicechip');
@@ -200,6 +239,19 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   }
   assert('voic: grips keyboard-focusable', await p.evaluate(() =>
     [...document.querySelectorAll('.vgrip')].every(el => el.tabIndex === 0 && el.getAttribute('role') === 'button')));
+
+  // voic: sus2/sus4/7sus4 are selectable and render a grip for every applicable voicing type
+  for (const q of ['sus2', 'sus4', '7sus4']) {
+    await p.selectOption('#vQual', q);
+    await p.waitForTimeout(150);
+    const typeOpts = await p.evaluate(() => [...document.querySelectorAll('#vType option')].map(o => o.value));
+    for (const t of typeOpts) {
+      await p.selectOption('#vType', t);
+      await p.waitForTimeout(150);
+      const grips = await p.evaluate(() => document.querySelectorAll('#voicOut .vgrip').length);
+      assert(`voic: ${q} (${t}) renders a grip (got ${grips})`, grips > 0);
+    }
+  }
 
   // polyrhythm math: pure functions, no UI needed
   const pm = await p.evaluate(() => ({
