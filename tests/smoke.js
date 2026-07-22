@@ -283,6 +283,26 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('poly: audio toggle turns off', a1 === false);
   await p.click('#polyAudioOn');
 
+  const subClickTest = await p.evaluate(() => {
+    let oscCount = 0;
+    const fakeCtx = {
+      createOscillator: () => { oscCount++; return { type: '', frequency: { value: 0 }, connect(){}, start(){}, stop(){} }; },
+      createGain: () => ({ gain: { setValueAtTime(){}, exponentialRampToValueAtTime(){} }, connect(){} }),
+      currentTime: 0
+    };
+    const saved = { ctx: poly.ctx, muteA: poly.muteA, subClick: poly.subClick, audioOn: poly.audioOn };
+    poly.ctx = fakeCtx; poly.muteA = true; poly.subClick = true; poly.audioOn = true;
+    polyClick(0, { isA: true, isB: false, grid: true });
+    const mutedCount = oscCount;
+    poly.muteA = false;
+    polyClick(0, { isA: false, isB: false, grid: true });
+    const emptyGridCount = oscCount;
+    Object.assign(poly, saved);
+    return { mutedCount, emptyGridCount };
+  });
+  assert('poly: muted A hit does not trigger subdivision click', subClickTest.mutedCount === 0);
+  assert('poly: empty grid position triggers subdivision click when enabled', subClickTest.emptyGridCount === 1);
+
   await p.click('.tabbtn[data-tab="ex"]');
 
   await p.context().close();

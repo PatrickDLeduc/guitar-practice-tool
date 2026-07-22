@@ -1466,7 +1466,7 @@ function polyClick(time, ev){
   const playA = ev.isA && !poly.muteA && (!solo || poly.soloA);
   const playB = ev.isB && !poly.muteB && (!solo || poly.soloB);
   const ctx = poly.ctx;
-  if(!playA && !playB){
+  if(!ev.isA && !ev.isB){
     if(poly.subClick && ev.grid){
       const osc = ctx.createOscillator(), g = ctx.createGain();
       osc.type = 'sine'; osc.frequency.value = 300;
@@ -1478,6 +1478,7 @@ function polyClick(time, ev){
     }
     return;
   }
+  if(!playA && !playB) return;
   const both = playA && playB, osc = ctx.createOscillator(), g = ctx.createGain();
   osc.type = both ? 'square' : playA ? 'triangle' : 'sine';
   osc.frequency.value = both ? 1568 : playA ? 880 : 587;
@@ -1579,10 +1580,30 @@ function renderPoly(){
     $('polyCountIn').addEventListener('change', () => { poly.countIn = $('polyCountIn').checked; });
     $('polyVolA').addEventListener('input', () => poly.volA = +$('polyVolA').value);
     $('polyVolB').addEventListener('input', () => poly.volB = +$('polyVolB').value);
-    $('polyMuteA').onclick = () => { poly.muteA = !poly.muteA; $('polyMuteA').classList.toggle('playing', poly.muteA); };
-    $('polyMuteB').onclick = () => { poly.muteB = !poly.muteB; $('polyMuteB').classList.toggle('playing', poly.muteB); };
-    $('polySoloA').onclick = () => { poly.soloA = !poly.soloA; $('polySoloA').classList.toggle('playing', poly.soloA); };
-    $('polySoloB').onclick = () => { poly.soloB = !poly.soloB; $('polySoloB').classList.toggle('playing', poly.soloB); };
+    $('polyMuteA').onclick = () => {
+      poly.muteA = !poly.muteA;
+      $('polyMuteA').textContent = 'Mute A' + (poly.muteA ? ': ON' : '');
+      $('polyMuteA').style.borderColor = poly.muteA ? 'var(--accent)' : '';
+      $('polyMuteA').style.color = poly.muteA ? 'var(--accent)' : '';
+    };
+    $('polyMuteB').onclick = () => {
+      poly.muteB = !poly.muteB;
+      $('polyMuteB').textContent = 'Mute B' + (poly.muteB ? ': ON' : '');
+      $('polyMuteB').style.borderColor = poly.muteB ? 'var(--accent)' : '';
+      $('polyMuteB').style.color = poly.muteB ? 'var(--accent)' : '';
+    };
+    $('polySoloA').onclick = () => {
+      poly.soloA = !poly.soloA;
+      $('polySoloA').textContent = 'Solo A' + (poly.soloA ? ': ON' : '');
+      $('polySoloA').style.borderColor = poly.soloA ? 'var(--accent)' : '';
+      $('polySoloA').style.color = poly.soloA ? 'var(--accent)' : '';
+    };
+    $('polySoloB').onclick = () => {
+      poly.soloB = !poly.soloB;
+      $('polySoloB').textContent = 'Solo B' + (poly.soloB ? ': ON' : '');
+      $('polySoloB').style.borderColor = poly.soloB ? 'var(--accent)' : '';
+      $('polySoloB').style.color = poly.soloB ? 'var(--accent)' : '';
+    };
     $('polySubClick').addEventListener('change', () => poly.subClick = $('polySubClick').checked);
     $('polyAudioOn').addEventListener('change', () => poly.audioOn = $('polyAudioOn').checked);
   }
