@@ -1268,8 +1268,8 @@ function guideToneLine(chords){
   const segs = [];
   chords.forEach(ch=>{
     const ivs = QUALITIES[ch.qual].intervals;
-    const third = ivs.find(v=>v===3||v===4) ?? ivs.find(v=>v===5) ?? 7;
-    const sev   = ivs.find(v=>v===10||v===11) ?? ivs.find(v=>v===9) ?? 7;
+    const third = ivs.find(v=>v===3||v===4) ?? ivs.find(v=>v===5) ?? ivs[ivs.length-1];
+    const sev   = ivs.find(v=>v===10||v===11) ?? ivs.find(v=>v===9) ?? ivs[ivs.length-1];
     const pcs = [(ch.pc+third)%12, (ch.pc+sev)%12];
     let first = null, bd = 1e9;
     for(let m=48;m<=76;m++) if(pcs.includes(m%12)){ const d=Math.abs(m-cur); if(d<bd){bd=d; first=m;} }
@@ -1322,7 +1322,15 @@ const INTERVAL_NAMES = {0:'R',1:'♭2',2:'2',3:'♭3',4:'3',5:'4',6:'♭5',7:'5'
 // For a root + quality, compute the five CAGED position windows and the
 // chord/scale tones that fall inside each. Anchors: E & G shapes hang off the
 // low-E-string root fret, C & A off the A-string root fret, D off the D-string root fret.
+const cagedShapesCache = new Map();   // pure fn of (rootPc, qualKey); "cycle all 5 shapes" recomputes it 5x/root without this
 function cagedShapes(rootPc, qualKey){
+  const key = rootPc + '|' + qualKey;
+  if(cagedShapesCache.has(key)) return cagedShapesCache.get(key);
+  const shapes = cagedShapesRaw(rootPc, qualKey);
+  cagedShapesCache.set(key, shapes);
+  return shapes;
+}
+function cagedShapesRaw(rootPc, qualKey){
   const rE = ((rootPc - 4) % 12 + 12) % 12;   // root fret on string 6 (E)
   const rA = ((rootPc - 9) % 12 + 12) % 12;   // root fret on string 5 (A)
   const rD = ((rootPc - 2) % 12 + 12) % 12;   // root fret on string 4 (D)
@@ -1339,7 +1347,6 @@ function cagedShapes(rootPc, qualKey){
     // Below the nut: clamp to open position if enough of the window remains,
     // otherwise shift the whole shape up an octave.
     while(lo < 0){ if(hi >= 3){ lo = 0; } else { lo += 12; hi += 12; } }
-    while(hi > 16 && lo >= 12){ lo -= 12; hi -= 12; }
     const notes = [];
     for(let s=0; s<6; s++)
       for(let f=Math.max(lo,0); f<=hi; f++){
@@ -1412,6 +1419,7 @@ function parseQuery(raw){
   // pattern
   if(/(in|by|of) (diatonic )?(3rds?|thirds)|(^| )(3rds|thirds)/.test(q)) res.pat = 'thirds';
   else if(/(in|by|of) (diatonic )?(4ths?|fourths)|(^| )(4ths|fourths)/.test(q)) res.pat = 'fourths';
+  else if(/(in|by|of) (diatonic )?(6ths?|sixths)|(^| )(6ths|sixths)/.test(q)) res.pat = 'sixths';
   else if(/groups? of (3|three)/.test(q)) res.pat = 'groups3';
   else if(/groups? of (4|four)/.test(q)) res.pat = 'groups4';
   else if(/straight|linear|up and down/.test(q)) res.pat = 'straight';
@@ -1451,7 +1459,7 @@ function parseQuery(raw){
   // root: "in Bb", "starting on F#", "key of E", or chord symbol adjacent to quality
   let m = q.match(/\b(?:in|on|from|of)(?: the)?(?: key(?: of)?)? ([a-g])(b| flat|#|♭|♯| sharp)?(?= |$)/);
   if(!m) m = q.match(/\b([b-g])(b| flat|#|♭|♯| sharp)? (?=maj|min|dom|dim|aug|major|minor|harmonic|melodic|dorian|phrygian|lydian|mixo|locrian|pent|blues|7)/);
-  if(!m && /\bA\b *(?=maj|min|Maj|Min|7)/.test(raw)) m = ['','a',''];
+  if(!m && /\bA\b *(?=maj|min|dom|dim|aug|Maj|Min|Dom|Dim|Aug|harmonic|melodic|dorian|phrygian|lydian|mixo|locrian|pent|blues|7)/.test(raw)) m = ['','a',''];
   if(m){
     let name = m[1];
     const acc = (m[2]||'').trim();
@@ -1774,7 +1782,8 @@ function polyLoadPrefs(){
   const p = polyStore.load();
   if(!p || p.a === undefined) return;
   Object.assign(poly, {
-    a: p.a, b: p.b, bpm: p.bpm || 90, bpmRef: p.bpmRef || 'a',
+    a: Math.max(1, Math.min(16, Math.round(p.a) || 1)), b: Math.max(1, Math.min(16, Math.round(p.b) || 1)),
+    bpm: Math.max(20, Math.min(300, Math.round(p.bpm) || 90)), bpmRef: p.bpmRef || 'a',
     volA: p.volA ?? 0.8, volB: p.volB ?? 0.8, muteA: !!p.muteA, muteB: !!p.muteB,
     subClick: !!p.subClick, audioOn: p.audioOn !== false,
     mode: p.mode || 'none', modeCycles: p.modeCycles || 4, phaseMsB: p.phaseMsB || 0, delayCycles: p.delayCycles || 0,
@@ -2170,7 +2179,6 @@ function noteTicks(nv){
   const in8 = v === 'custom' ? !!(metro.bars && metro.bars[0].label.includes('/8')) : v.includes('8');
   return in8 ? q*2 : q;
 }
-function barTicks(){ return barSeqTicks()[0]; }
 // Mark n.bar on each note that ends exactly on a barline; the renderers draw it.
 // Notes that straddle a barline (e.g. quarters in 7/8) get no line — nothing to lie about.
 // Bar lengths cycle through the meter sequence (plain meters are a 1-bar cycle).
@@ -2197,6 +2205,7 @@ function generate(){
   const shapeIdxs = fing==='caged' ? (shapeSel==='cycle' ? [0,1,2,3,4] : [+shapeSel]) : [null];
   const jobs = [];
   roots.forEach(pc => shapeIdxs.forEach(si => jobs.push({pc, si})));
+  stopPlayback();
   const out = $('out'); out.innerHTML='';
   const patName = {straight:'straight',thirds:'in 3rds',fourths:'in 4ths',sixths:'in 6ths',groups3:'groups of 3',groups4:'groups of 4'}[pat];
   const seqName = {single:'',cycle4:' → cycle of 4ths',cycle5:' → cycle of 5ths',chromatic:' → chromatic',whole:' → whole steps'}[seq];
@@ -2548,10 +2557,10 @@ function renderProgress(){
     : '—';
 }
 $('logBtn').onclick = logSession;
-$('pgClear').onclick = ()=>{
+$('pgClear').onclick = async ()=>{
   if($('pgClear').textContent !== 'Really clear?'){ $('pgClear').textContent = 'Really clear?'; setTimeout(()=> $('pgClear').textContent='Clear all data', 2500); return; }
   try{ localStorage.removeItem('gph'); }catch(e){}
-  cloudClear();
+  await cloudClear();
   $('pgClear').textContent = 'Clear all data';
   renderProgress();
 };
@@ -2576,6 +2585,7 @@ function tone(ctx, m, t0, dur, vol, type, dest){
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   o.connect(g); g.connect(dest || metro.bus);
   o.start(t0); o.stop(t0 + dur + 0.05);
+  return o;
 }
 // ---- Exercise playback + drone ----
 // Karplus-Strong plucked string for melodic playback
@@ -2725,16 +2735,19 @@ function toggleDrone(){
   $('droneBtn').classList.add('playing');
 }
 // Base chord sustains underneath; triad notes enter one by one on top, then ring together.
+let stackNodes = [];
 function playStack(basePc, bq, triPc, triType){
   const ctx = ensureAudio();
+  stackNodes.forEach(o=>{ try{ o.stop(); }catch(e){} });   // cut off any still-ringing previous stack
+  stackNodes = [];
   const t0 = ctx.currentTime + 0.06;
   let rootM = 48 + basePc; if(rootM > 55) rootM -= 12;      // keep pad in C3..G3 zone
   const base = QUALITIES[bq].intervals.map(iv => rootM + iv);
   const triRel = (triPc - basePc + 12) % 12;
   const tri = STACK_TRIADS[triType].intervals.map(iv => rootM + 12 + triRel + iv);
-  base.forEach(m => tone(ctx, m, t0, 5.0, 0.09, 'triangle'));
-  tri.forEach((m,i) => tone(ctx, m, t0 + 1.4 + i*0.55, 1.1, 0.15, 'sine'));
-  tri.forEach(m => tone(ctx, m, t0 + 3.4, 1.5, 0.12, 'sine'));
+  base.forEach(m => stackNodes.push(tone(ctx, m, t0, 5.0, 0.09, 'triangle')));
+  tri.forEach((m,i) => stackNodes.push(tone(ctx, m, t0 + 1.4 + i*0.55, 1.1, 0.15, 'sine')));
+  tri.forEach(m => stackNodes.push(tone(ctx, m, t0 + 3.4, 1.5, 0.12, 'sine')));
 }
 let spState = null;
 $('stackOut').addEventListener('click', e=>{
@@ -3135,30 +3148,11 @@ function placeVoicing(rootPc, stack, set){
   return best;
 }
 function buildGrips(rootPc, qualKey, type, setDef){
-  const ivs = QUALITIES[qualKey].intervals;
   const grips = [];
-  if(type === 'shell'){
-    const third = ivs.find(v=>v===3||v===4) ?? ivs[1];
-    const sev   = ivs.find(v=>v===9||v===10||v===11) ?? 7;
-    const stack = setDef.form==='173' ? [0, sev, third+12] : [0, third, sev];
+  voicingStacks(qualKey, type, setDef).forEach(({inv, degLabel, stack})=>{
     const g = placeVoicing(rootPc, stack, setDef.set);
-    if(g) grips.push({inv:'shell', ...g});
-    return grips;
-  }
-  const n = ivs.length;   // 3 for triads, 4 for 7th-chord voicings
-  for(let inv=0; inv<n; inv++){
-    const stack = [];
-    for(let k=0;k<n;k++){
-      let v = ivs[(inv+k) % n];
-      while(stack.length && v <= stack[stack.length-1]) v += 12;
-      stack.push(v);
-    }
-    if(type==='drop2') stack[2] -= 12;
-    if(type==='drop3') stack[1] -= 12;
-    stack.sort((a,b)=>a-b);
-    const g = placeVoicing(rootPc, stack, setDef.set);
-    if(g) grips.push({inv: ['from root pos','from 1st inv','from 2nd inv','from 3rd inv'][inv], ...g});
-  }
+    if(g) grips.push({inv: type==='shell' ? inv : 'from ' + inv, degLabel, ...g});
+  });
   return grips;
 }
 FLAT_NAMES.forEach((n,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=n; $('vRoot').appendChild(o); });
@@ -3202,7 +3196,10 @@ function renderVoicings(){
   const setDef = VOICE_SETS[type][+$('vSet').value || 0];
   const NM = SHARP_KEYS.has(rootPc) ? SHARP_NAMES : FLAT_NAMES;
   const grips = buildGrips(rootPc, q, type, setDef);
-  $('voicSub').textContent = `${NM[rootPc]}${CHORD_SYM[q] ?? ''} — ${type==='shell'?'shell voicing':type} on ${setDef.label}. Click a grip to hear it.`;
+  const setLabel = (type==='shell' && grips[0])
+    ? setDef.label.replace(/\(R-.+?\)/, setDef.form==='173' ? `(R-${grips[0].degLabel}-3)` : `(R-3-${grips[0].degLabel})`)
+    : setDef.label;
+  $('voicSub').textContent = `${NM[rootPc]}${CHORD_SYM[q] ?? ''} — ${type==='shell'?'shell voicing':type} on ${setLabel}. Click a grip to hear it.`;
   const out = $('voicOut'); out.innerHTML='';
   grips.forEach(g=>{
     const cell = document.createElement('div');
@@ -3224,7 +3221,8 @@ function voicingStacks(qualKey, type, setDef){
   if(type === 'shell'){
     const third = ivs.find(v=>v===3||v===4) ?? ivs[1];
     const sev   = ivs.find(v=>v===9||v===10||v===11) ?? 7;
-    return [{inv:'shell', stack: setDef.form==='173' ? [0, sev, third+12] : [0, third, sev]}];
+    const degLabel = sev===9 ? '6' : (sev===7 ? '5' : '7');   // maj6/min6 have no 7th — label the 6th honestly
+    return [{inv:'shell', degLabel, stack: setDef.form==='173' ? [0, sev, third+12] : [0, third, sev]}];
   }
   const out = [];
   const n = ivs.length;   // 3 for triads, 4 for 7th-chord voicings
@@ -3566,8 +3564,7 @@ function metroScheduler(){
 }
 function metroStart(){
   if(poly.playing) polyPause();
-  if(!metro.ctx) metro.ctx = new (window.AudioContext || window.webkitAudioContext)();
-  if(metro.ctx.state === 'suspended') metro.ctx.resume();
+  ensureAudio();
   metro.beat = 0; metro.beatInBar = 0;
   if(metro.bars){ metro.barIdx = 0; applyMeterBar(); }
   metro.nextTime = metro.ctx.currentTime + 0.08;
@@ -3576,7 +3573,7 @@ function metroStart(){
   $('mPlay').classList.add('on'); $('mPlay').innerHTML = '&#9632;';
 }
 function metroStop(){
-  clearInterval(metro.timer); metro.playing = false;
+  clearInterval(metro.timer); metro.timer = null; metro.playing = false;
   $('mPlay').classList.remove('on'); $('mPlay').innerHTML = '&#9654;';
   document.querySelectorAll('#mDots .dot').forEach(d=>d.classList.remove('hit','acc'));
 }
@@ -3743,7 +3740,7 @@ metro.onBar = akOnBar;
   if(st){
     if(st.ex){
       const v = st.ex.split('|');
-      [selRoot,selQual,selPat,selSeq,selDir,selOct,selFing,selPos,selVar,selTech,selShapes,selNote,selNV]
+      [selRoot,selQual,selPat,selSeq,selDir,selOct,selFing,selPos,selVar,selTech,selShapes,selNote,selNV,selShape,selTap]
         .forEach((s,i)=>{ if(v[i] !== undefined && v[i] !== '') s.value = v[i]; });
     }
     if(st.q)  $('query').value = st.q;
@@ -3790,8 +3787,10 @@ async function pushProgress(){
 const _storeSave = store.save;
 store.save = d => { _storeSave(d); scheduleSync(); };
 // "Clear all data" also empties the cloud copy (a device that still has local data will re-upload it on its next sign-in)
-function cloudClear(){
-  if(sb && acctUser) sb.from('progress').upsert({user_id: acctUser.id, data:{}, updated_at: new Date().toISOString()});
+async function cloudClear(){
+  if(!sb || !acctUser) return;
+  const {error} = await sb.from('progress').upsert({user_id: acctUser.id, data:{}, updated_at: new Date().toISOString()});
+  if(error) setSync('Cloud clear failed — will differ from local until you retry');
 }
 
 // merge, don't overwrite: practicing on two devices must never lose either history
@@ -3816,7 +3815,11 @@ function mergeProgress(a, b){
 async function pullAndMerge(){
   const {data, error} = await sb.from('progress').select('data').eq('user_id', acctUser.id).maybeSingle();
   if(error){ setSync('Sync failed — check your connection'); return; }
-  store.save(mergeProgress(store.load(), (data && data.data) || {}));  // save() also schedules the push back up
+  // local data left behind by a *different* account (shared device) must not bleed into this one
+  const owner = localStorage.getItem('gphOwner');
+  const local = (!owner || owner === acctUser.id) ? store.load() : {};
+  store.save(mergeProgress(local, (data && data.data) || {}));  // save() also schedules the push back up
+  localStorage.setItem('gphOwner', acctUser.id);
   renderFavChips();
   if(currentTab === 'pg') renderProgress();
 }
