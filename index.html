@@ -1308,6 +1308,61 @@ function parseQuery(raw){
 }
 // ===== ENGINE END =====
 
+// ---- Polyrhythm math (pure) ----
+function gcdOf(a, b){ a = Math.abs(a); b = Math.abs(b); while(b){ [a, b] = [b, a % b]; } return a; }
+function lcmOf(a, b){ return Math.abs(a * b) / gcdOf(a, b); }
+function simplifyRatio(a, b){ const g = gcdOf(a, b) || 1; return { a: a / g, b: b / g }; }
+// Subdivision indices (0..lcm-1) each rhythm strikes on, within one shared cycle.
+function polyPulses(a, b){
+  const lcm = lcmOf(a, b);
+  const stepA = lcm / a, stepB = lcm / b;
+  const pa = []; for(let i = 0; i < a; i++) pa.push(i * stepA);
+  const pb = []; for(let i = 0; i < b; i++) pb.push(i * stepB);
+  return { lcm, a: pa, b: pb };
+}
+// Millisecond timestamps within one cycle of length cycleMs (no phase offset).
+function polyPulseTimes(a, b, cycleMs){
+  const ta = []; for(let i = 0; i < a; i++) ta.push(i * cycleMs / a);
+  const tb = []; for(let i = 0; i < b; i++) tb.push(i * cycleMs / b);
+  const shared = ta.filter(t => tb.some(u => Math.abs(u - t) < 1e-6));
+  return { a: ta, b: tb, shared };
+}
+// ASCII pattern lines across the LCM grid. ◎ = shared strike, A/B = single, . = rest.
+function polyPattern(a, b){
+  const { lcm, a: pa, b: pb } = polyPulses(a, b);
+  const setA = new Set(pa), setB = new Set(pb);
+  const lineA = [], lineB = [], lineC = [];
+  for(let i = 0; i < lcm; i++){
+    const hitA = setA.has(i), hitB = setB.has(i);
+    lineA.push(hitA ? 'X' : '.');
+    lineB.push(hitB ? 'X' : '.');
+    lineC.push(hitA && hitB ? '◎' : hitA ? 'A' : hitB ? 'B' : '.');
+  }
+  return { lineA: lineA.join(' '), lineB: lineB.join(' '), lineC: lineC.join(' ') };
+}
+// One cycle's playable events, sorted by time. Every LCM subdivision is included
+// (grid:true) so an optional soft click-every-step mode has something to schedule.
+// Rhythm B's hits shift by phaseMsB (mod cycleMs) for playback timing; aIdx/bIdx
+// let the UI flash the exact pulse dot that just fired.
+function polyEvents(a, b, cycleMs, phaseMsB){
+  const { lcm, a: pa, b: pb } = polyPulses(a, b);
+  const setA = new Set(pa);
+  const evs = [];
+  for(let i = 0; i < lcm; i++){
+    evs.push({ tMs: i * cycleMs / lcm, isA: setA.has(i), isB: false, grid: true,
+      aIdx: setA.has(i) ? pa.indexOf(i) : -1, bIdx: -1 });
+  }
+  const shift = ((phaseMsB || 0) % cycleMs + cycleMs) % cycleMs;
+  pb.forEach((i, n) => {
+    const t = (i * cycleMs / lcm + shift) % cycleMs;
+    const near = evs.find(e => Math.abs(e.tMs - t) < 1);
+    if(near){ near.isB = true; near.bIdx = n; }
+    else evs.push({ tMs: t, isA: false, isB: true, grid: false, aIdx: -1, bIdx: n });
+  });
+  evs.sort((x, y) => x.tMs - y.tMs);
+  return evs;
+}
+
 // ---- CAGED SVG rendering ----
 const IV_COLORS = {0:'#e8a33d', 3:'#5ab0f0', 4:'#5ab0f0', 10:'#d97fb8', 11:'#d97fb8'};
 function shapeSVG(shape){

@@ -200,6 +200,35 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   }
   assert('voic: grips keyboard-focusable', await p.evaluate(() =>
     [...document.querySelectorAll('.vgrip')].every(el => el.tabIndex === 0 && el.getAttribute('role') === 'button')));
+
+  // polyrhythm math: pure functions, no UI needed
+  const pm = await p.evaluate(() => ({
+    gcd1: gcdOf(12, 18), gcd2: gcdOf(7, 5),
+    lcm1: lcmOf(3, 4), lcm2: lcmOf(4, 6),
+    simp: simplifyRatio(4, 6),
+    pulses34: polyPulses(3, 4),
+    times34: polyPulseTimes(3, 4, 1200),
+    pattern34: polyPattern(3, 4),
+    pulses46: polyPulses(4, 6),
+    events34: polyEvents(3, 4, 1200, 0).map(e => ({ t: Math.round(e.tMs), a: e.isA, b: e.isB })),
+    events34Hits: polyEvents(3, 4, 1200, 0).filter(e => e.isA || e.isB).length,
+  }));
+  assert('poly: gcd(12,18)=6, gcd(7,5)=1', pm.gcd1 === 6 && pm.gcd2 === 1);
+  assert('poly: lcm(3,4)=12, lcm(4,6)=12', pm.lcm1 === 12 && pm.lcm2 === 12);
+  assert('poly: simplifyRatio(4,6)={2,3}', pm.simp.a === 2 && pm.simp.b === 3);
+  assert('poly: 3:4 pulses at [0,4,8]/[0,3,6,9], lcm 12',
+    JSON.stringify(pm.pulses34.a) === '[0,4,8]' && JSON.stringify(pm.pulses34.b) === '[0,3,6,9]' && pm.pulses34.lcm === 12);
+  assert('poly: 3:4 pulse times at 1200ms cycle',
+    JSON.stringify(pm.times34.a) === '[0,400,800]' && JSON.stringify(pm.times34.b) === '[0,300,600,900]' && JSON.stringify(pm.times34.shared) === '[0]');
+  assert('poly: 3:4 pattern matches spec example',
+    pm.pattern34.lineA === 'X . . . X . . . X . . .' &&
+    pm.pattern34.lineB === 'X . . X . . X . . X . .' &&
+    pm.pattern34.lineC === '◎ . . B A . B . A B . .');
+  assert('poly: 4:6 reduces to same pulse count as 2:3 (12 subdivisions, 4 A-pulses)',
+    pm.pulses46.lcm === 12 && pm.pulses46.a.length === 4 && pm.pulses46.b.length === 6);
+  assert('poly: 3:4 event list covers all 12 grid subdivisions, starts with a shared strike at t=0, 6 are actual A/B hits',
+    pm.events34.length === 12 && pm.events34[0].t === 0 && pm.events34[0].a && pm.events34[0].b && pm.events34Hits === 6);
+
   await p.context().close();
 
   // ---------- mobile ----------
