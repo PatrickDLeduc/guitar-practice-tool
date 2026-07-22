@@ -1617,6 +1617,7 @@ function polyRenderLinear(){
   }
   s += `<line id="polyPlayheadLin" x1="0" y1="4" x2="0" y2="80"/>`;
   $('polyLinSvg').setAttribute('viewBox', `0 0 ${w} 84`);
+  $('polyLinSvg').style.width = w + 'px';
   $('polyLinSvg').innerHTML = s;
 }
 function polyRenderShapes(){ polyRenderCircular(); polyRenderLinear(); }

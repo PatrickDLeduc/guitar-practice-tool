@@ -306,6 +306,14 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.click('.tabbtn[data-tab="poly"]');
   const dots = await p.evaluate(() => document.querySelectorAll('#polyCircSvg .polydot').length + document.querySelectorAll('#polyLinSvg .polydot').length);
   assert('poly: visualization renders pulse dots for both views', dots > 0);
+  const linScroll = await p.evaluate(() => {
+    polySetRatio(15, 16);
+    const svg = $('polyLinSvg'), wrap = svg.parentElement;
+    return { svgWidth: svg.getBoundingClientRect().width, scrollWidth: wrap.scrollWidth, clientWidth: wrap.clientWidth };
+  });
+  assert(`poly: linear grid overflows wrapper at 15:16 (svg ${linScroll.svgWidth}px, scroll ${linScroll.scrollWidth} > client ${linScroll.clientWidth})`,
+    linScroll.svgWidth > 1000 && linScroll.scrollWidth > linScroll.clientWidth);
+  await p.evaluate(() => polySetRatio(5, 7));
   await p.click('#polyPlay');
   await p.waitForTimeout(200);
   const angle1 = await p.evaluate(() => $('polyPlayheadCirc').getAttribute('transform'));
