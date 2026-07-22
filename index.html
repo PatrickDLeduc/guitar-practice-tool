@@ -1499,6 +1499,7 @@ function polySetRatio(a, b){
     poly.cycleStartTime = ctx.currentTime + 0.05;
   } else if(poly.ctx) polyRebuild();
   if($('polyEventTable').style.display !== 'none') polyRenderEventTable();
+  polySavePrefs();
 }
 function polyRenderAnalysis(){
   const { a, b } = poly;
@@ -1696,6 +1697,7 @@ function polySetTempo(bpm){
     poly.eventIdx = 0; poly.cycleCount = 0;
     poly.cycleStartTime = ctx.currentTime + 0.05;
   } else polyRebuild();
+  polySavePrefs();
 }
 function polySetPhase(pct){
   const cycleMs = poly.cycleMs || (60000 / poly.bpm);
@@ -1706,6 +1708,40 @@ function polySetPhase(pct){
   $('polyPhaseSub').value = (poly.phaseMsB / cycleMs * lcm).toFixed(2);
   $('polyPhaseMs').value = Math.round(poly.phaseMsB);
   if(poly.ctx) polyRebuild();
+  polySavePrefs();
+}
+const polyStore = {
+  load(){ try{ return JSON.parse(localStorage.getItem('gphPoly') || '{}'); }catch(e){ return {}; } },
+  save(d){ try{ localStorage.setItem('gphPoly', JSON.stringify(d)); }catch(e){} },
+};
+function polySavePrefs(){
+  polyStore.save({
+    a: poly.a, b: poly.b, bpm: poly.bpm, bpmRef: poly.bpmRef,
+    volA: poly.volA, volB: poly.volB, muteA: poly.muteA, muteB: poly.muteB,
+    subClick: poly.subClick, audioOn: poly.audioOn,
+    mode: poly.mode, modeCycles: poly.modeCycles, phaseMsB: poly.phaseMsB, delayCycles: poly.delayCycles,
+  });
+}
+function polyLoadPrefs(){
+  const p = polyStore.load();
+  if(!p || p.a === undefined) return;
+  Object.assign(poly, {
+    a: p.a, b: p.b, bpm: p.bpm || 90, bpmRef: p.bpmRef || 'cycle',
+    volA: p.volA ?? 0.8, volB: p.volB ?? 0.8, muteA: !!p.muteA, muteB: !!p.muteB,
+    subClick: !!p.subClick, audioOn: p.audioOn !== false,
+    mode: p.mode || 'none', modeCycles: p.modeCycles || 4, phaseMsB: p.phaseMsB || 0, delayCycles: p.delayCycles || 0,
+  });
+  $('polyA').value = poly.a; $('polyB').value = poly.b;
+  $('polyBpm').value = poly.bpm; $('polyBpmSlider').value = poly.bpm; $('polyBpmRef').value = poly.bpmRef;
+  $('polyVolA').value = poly.volA; $('polyVolB').value = poly.volB;
+  $('polyMuteA').textContent = 'Mute A' + (poly.muteA ? ': ON' : '');
+  $('polyMuteA').style.borderColor = poly.muteA ? 'var(--accent)' : '';
+  $('polyMuteA').style.color = poly.muteA ? 'var(--accent)' : '';
+  $('polyMuteB').textContent = 'Mute B' + (poly.muteB ? ': ON' : '');
+  $('polyMuteB').style.borderColor = poly.muteB ? 'var(--accent)' : '';
+  $('polyMuteB').style.color = poly.muteB ? 'var(--accent)' : '';
+  $('polySubClick').checked = poly.subClick; $('polyAudioOn').checked = poly.audioOn;
+  $('polyMode').value = poly.mode; $('polyModeCycles').value = poly.modeCycles; $('polyDelayCycles').value = poly.delayCycles;
 }
 function polyDefaults(){
   return { a: 3, b: 4, bpm: 90, bpmRef: 'cycle', volA: 0.8, volB: 0.8, muteA: false, muteB: false,
@@ -1800,6 +1836,7 @@ let polyInited = false;
 function renderPoly(){
   if(!polyInited){
     polyInited = true;
+    polyLoadPrefs();
     document.querySelectorAll('#polyPresets .chip').forEach(btn =>
       btn.onclick = () => polySetRatio(+btn.dataset.a, +btn.dataset.b));
     $('polyA').addEventListener('change', () => polySetRatio(+$('polyA').value, poly.b));
@@ -1810,36 +1847,40 @@ function renderPoly(){
     $('polyStop').onclick = polyStop;
     $('polyBpm').addEventListener('change', () => polySetTempo(+$('polyBpm').value));
     $('polyBpmSlider').addEventListener('input', () => polySetTempo(+$('polyBpmSlider').value));
-    $('polyBpmRef').addEventListener('change', () => { poly.bpmRef = $('polyBpmRef').value; if(poly.playing) polySetTempo(poly.bpm); else polyRebuild(); });
+    $('polyBpmRef').addEventListener('change', () => { poly.bpmRef = $('polyBpmRef').value; if(poly.playing) polySetTempo(poly.bpm); else polyRebuild(); polySavePrefs(); });
     $('polyCountIn').addEventListener('change', () => { poly.countIn = $('polyCountIn').checked; });
-    $('polyVolA').addEventListener('input', () => poly.volA = +$('polyVolA').value);
-    $('polyVolB').addEventListener('input', () => poly.volB = +$('polyVolB').value);
+    $('polyVolA').addEventListener('input', () => { poly.volA = +$('polyVolA').value; polySavePrefs(); });
+    $('polyVolB').addEventListener('input', () => { poly.volB = +$('polyVolB').value; polySavePrefs(); });
     $('polyMuteA').onclick = () => {
       poly.muteA = !poly.muteA;
       $('polyMuteA').textContent = 'Mute A' + (poly.muteA ? ': ON' : '');
       $('polyMuteA').style.borderColor = poly.muteA ? 'var(--accent)' : '';
       $('polyMuteA').style.color = poly.muteA ? 'var(--accent)' : '';
+      polySavePrefs();
     };
     $('polyMuteB').onclick = () => {
       poly.muteB = !poly.muteB;
       $('polyMuteB').textContent = 'Mute B' + (poly.muteB ? ': ON' : '');
       $('polyMuteB').style.borderColor = poly.muteB ? 'var(--accent)' : '';
       $('polyMuteB').style.color = poly.muteB ? 'var(--accent)' : '';
+      polySavePrefs();
     };
     $('polySoloA').onclick = () => {
       poly.soloA = !poly.soloA;
       $('polySoloA').textContent = 'Solo A' + (poly.soloA ? ': ON' : '');
       $('polySoloA').style.borderColor = poly.soloA ? 'var(--accent)' : '';
       $('polySoloA').style.color = poly.soloA ? 'var(--accent)' : '';
+      polySavePrefs();
     };
     $('polySoloB').onclick = () => {
       poly.soloB = !poly.soloB;
       $('polySoloB').textContent = 'Solo B' + (poly.soloB ? ': ON' : '');
       $('polySoloB').style.borderColor = poly.soloB ? 'var(--accent)' : '';
       $('polySoloB').style.color = poly.soloB ? 'var(--accent)' : '';
+      polySavePrefs();
     };
-    $('polySubClick').addEventListener('change', () => poly.subClick = $('polySubClick').checked);
-    $('polyAudioOn').addEventListener('change', () => poly.audioOn = $('polyAudioOn').checked);
+    $('polySubClick').addEventListener('change', () => { poly.subClick = $('polySubClick').checked; polySavePrefs(); });
+    $('polyAudioOn').addEventListener('change', () => { poly.audioOn = $('polyAudioOn').checked; polySavePrefs(); });
     $('polyEventTableToggle').onclick = () => {
       const show = $('polyEventTable').style.display === 'none';
       $('polyEventTable').style.display = show ? '' : 'none';
@@ -1854,8 +1895,9 @@ function renderPoly(){
       $('polyRandWrap').style.display = poly.mode === 'random' ? '' : 'none';
       $('polyModeCyclesWrap').style.display = poly.mode === 'random' ? 'none' : '';
       practiceModeReset();
+      polySavePrefs();
     });
-    $('polyModeCycles').addEventListener('change', () => { poly.modeCycles = Math.max(1, +$('polyModeCycles').value); });
+    $('polyModeCycles').addEventListener('change', () => { poly.modeCycles = Math.max(1, +$('polyModeCycles').value); polySavePrefs(); });
     $('polyIsoSide').addEventListener('change', () => { poly.modeCfg.isolateSide = $('polyIsoSide').value; practiceModeReset(); });
     $('polyProgStep').addEventListener('change', () => { poly.modeCfg.step = +$('polyProgStep').value; });
     $('polyProgMax').addEventListener('change', () => { poly.modeCfg.maxBpm = +$('polyProgMax').value; });
@@ -1884,7 +1926,7 @@ function renderPoly(){
         polySetPhase(pct);
       });
     });
-    $('polyDelayCycles').addEventListener('change', () => poly.delayCycles = Math.max(0, +$('polyDelayCycles').value));
+    $('polyDelayCycles').addEventListener('change', () => { poly.delayCycles = Math.max(0, +$('polyDelayCycles').value); polySavePrefs(); });
     $('polyReset').onclick = polyResetDefaults;
     document.addEventListener('keydown', e => {
       if(currentTab !== 'poly') return;

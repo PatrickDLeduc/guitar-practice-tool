@@ -405,6 +405,15 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   const reset = await p.evaluate(() => ({ a: poly.a, b: poly.b, bpm: poly.bpm, phase: poly.phaseMsB }));
   assert('poly: reset restores defaults', reset.a === 3 && reset.b === 4 && reset.bpm === 90 && reset.phase === 0);
 
+  // persistence: ratio and tempo survive a reload via localStorage
+  await p.click('.tabbtn[data-tab="poly"]');
+  await p.click('.chip[data-a="4"][data-b="5"]');
+  await p.evaluate(() => polySetTempo(120));
+  await p.reload();
+  await p.waitForTimeout(1200);
+  await p.click('.tabbtn[data-tab="poly"]');
+  const persisted = await p.evaluate(() => ({ a: poly.a, b: poly.b, bpm: poly.bpm }));
+  assert('poly: ratio and tempo persist across reload', persisted.a === 4 && persisted.b === 5 && persisted.bpm === 120);
   await p.click('.tabbtn[data-tab="ex"]');
 
   await p.context().close();
