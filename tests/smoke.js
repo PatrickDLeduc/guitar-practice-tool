@@ -229,6 +229,10 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('poly: 3:4 event list covers all 12 grid subdivisions, starts with a shared strike at t=0, 6 are actual A/B hits',
     pm.events34.length === 12 && pm.events34[0].t === 0 && pm.events34[0].a && pm.events34[0].b && pm.events34Hits === 6);
 
+  await p.click('.tabbtn[data-tab="poly"]');
+  assert('poly: tab switches panel visible', await p.locator('#viewPoly').isVisible());
+  await p.click('.tabbtn[data-tab="ex"]');
+
   await p.context().close();
 
   // ---------- mobile ----------

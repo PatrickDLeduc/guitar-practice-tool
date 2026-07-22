@@ -91,6 +91,7 @@
   .tabbtn{background:none;color:var(--muted);padding:9px 18px;font-size:14px;border-radius:8px 8px 0 0;border:1px solid transparent;border-bottom:none}
   .tabbtn:hover{color:var(--text)}
   .tabbtn.active{color:var(--accent);background:var(--panel);border-color:var(--border)}
+  #viewPoly{min-height:40px}
   table.stbl{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
   .stbl th{text-align:left;padding:9px 10px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
   .stbl td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
@@ -258,6 +259,7 @@
     <button class="tabbtn" data-tab="voic"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="3" y="11" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="11" width="6" height="6" rx="1" fill="currentColor"/></svg><span class="tl">Voicings</span><span class="ts">Voicings</span></button>
     <button class="tabbtn" data-tab="ear"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="currentColor"/></svg><span class="tl">Ear training</span><span class="ts">Ear</span></button>
     <button class="tabbtn" data-tab="pg"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="3" y="11" width="4" height="7" fill="currentColor"/><rect x="8" y="7" width="4" height="11" fill="currentColor"/><rect x="13" y="2" width="4" height="16" fill="currentColor"/></svg><span class="tl">Progress</span><span class="ts">Progress</span></button>
+    <button class="tabbtn" data-tab="poly"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="6" cy="10" r="3" fill="currentColor"/><circle cx="14" cy="6" r="2" fill="currentColor"/><circle cx="14" cy="14" r="2" fill="currentColor"/></svg><span class="tl">Polyrhythm</span><span class="ts">Poly</span></button>
   </div>
 
   <div id="viewEx">
@@ -553,6 +555,9 @@
       <div id="eChoices"></div>
       <div id="eMsg" aria-live="polite">Press “New question” to start. Identify what you hear.</div>
     </div>
+  </div>
+
+  <div id="viewPoly" style="display:none">
   </div>
 
   <p class="sub" style="margin:34px 0 0;text-align:center;font-size:12px">
@@ -1363,6 +1368,11 @@ function polyEvents(a, b, cycleMs, phaseMsB){
   return evs;
 }
 
+// ---- Polyrhythm UI (filled in by later tasks) ----
+let polyInited = false;
+function renderPoly(){ polyInited = true; }
+function polyTabLeave(){}
+
 // ---- CAGED SVG rendering ----
 const IV_COLORS = {0:'#e8a33d', 3:'#5ab0f0', 4:'#5ab0f0', 10:'#d97fb8', 11:'#d97fb8'};
 function shapeSVG(shape){
@@ -1768,12 +1778,15 @@ document.querySelectorAll('.tabbtn').forEach(b=> b.onclick = ()=>{
   $('viewEar').style.display = b.dataset.tab==='ear' ? '' : 'none';
   $('viewVoic').style.display = b.dataset.tab==='voic' ? '' : 'none';
   $('viewPg').style.display = b.dataset.tab==='pg' ? '' : 'none';
+  $('viewPoly').style.display = b.dataset.tab==='poly' ? '' : 'none';
   document.body.classList.remove('sheet');
   currentTab = b.dataset.tab;
   if(b.dataset.tab==='stack') renderStack();
   if(b.dataset.tab==='prog' && !progData) renderProg();
   if(b.dataset.tab==='voic'){ renderVoicings(); renderVoicingDrill(); }
   if(b.dataset.tab==='pg') renderProgress();
+  if(b.dataset.tab==='poly') renderPoly();
+  if(b.dataset.tab!=='poly') polyTabLeave();
   stateToHash();
 });
 // a11y: give every .ctl select/input its label's text as an accessible name
