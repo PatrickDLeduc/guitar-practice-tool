@@ -1535,6 +1535,8 @@ Object.assign(poly, { mode: 'none', modeCycles: 4, modeCfg: {}, modeState: {}, p
 function practiceModeReset(){
   poly.modeState = { cyclesInPhase: 0, phase: 'a' };
   poly.muteA = false; poly.muteB = false; poly.volA = +$('polyVolA').value; poly.volB = +$('polyVolB').value;
+  poly.modeCfg.isolateSide = poly.modeCfg.isolateSide || $('polyIsoSide').value;
+  poly.modeCfg.maxBpm = poly.modeCfg.maxBpm || +$('polyProgMax').value;
   applyPracticeMode();
 }
 function applyPracticeMode(){
@@ -1754,6 +1756,14 @@ function polyLoadPrefs(){
   polySyncModePanels();
   const cycleMs = poly.cycleMs || (60000 / poly.bpm);
   polySetPhase(poly.phaseMsB / cycleMs * 100);
+  // Initialize modeState for the restored mode so the first cycle boundary doesn't crash
+  // (practiceModeOnCycle/polyRenderModeStatus assume phase/cyclesInPhase are set). Don't call
+  // practiceModeReset() here — it also zeroes muteA/muteB/volA/volB, which would wipe the
+  // restored mute/volume prefs we just applied above.
+  if(poly.mode !== 'none'){
+    poly.modeState = { cyclesInPhase: 0, phase: 'a' };
+    applyPracticeMode();
+  }
 }
 function polyDefaults(){
   return { a: 3, b: 4, bpm: 90, bpmRef: 'cycle', volA: 0.8, volB: 0.8, muteA: false, muteB: false,
@@ -3476,6 +3486,7 @@ function metroScheduler(){
   }
 }
 function metroStart(){
+  if(poly.playing) polyPause();
   if(!metro.ctx) metro.ctx = new (window.AudioContext || window.webkitAudioContext)();
   if(metro.ctx.state === 'suspended') metro.ctx.resume();
   metro.beat = 0; metro.beatInBar = 0;
@@ -3639,6 +3650,7 @@ $('tunBtn').onclick = async ()=>{
 $('tunClose').onclick = tunerStop;
 $('tunWrap').onclick = e=>{ if(e.target === $('tunWrap')) tunerStop(); };
 document.addEventListener('keydown', e=>{
+  if(currentTab === 'poly') return;
   if(e.code === 'Space' && document.activeElement.tagName !== 'INPUT'){
     e.preventDefault(); $('mPlay').onclick();
   }

@@ -269,6 +269,17 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('poly: starting poly playback stops the main metronome', !mutex.metro && mutex.poly);
   await p.click('#polyStop');
 
+  // mirror: starting the main metronome (via its always-visible #mPlay button, reachable
+  // from the poly tab too) must pause poly playback rather than run both schedulers at once
+  await p.click('#polyPlay');
+  await p.waitForTimeout(200);
+  await p.click('#mPlay');
+  await p.waitForTimeout(200);
+  const mutex2 = await p.evaluate(() => ({ metro: metro.playing, poly: poly.playing }));
+  assert('poly: starting the main metronome stops poly playback', mutex2.metro && !mutex2.poly);
+  await p.click('#mPlay');
+  await p.click('#polyStop');
+
   await p.click('.tabbtn[data-tab="poly"]');
   await p.click('#polyPlay');
   await p.waitForTimeout(200);
@@ -450,6 +461,24 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   }));
   assert('poly: mode select re-syncs to "isolation" after reload', modeAfterReload.mode === 'isolation');
   assert('poly: mode sub-panel (Fade out side) becomes visible after reload', !modeAfterReload.isoWrapHidden);
+
+  // regression: a restored non-'none' practice mode must have poly.modeState initialized
+  // before the first cycle boundary — previously modeState stayed {} after reload, and the
+  // first practiceModeOnCycle() call crashed (undefined.toUpperCase() for 'alternate' mode
+  // in polyRenderModeStatus, or NaN fed into exponentialRampToValueAtTime for 'isolation')
+  await p.selectOption('#polyMode', 'alternate');
+  await p.dispatchEvent('#polyMode', 'change');
+  await p.evaluate(() => polySetTempo(280)); // fast cycle so a boundary passes quickly
+  await p.reload();
+  await p.waitForTimeout(1200);
+  await p.click('.tabbtn[data-tab="poly"]');
+  const alternateRestored = await p.evaluate(() => $('polyMode').value);
+  assert('poly: alternate mode persists across reload', alternateRestored === 'alternate');
+  const errsBeforeCycle = errs.length;
+  await p.click('#polyPlay');
+  await p.waitForTimeout(900); // several cycles at 280bpm — well past one boundary
+  await p.click('#polyStop');
+  assert('poly: restored alternate mode survives a cycle boundary without page errors', errs.length === errsBeforeCycle);
 
   await p.evaluate(() => { $('polyMode').value = 'none'; $('polyMode').dispatchEvent(new Event('change')); });
   await p.click('.tabbtn[data-tab="ex"]');
