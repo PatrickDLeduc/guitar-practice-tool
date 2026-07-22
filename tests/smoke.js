@@ -409,11 +409,32 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.click('.tabbtn[data-tab="poly"]');
   await p.click('.chip[data-a="4"][data-b="5"]');
   await p.evaluate(() => polySetTempo(120));
+  await p.fill('#polyPhasePct', '25');
+  await p.dispatchEvent('#polyPhasePct', 'change');
+  await p.selectOption('#polyMode', 'isolation');
+  await p.dispatchEvent('#polyMode', 'change');
   await p.reload();
   await p.waitForTimeout(1200);
   await p.click('.tabbtn[data-tab="poly"]');
   const persisted = await p.evaluate(() => ({ a: poly.a, b: poly.b, bpm: poly.bpm }));
   assert('poly: ratio and tempo persist across reload', persisted.a === 4 && persisted.b === 5 && persisted.bpm === 120);
+
+  // persistence: phase offset inputs re-sync from saved poly.phaseMsB after reload
+  const phaseAfterReload = await p.evaluate(() => ({
+    phaseMsB: poly.phaseMsB, pct: +$('polyPhasePct').value, deg: +$('polyPhaseDeg').value, sub: +$('polyPhaseSub').value,
+  }));
+  assert('poly: phase offset % input re-syncs after reload', Math.abs(phaseAfterReload.pct - 25) < 1);
+  assert('poly: phase offset degrees/subdivisions re-sync after reload',
+    Math.abs(phaseAfterReload.deg - 90) < 1 && Math.abs(phaseAfterReload.sub - 5) < 0.01);
+
+  // persistence: mode select and its sub-panel visibility re-sync after reload
+  const modeAfterReload = await p.evaluate(() => ({
+    mode: $('polyMode').value, isoWrapHidden: $('polyIsoSideWrap').style.display === 'none',
+  }));
+  assert('poly: mode select re-syncs to "isolation" after reload', modeAfterReload.mode === 'isolation');
+  assert('poly: mode sub-panel (Fade out side) becomes visible after reload', !modeAfterReload.isoWrapHidden);
+
+  await p.evaluate(() => { $('polyMode').value = 'none'; $('polyMode').dispatchEvent(new Event('change')); });
   await p.click('.tabbtn[data-tab="ex"]');
 
   await p.context().close();
