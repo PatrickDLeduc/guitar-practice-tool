@@ -245,6 +245,30 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   const analysis = await p.evaluate(() => $('polyPatternText').textContent);
   assert('poly: analysis panel shows LCM and pattern text', analysis.includes('LCM') && analysis.includes('X'));
 
+  await p.click('#polyPlay');
+  await p.waitForTimeout(300);
+  const s1 = await p.evaluate(() => ({ playing: poly.playing, hasTimer: poly.timer !== null }));
+  assert('poly: play starts scheduler', s1.playing && s1.hasTimer);
+  const timersAfterTempoChange = await p.evaluate(() => {
+    const before = poly.timer;
+    polySetTempo(140);
+    return { same: poly.timer === before, bpm: poly.bpm };
+  });
+  assert('poly: tempo change does not create a second scheduler', timersAfterTempoChange.same && timersAfterTempoChange.bpm === 140);
+  await p.click('#polyStop');
+  const s2 = await p.evaluate(() => ({ playing: poly.playing, hasTimer: poly.timer === null, cycle: poly.cycleCount }));
+  assert('poly: stop clears scheduler and resets cycle', !s2.playing && s2.hasTimer && s2.cycle === 0);
+  // starting poly stops the main metronome
+  await p.click('.tabbtn[data-tab="ex"]');
+  await p.click('#mPlay');
+  await p.waitForTimeout(200);
+  await p.click('.tabbtn[data-tab="poly"]');
+  await p.click('#polyPlay');
+  await p.waitForTimeout(200);
+  const mutex = await p.evaluate(() => ({ metro: metro.playing, poly: poly.playing }));
+  assert('poly: starting poly playback stops the main metronome', !mutex.metro && mutex.poly);
+  await p.click('#polyStop');
+
   await p.click('.tabbtn[data-tab="ex"]');
 
   await p.context().close();

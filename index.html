@@ -576,6 +576,23 @@
       <div class="keyhead"><span class="keyname" id="polyRatioTitle">3:4</span></div>
       <pre id="polyPatternText" class="sub" style="font-family:monospace;white-space:pre-wrap;color:var(--text)"></pre>
     </div>
+
+    <div class="controls">
+      <div class="ctl"><label for="polyBpm">BPM</label><input id="polyBpm" type="number" min="20" max="300" value="90"></div>
+      <div class="ctl"><label for="polyBpmSlider">Tempo slider</label><input id="polyBpmSlider" type="range" min="20" max="300" value="90"></div>
+      <div class="ctl"><label for="polyBpmRef">BPM refers to</label><select id="polyBpmRef">
+        <option value="cycle" selected>Shared cycle</option>
+        <option value="a">Rhythm A pulse</option>
+        <option value="b">Rhythm B pulse</option>
+      </select></div>
+      <div class="ctl"><label><input id="polyCountIn" type="checkbox"> Count-in (1 cycle)</label></div>
+    </div>
+    <div class="keyhead">
+      <button class="pbtn" id="polyPlay" aria-label="Play polyrhythm">▶</button>
+      <button class="pbtn" id="polyRestart" aria-label="Restart from cycle 1">⟲</button>
+      <button class="pbtn" id="polyStop" aria-label="Stop">■</button>
+      <span class="keyname" id="polyCycleCount" style="font-size:14px">Cycle 0</span>
+    </div>
   </div>
 
   <p class="sub" style="margin:34px 0 0;text-align:center;font-size:12px">
@@ -1396,6 +1413,12 @@ function polySetRatio(a, b){
   $('polyA').value = poly.a; $('polyB').value = poly.b;
   $('polySameNote').style.display = poly.a === poly.b ? '' : 'none';
   polyRenderAnalysis();
+  if(poly.playing){
+    const ctx = poly.ctx;
+    polyRebuild();
+    poly.eventIdx = 0; poly.cycleCount = 0;
+    poly.cycleStartTime = ctx.currentTime + 0.05;
+  } else if(poly.ctx) polyRebuild();
 }
 function polyRenderAnalysis(){
   const { a, b } = poly;
@@ -1407,6 +1430,109 @@ function polyRenderAnalysis(){
     `${a}:${b}${simpNote}\nGCD ${g} · LCM ${lcm} · ${lcm} shared subdivisions\n\n` +
     `Rhythm A:\n${pat.lineA}\n\nRhythm B:\n${pat.lineB}\n\nCombined (◎ = both, A/B = single, . = rest):\n${pat.lineC}`;
 }
+
+// ---- Polyrhythm playback scheduler ----
+Object.assign(poly, {
+  bpm: 90, bpmRef: 'cycle', countIn: false,
+  cycleMs: 0, cycleStartTime: 0, cycleCount: 0,
+  events: [], eventIdx: 0,
+  ctx: null, timer: null, playing: false,
+  LOOKAHEAD_MS: 25, AHEAD: 0.1,
+});
+function polyCycleMs(){
+  if(poly.bpmRef === 'a') return 60000 / poly.bpm * poly.a;
+  if(poly.bpmRef === 'b') return 60000 / poly.bpm * poly.b;
+  return 60000 / poly.bpm;
+}
+function polyRebuild(){
+  poly.cycleMs = polyCycleMs();
+  poly.events = polyEvents(poly.a, poly.b, poly.cycleMs, poly.phaseMsB || 0);
+}
+function polyClick(time, ev){
+  const ctx = poly.ctx, osc = ctx.createOscillator(), g = ctx.createGain();
+  const both = ev.isA && ev.isB;
+  osc.type = both ? 'square' : ev.isA ? 'triangle' : 'sine';
+  osc.frequency.value = both ? 1568 : ev.isA ? 880 : 587;
+  const vol = both ? 0.9 : 0.6;
+  g.gain.setValueAtTime(0.0001, time);
+  g.gain.exponentialRampToValueAtTime(vol, time + 0.002);
+  g.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
+  osc.connect(g); g.connect(metro.bus);
+  osc.start(time); osc.stop(time + 0.06);
+}
+function polyScheduler(){
+  while(true){
+    const ev = poly.events[poly.eventIdx];
+    const t = poly.cycleStartTime + poly.cycleCount * poly.cycleMs / 1000 + ev.tMs / 1000;
+    if(t >= poly.ctx.currentTime + poly.AHEAD) break;
+    if(ev.isA || ev.isB) polyClick(t, ev);
+    poly.eventIdx++;
+    if(poly.eventIdx >= poly.events.length){
+      poly.eventIdx = 0;
+      poly.cycleCount++;
+      const boundaryTime = poly.cycleStartTime + poly.cycleCount * poly.cycleMs / 1000;
+      const delay = (boundaryTime - poly.ctx.currentTime) * 1000;
+      setTimeout(() => { $('polyCycleCount').textContent = 'Cycle ' + poly.cycleCount; }, Math.max(delay, 0));
+    }
+  }
+}
+function polyCountIn(t0){
+  const n = Math.max(poly.a, poly.b);
+  for(let i = 0; i < n; i++) metroClick(t0 + i * poly.cycleMs / 1000 / n, i === 0 ? 2 : 0);
+}
+function polyStart(){
+  const ctx = ensureAudio();
+  poly.ctx = ctx;
+  polyRebuild();
+  poly.eventIdx = 0; poly.cycleCount = 0;
+  const lead = 0.08 + (poly.countIn ? poly.cycleMs / 1000 : 0);
+  if(poly.countIn) polyCountIn(ctx.currentTime + 0.08);
+  poly.cycleStartTime = ctx.currentTime + lead;
+  if(metro.playing) metroStop();
+  poly.timer = setInterval(polyScheduler, poly.LOOKAHEAD_MS);
+  poly.playing = true;
+  polyUpdatePlayBtn();
+}
+function polyPause(){
+  clearInterval(poly.timer); poly.timer = null; poly.playing = false;
+  polyUpdatePlayBtn();
+}
+function polyResume(){
+  const ctx = poly.ctx || ensureAudio();
+  poly.ctx = ctx;
+  poly.cycleStartTime = ctx.currentTime + 0.05 - (poly.cycleCount * poly.cycleMs / 1000 + poly.events[poly.eventIdx].tMs / 1000);
+  if(metro.playing) metroStop();
+  poly.timer = setInterval(polyScheduler, poly.LOOKAHEAD_MS);
+  poly.playing = true;
+  polyUpdatePlayBtn();
+}
+function polyStop(){
+  clearInterval(poly.timer); poly.timer = null; poly.playing = false;
+  poly.eventIdx = 0; poly.cycleCount = 0;
+  $('polyCycleCount').textContent = 'Cycle 0';
+  polyUpdatePlayBtn();
+}
+function polyRestart(){ polyStop(); polyStart(); }
+function polyTogglePlay(){
+  if(poly.playing) polyPause();
+  else if(poly.ctx && poly.events.length && (poly.eventIdx || poly.cycleCount)) polyResume();
+  else polyStart();
+}
+function polyUpdatePlayBtn(){
+  $('polyPlay').innerHTML = poly.playing ? '&#10074;&#10074;' : '&#9654;';
+  $('polyPlay').setAttribute('aria-label', poly.playing ? 'Pause polyrhythm' : 'Play polyrhythm');
+}
+function polySetTempo(bpm){
+  poly.bpm = Math.max(20, Math.min(300, Math.round(bpm)));
+  $('polyBpm').value = poly.bpm; $('polyBpmSlider').value = poly.bpm;
+  if(poly.playing){
+    const ctx = poly.ctx;
+    polyRebuild();
+    poly.eventIdx = 0; poly.cycleCount = 0;
+    poly.cycleStartTime = ctx.currentTime + 0.05;
+  } else polyRebuild();
+}
+
 let polyInited = false;
 function renderPoly(){
   if(!polyInited){
@@ -1416,6 +1542,13 @@ function renderPoly(){
     $('polyA').addEventListener('change', () => polySetRatio(+$('polyA').value, poly.b));
     $('polyB').addEventListener('change', () => polySetRatio(poly.a, +$('polyB').value));
     $('polySwap').onclick = () => polySetRatio(poly.b, poly.a);
+    $('polyPlay').onclick = polyTogglePlay;
+    $('polyRestart').onclick = polyRestart;
+    $('polyStop').onclick = polyStop;
+    $('polyBpm').addEventListener('change', () => polySetTempo(+$('polyBpm').value));
+    $('polyBpmSlider').addEventListener('input', () => polySetTempo(+$('polyBpmSlider').value));
+    $('polyBpmRef').addEventListener('change', () => { poly.bpmRef = $('polyBpmRef').value; if(poly.playing) polySetTempo(poly.bpm); else polyRebuild(); });
+    $('polyCountIn').addEventListener('change', () => { poly.countIn = $('polyCountIn').checked; });
   }
   polyRenderAnalysis();
 }
