@@ -303,6 +303,17 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('poly: muted A hit does not trigger subdivision click', subClickTest.mutedCount === 0);
   assert('poly: empty grid position triggers subdivision click when enabled', subClickTest.emptyGridCount === 1);
 
+  await p.click('.tabbtn[data-tab="poly"]');
+  const dots = await p.evaluate(() => document.querySelectorAll('#polyCircSvg .polydot').length + document.querySelectorAll('#polyLinSvg .polydot').length);
+  assert('poly: visualization renders pulse dots for both views', dots > 0);
+  await p.click('#polyPlay');
+  await p.waitForTimeout(200);
+  const angle1 = await p.evaluate(() => $('polyPlayheadCirc').getAttribute('transform'));
+  await p.waitForTimeout(300);
+  const angle2 = await p.evaluate(() => $('polyPlayheadCirc').getAttribute('transform'));
+  assert('poly: circular playhead rotates during playback', angle1 !== angle2);
+  await p.click('#polyStop');
+
   await p.click('.tabbtn[data-tab="ex"]');
 
   await p.context().close();

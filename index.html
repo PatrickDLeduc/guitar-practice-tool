@@ -78,6 +78,17 @@
   .pgbars{display:flex;gap:5px;align-items:flex-end;height:64px;margin:12px 0 18px}
   .pgbar{width:22px;background:var(--accent2);border-radius:3px 3px 0 0}
   .pgbar.empty{background:var(--panel2)}
+  .polywrap{display:flex;justify-content:center;margin-bottom:10px}
+  #polyCircSvg{width:220px;height:220px}
+  #polyLinSvg{width:100%;height:84px;min-width:300px}
+  .polydot{fill:var(--panel2);stroke:var(--accent2);stroke-width:1.5}
+  .polydot.rb{stroke:var(--accent)}
+  .polydot.shared{stroke-width:2.5}
+  .polydot.hit{fill:var(--accent2)}
+  .polydot.rb.hit{fill:var(--accent)}
+  .polyspoke{stroke:var(--accent);stroke-width:1;stroke-dasharray:2 2;opacity:.6}
+  #polyPlayheadCirc,#polyPlayheadLin{stroke:var(--accent2);stroke-width:2}
+  @media (prefers-reduced-motion: reduce){ #polyPlayheadCirc,#polyPlayheadLin{display:none} }
   .keyname{font-size:18px;font-weight:700;color:var(--accent)}
   .keynotes{font-size:12px;color:var(--muted)}
   pre.tab{margin:0;overflow-x:auto;font-family:'Consolas','Menlo',monospace;font-size:13px;line-height:1.35;color:var(--tab)}
@@ -602,6 +613,13 @@
       <div class="ctl"><label>&nbsp;</label><button id="polySoloB" class="mbtn" aria-label="Solo rhythm B">Solo B</button></div>
       <div class="ctl"><label><input id="polySubClick" type="checkbox"> Subdivision click</label></div>
       <div class="ctl"><label><input id="polyAudioOn" type="checkbox" checked> Audio on</label></div>
+    </div>
+
+    <div class="hgbox">
+      <div class="keyhead"><span class="keyname">Circular view</span></div>
+      <div class="polywrap"><svg id="polyCircSvg" viewBox="0 0 220 220" role="img" aria-label="Circular polyrhythm visualization"></svg></div>
+      <div class="keyhead"><span class="keyname">Linear grid</span><span class="sub" id="polyCyclePct" style="margin:0 0 0 auto">0%</span></div>
+      <div style="overflow-x:auto"><svg id="polyLinSvg" viewBox="0 0 300 84" role="img" aria-label="Linear grid polyrhythm visualization"></svg></div>
     </div>
   </div>
 
@@ -1423,6 +1441,7 @@ function polySetRatio(a, b){
   $('polyA').value = poly.a; $('polyB').value = poly.b;
   $('polySameNote').style.display = poly.a === poly.b ? '' : 'none';
   polyRenderAnalysis();
+  polyRenderShapes();
   if(poly.playing){
     const ctx = poly.ctx;
     polyRebuild();
@@ -1495,6 +1514,7 @@ function polyScheduler(){
     const t = poly.cycleStartTime + poly.cycleCount * poly.cycleMs / 1000 + ev.tMs / 1000;
     if(t >= poly.ctx.currentTime + poly.AHEAD) break;
     polyClick(t, ev);
+    polyFlash(ev, (t - poly.ctx.currentTime) * 1000);
     poly.eventIdx++;
     if(poly.eventIdx >= poly.events.length){
       poly.eventIdx = 0;
@@ -1562,6 +1582,64 @@ function polySetTempo(bpm){
   } else polyRebuild();
 }
 
+// ---- Polyrhythm visualization (circular + linear grid) ----
+function polyRenderCircular(){
+  const { lcm, a: pa, b: pb } = polyPulses(poly.a, poly.b);
+  const cx = 110, cy = 110, rA = 90, rB = 60;
+  const setB = new Set(pb);
+  let s = `<circle cx="${cx}" cy="${cy}" r="${rA}" fill="none" stroke="var(--border)"/>`;
+  s += `<circle cx="${cx}" cy="${cy}" r="${rB}" fill="none" stroke="var(--border)"/>`;
+  pa.forEach((i, n) => {
+    const shared = setB.has(i), ang = (i / lcm) * 2 * Math.PI - Math.PI / 2;
+    if(shared) s += `<line class="polyspoke" x1="${cx}" y1="${cy}" x2="${cx + rA * Math.cos(ang)}" y2="${cy + rA * Math.sin(ang)}"/>`;
+    s += `<circle class="polydot ra${shared ? ' shared' : ''}" data-idx="a${n}" cx="${cx + rA * Math.cos(ang)}" cy="${cy + rA * Math.sin(ang)}" r="7"/>`;
+  });
+  pb.forEach((i, n) => {
+    const shared = pa.includes(i), ang = (i / lcm) * 2 * Math.PI - Math.PI / 2;
+    const x = cx + rB * Math.cos(ang), y = cy + rB * Math.sin(ang);
+    s += `<rect class="polydot rb${shared ? ' shared' : ''}" data-idx="b${n}" x="${x - 6}" y="${y - 6}" width="12" height="12"/>`;
+  });
+  s += `<line id="polyPlayheadCirc" x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy - rA - 10}" transform="rotate(0 ${cx} ${cy})"/>`;
+  $('polyCircSvg').innerHTML = s;
+}
+function polyRenderLinear(){
+  const { lcm, a: pa, b: pb } = polyPulses(poly.a, poly.b);
+  const w = Math.max(280, lcm * 24), rowA = 22, rowB = 62;
+  poly.gridWidth = w;
+  const setA = new Set(pa), setB = new Set(pb);
+  let s = `<line x1="0" y1="${rowA}" x2="${w}" y2="${rowA}" stroke="var(--border)"/>`;
+  s += `<line x1="0" y1="${rowB}" x2="${w}" y2="${rowB}" stroke="var(--border)"/>`;
+  for(let i = 0; i < lcm; i++){
+    const x = (i / lcm) * w + w / lcm / 2, shared = setA.has(i) && setB.has(i);
+    if(shared) s += `<line class="polyspoke" x1="${x}" y1="${rowA}" x2="${x}" y2="${rowB}"/>`;
+    if(setA.has(i)) s += `<circle class="polydot ra${shared ? ' shared' : ''}" data-idx="a${pa.indexOf(i)}" cx="${x}" cy="${rowA}" r="7"/>`;
+    if(setB.has(i)) s += `<rect class="polydot rb${shared ? ' shared' : ''}" data-idx="b${pb.indexOf(i)}" x="${x - 6}" y="${rowB - 6}" width="12" height="12"/>`;
+  }
+  s += `<line id="polyPlayheadLin" x1="0" y1="4" x2="0" y2="80"/>`;
+  $('polyLinSvg').setAttribute('viewBox', `0 0 ${w} 84`);
+  $('polyLinSvg').innerHTML = s;
+}
+function polyRenderShapes(){ polyRenderCircular(); polyRenderLinear(); }
+function polyFlash(ev, delayMs){
+  setTimeout(() => {
+    document.querySelectorAll('.polydot.hit').forEach(el => el.classList.remove('hit'));
+    if(ev.isA) document.querySelectorAll(`.polydot[data-idx="a${ev.aIdx}"]`).forEach(el => el.classList.add('hit'));
+    if(ev.isB) document.querySelectorAll(`.polydot[data-idx="b${ev.bIdx}"]`).forEach(el => el.classList.add('hit'));
+  }, Math.max(delayMs, 0));
+}
+const polyReduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+function polyRAF(){
+  poly.rafId = requestAnimationFrame(polyRAF);
+  if(!poly.playing || !poly.ctx || polyReduceMotion) return;
+  const cycleSec = poly.cycleMs / 1000;
+  if(cycleSec <= 0) return;
+  const elapsed = poly.ctx.currentTime - poly.cycleStartTime;
+  const frac = ((elapsed % cycleSec) + cycleSec) % cycleSec / cycleSec;
+  $('polyPlayheadCirc').setAttribute('transform', `rotate(${frac * 360} 110 110)`);
+  $('polyPlayheadLin').setAttribute('x1', frac * poly.gridWidth); $('polyPlayheadLin').setAttribute('x2', frac * poly.gridWidth);
+  $('polyCyclePct').textContent = Math.round(frac * 100) + '%';
+}
+
 let polyInited = false;
 function renderPoly(){
   if(!polyInited){
@@ -1606,8 +1684,10 @@ function renderPoly(){
     };
     $('polySubClick').addEventListener('change', () => poly.subClick = $('polySubClick').checked);
     $('polyAudioOn').addEventListener('change', () => poly.audioOn = $('polyAudioOn').checked);
+    requestAnimationFrame(polyRAF);
   }
   polyRenderAnalysis();
+  polyRenderShapes();
 }
 function polyTabLeave(){}
 
