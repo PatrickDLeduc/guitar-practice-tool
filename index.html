@@ -334,7 +334,7 @@
       <option value="4">5th position</option>
       <option value="cycle">Cycle all 5</option>
     </select></div>
-    <div class="ctl" id="tapWrap" style="display:none"><label>Tap note (3nps)</label><select id="selTap">
+    <div class="ctl"><label>Tap note</label><select id="selTap">
       <option value="none" selected>Off</option>
       <option value="octave">Tap octave</option>
       <option value="fifth">Tap 5th</option>
@@ -502,6 +502,7 @@
         <option value="drop2" selected>Drop 2</option>
         <option value="drop3">Drop 3</option>
         <option value="shell">Shell (R-3-7 / R-7-3)</option>
+        <option value="triad">Triad (3-note)</option>
       </select></div>
       <div class="ctl"><label>String set</label><select id="vSet"></select></div>
     </div>
@@ -966,30 +967,23 @@ function buildKeyExercise(rootPc, qualKey, pat, dir, octaves, customIvs, customN
       return {s, f};
     });
     fing = flatIdx.map(i => map3[i]);
-    // tap the 3rd note per string up an octave/5th — only a coherent lick
-    // when played straight through in one ascending pass
-    if(tapIv && tapIv !== 'none' && pat === 'straight' && dir === 'asc'){
-      const tapCounts = [0,0,0,0,0,0];
-      const tapped = [];
-      fing.forEach(fp=>{
-        tapped.push(fp);
-        tapCounts[fp.s]++;
-        if(tapCounts[fp.s] === 3){
-          const add = tapIv === 'octave' ? 12 : 7;
-          const tf = fp.f + add;
-          // if the tap would fall off the neck, skip it rather than wrapping
-          // down an octave (which can land back on the fret just played)
-          if(tf <= MAX_FRET) tapped.push({s: fp.s, f: tf, tap:true});
-        }
-      });
-      fing = tapped;
-      groups = [ fing.map((_,i)=>i) ];
-    }
   } else {
     fing = assignFingering(flatIdx.map(i => pool[i]));
   }
   const fgroups = []; let k = 0;
   groups.forEach(grp => { fgroups.push(fing.slice(k, k+grp.length)); k += grp.length; });
+  // Tapping: alternate every fretted note with a tapped note an octave/5th
+  // higher on the same string. Works for any fingering mode/pattern/direction;
+  // skipped (not wrapped) when the tap would fall off the neck.
+  if(tapIv && tapIv !== 'none'){
+    const add = tapIv === 'octave' ? 12 : 7;
+    for(let gi=0; gi<fgroups.length; gi++){
+      fgroups[gi] = fgroups[gi].flatMap(n=>{
+        const tf = n.f + add;
+        return tf <= MAX_FRET ? [n, {s:n.s, f:tf, tap:true}] : [n];
+      });
+    }
+  }
   const name = customName || (FLAT_NAMES[rootPc] + ' ' + QUALITIES[qualKey].label + (shapeLabel ? ' — ' + shapeLabel : ''));
   return { name, groups: fgroups };
 }
@@ -2164,17 +2158,6 @@ dice.onclick=()=>{
   generate();
 };
 $('chips').appendChild(dice);
-// One-click preset: walk a major triad's 5 CAGED-style voicings up the neck —
-// same "caged" fingering engine as the shape-isolation drill, just with a
-// triad quality selected instead of a scale.
-const triadChip=document.createElement('button'); triadChip.className='chip'; triadChip.textContent='🎸 Triads up the neck';
-triadChip.onclick=()=>{
-  selQual.value='maj'; selPat.value='straight'; selSeq.value='single'; selDir.value='asc';
-  selFing.value='caged'; selShape.value='cycle'; selTap.value='none';
-  $('query').value='';
-  generate();
-};
-$('chips').appendChild(triadChip);
 EXAMPLES.forEach(t=>{
   const b=document.createElement('button'); b.className='chip'; b.textContent=t;
   b.onclick=()=>{ $('query').value=t; runFromText(); };
@@ -2212,7 +2195,6 @@ function generate(){
         shapeSel=selShape.value, tapIv=selTap.value;
   $('posWrap').style.display = fing==='fixed' ? '' : 'none';
   $('shapeWrap').style.display = fing==='caged' ? '' : 'none';
-  $('tapWrap').style.display = fing==='3nps' ? '' : 'none';
   const roots = rootSequence(rootPc, seq);
   const shapeIdxs = fing==='caged' ? (shapeSel==='cycle' ? [0,1,2,3,4] : [+shapeSel]) : [null];
   const jobs = [];
@@ -2222,12 +2204,13 @@ function generate(){
   const seqName = {single:'',cycle4:' → cycle of 4ths',cycle5:' → cycle of 5ths',chromatic:' → chromatic',whole:' → whole steps'}[seq];
   const dirName = {asc:'ascending',desc:'descending',both:'asc + desc'}[dir];
   const varName = {none:'',rev:' · reversed groups',zigzag:' · zigzag',pedal:' · pedal root'}[variation];
-  const fingName = fing==='3nps' ? (' · 3 notes/string' + (tapIv!=='none' ? ` · tap ${tapIv}` : ''))
+  const fingName = fing==='3nps' ? ' · 3 notes/string'
     : fing==='fixed' ? ` · position ${posFret} (frets ${posFret}–${posFret+4})`
     : fing==='caged' ? (shapeSel==='cycle' ? ' · CAGED shapes (all 5)' : ' · CAGED shape') : '';
+  const tapName = tapIv!=='none' ? ` · tap ${tapIv}` : '';
   const rangeName = (fing==='fixed'||fing==='caged') ? 'full position' : `${oct} octave${oct>1?'s':''}`;
   const nvName = {half:'half notes', quarter:'quarter notes', eighth:'8th notes', triplet:'triplets', sixteenth:'16th notes'}[selNV.value];
-  $('summary').textContent = `${QUALITIES[qual].label} · ${patName} · ${dirName} · ${nvName} · ${rangeName}${fingName}${varName}${seqName}`;
+  $('summary').textContent = `${QUALITIES[qual].label} · ${patName} · ${dirName} · ${nvName} · ${rangeName}${fingName}${tapName}${varName}${seqName}`;
   $('droneBtn').textContent = 'Drone: ' + FLAT_NAMES[rootPc];
   akIdx = 0; akCount = 0;
   stateToHash();
@@ -3131,8 +3114,15 @@ const VOICE_SETS = {
     {label:'root on 6th (R-7-3)', set:[0,2,3], form:'173'},
     {label:'root on 5th (R-3-7)', set:[1,2,3], form:'137'},
   ],
+  triad: [
+    {label:'strings 3-2-1 (top)', set:[3,4,5]},
+    {label:'strings 4-3-2', set:[2,3,4]},
+    {label:'strings 5-4-3', set:[1,2,3]},
+    {label:'strings 6-5-4 (bottom)', set:[0,1,2]},
+  ],
 };
 const VOIC_QUALS = ['maj7','dom7','min7','m7b5','dim7','minmaj7','maj6','min6','maj7s5'];
+const TRIAD_QUALS = ['maj','min','dim','aug'];
 function placeVoicing(rootPc, stack, set){
   let best = null, bestScore = 1e9;
   for(let R0=24; R0<=84; R0++){
@@ -3158,10 +3148,11 @@ function buildGrips(rootPc, qualKey, type, setDef){
     if(g) grips.push({inv:'shell', ...g});
     return grips;
   }
-  for(let inv=0; inv<4; inv++){
+  const n = ivs.length;   // 3 for triads, 4 for 7th-chord voicings
+  for(let inv=0; inv<n; inv++){
     const stack = [];
-    for(let k=0;k<4;k++){
-      let v = ivs[(inv+k) % 4];
+    for(let k=0;k<n;k++){
+      let v = ivs[(inv+k) % n];
       while(stack.length && v <= stack[stack.length-1]) v += 12;
       stack.push(v);
     }
@@ -3175,6 +3166,16 @@ function buildGrips(rootPc, qualKey, type, setDef){
 }
 FLAT_NAMES.forEach((n,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=n; $('vRoot').appendChild(o); });
 VOIC_QUALS.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=QUALITIES[k].label; $('vQual').appendChild(o); });
+$('vQual').dataset.type = 'chord';
+function vFillQuals(){
+  const sel = $('vQual'), key = $('vType').value === 'triad' ? 'triad' : 'chord';
+  if(sel.dataset.type === key) return;
+  sel.dataset.type = key;
+  sel.innerHTML = '';
+  (key === 'triad' ? TRIAD_QUALS : VOIC_QUALS).forEach(k=>{
+    const o=document.createElement('option'); o.value=k; o.textContent=QUALITIES[k].label; sel.appendChild(o);
+  });
+}
 function vFillSets(){
   const sel = $('vSet'); const cur = sel.dataset.type;
   if(cur === $('vType').value) return;
@@ -3191,6 +3192,7 @@ function gripA11y(cell, label){
   cell.onkeydown = e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); cell.onclick(); } };
 }
 function renderVoicings(){
+  vFillQuals();
   vFillSets();
   const rootPc=+$('vRoot').value, q=$('vQual').value, type=$('vType').value;
   const setDef = VOICE_SETS[type][+$('vSet').value || 0];
@@ -3221,10 +3223,11 @@ function voicingStacks(qualKey, type, setDef){
     return [{inv:'shell', stack: setDef.form==='173' ? [0, sev, third+12] : [0, third, sev]}];
   }
   const out = [];
-  for(let inv=0; inv<4; inv++){
+  const n = ivs.length;   // 3 for triads, 4 for 7th-chord voicings
+  for(let inv=0; inv<n; inv++){
     const stack = [];
-    for(let k=0;k<4;k++){
-      let v = ivs[(inv+k) % 4];
+    for(let k=0;k<n;k++){
+      let v = ivs[(inv+k) % n];
       while(stack.length && v <= stack[stack.length-1]) v += 12;
       stack.push(v);
     }
@@ -3255,6 +3258,10 @@ function allGrips(rootPc, qualKey, type, setDef){
 let vdSeq = [];
 function renderVoicingDrill(){
   const type = $('vType').value, setDef = VOICE_SETS[type][+$('vSet').value || 0];
+  // "Diatonic chords in a key" harmonizes in 7th chords (4-note stacks) — not
+  // meaningful for 3-note triad voicings, so fall back to the inversions drill.
+  $('vdMode').querySelector('option[value="key"]').disabled = (type === 'triad');
+  if(type === 'triad' && $('vdMode').value === 'key'){ $('vdMode').value = 'inv'; }
   const rootPc = +$('vRoot').value, mode = $('vdMode').value, dir = $('vdDir').value;
   const NM = SHARP_KEYS.has(rootPc) ? SHARP_NAMES : FLAT_NAMES;
   $('vdScaleWrap').style.display = mode==='key' ? '' : 'none';
@@ -3343,8 +3350,9 @@ $('loopBtn3').onclick = ()=> setLoop(!playLoop);
 $('vDice').onclick=()=>{
   const pick=a=>a[Math.floor(Math.random()*a.length)];
   $('vRoot').value=Math.floor(Math.random()*12);
-  $('vQual').value=pick(VOIC_QUALS);
-  $('vType').value=pick(['drop2','drop3','shell']);
+  $('vType').value=pick(['drop2','drop3','shell','triad']);
+  vFillQuals();
+  $('vQual').value=pick($('vType').value==='triad' ? TRIAD_QUALS : VOIC_QUALS);
   vFillSets();
   $('vSet').value=Math.floor(Math.random()*$('vSet').options.length);
   renderVoicings(); renderVoicingDrill();
