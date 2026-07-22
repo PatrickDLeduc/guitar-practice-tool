@@ -231,6 +231,7 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
 
   await p.click('.tabbtn[data-tab="poly"]');
   assert('poly: tab switches panel visible', await p.locator('#viewPoly').isVisible());
+  assert('poly: BPM refers to defaults to Rhythm A pulse', await p.evaluate(() => poly.bpmRef) === 'a' && await p.inputValue('#polyBpmRef') === 'a');
 
   await p.click('#polyPresets .chip[data-a="5"][data-b="7"]');
   const r1 = await p.evaluate(() => ({ a: poly.a, b: poly.b, aVal: +$('polyA').value, bVal: +$('polyB').value }));
@@ -479,6 +480,49 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.waitForTimeout(900); // several cycles at 280bpm — well past one boundary
   await p.click('#polyStop');
   assert('poly: restored alternate mode survives a cycle boundary without page errors', errs.length === errsBeforeCycle);
+
+  // regression: applyPracticeMode() called from polyLoadPrefs must derive muteA/muteB from
+  // the *restored* modeState.phase, not a hardcoded fresh phase='a' — previously it forced
+  // phase back to 'a' on every reload, silently overwriting whatever mute state was actually
+  // saved (defeating the "don't wipe restored mute/volume prefs" fix in the same commit).
+  await p.evaluate(() => { poly.modeState.phase = 'b'; applyPracticeMode(); polySavePrefs(); });
+  const altBeforeReload = await p.evaluate(() => ({ muteA: poly.muteA, muteB: poly.muteB }));
+  await p.reload();
+  await p.waitForTimeout(1200);
+  await p.click('.tabbtn[data-tab="poly"]');
+  const altAfterReload = await p.evaluate(() => ({ phase: poly.modeState.phase, muteA: poly.muteA, muteB: poly.muteB }));
+  assert('poly: alternate mode phase persists across reload', altAfterReload.phase === 'b');
+  assert('poly: alternate mode mute state matches the restored phase, not a reset-to-\'a\' phase',
+    altAfterReload.muteA === altBeforeReload.muteA && altAfterReload.muteB === altBeforeReload.muteB);
+
+  // regression: isolation mode's fade side and fade progress must survive a reload —
+  // previously poly.modeCfg (isolateSide/maxBpm/step) was never persisted at all, and
+  // applyPracticeMode() force-reset volA/volB to full volume on every reload.
+  await p.evaluate(() => { $('polyMode').value = 'isolation'; $('polyMode').dispatchEvent(new Event('change')); });
+  await p.selectOption('#polyIsoSide', 'a');
+  await p.dispatchEvent('#polyIsoSide', 'change');
+  await p.evaluate(() => { poly.modeState.cyclesInPhase = poly.modeCycles; applyPracticeMode(); polySavePrefs(); });
+  const isoBeforeReload = await p.evaluate(() => poly.volA);
+  await p.reload();
+  await p.waitForTimeout(1200);
+  await p.click('.tabbtn[data-tab="poly"]');
+  const isoAfterReload = await p.evaluate(() => ({ isolateSide: poly.modeCfg.isolateSide, isoSideSelect: $('polyIsoSide').value, volA: poly.volA }));
+  assert('poly: isolation fade side (Rhythm A) persists across reload', isoAfterReload.isolateSide === 'a' && isoAfterReload.isoSideSelect === 'a');
+  assert('poly: isolation fade progress survives reload instead of snapping back to full volume',
+    Math.abs(isoAfterReload.volA - isoBeforeReload) < 0.01);
+
+  // regression: a *fresh* isolation mode (no saved isolateSide) must still default to fading
+  // Rhythm B, matching pre-existing behavior — practiceModeReset() must not pre-commit the
+  // #polyIsoSide dropdown's own default DOM value ('a') into modeCfg on mode entry.
+  await p.evaluate(() => {
+    $('polyMode').value = 'none'; $('polyMode').dispatchEvent(new Event('change'));
+    poly.modeCfg = {};
+    $('polyVolA').value = '0.8'; $('polyVolB').value = '0.8'; // practiceModeReset reads these DOM sliders
+    $('polyMode').value = 'isolation'; $('polyMode').dispatchEvent(new Event('change'));
+    poly.modeState.cyclesInPhase = poly.modeCycles; applyPracticeMode();
+  });
+  const freshIso = await p.evaluate(() => ({ volA: poly.volA, volB: poly.volB }));
+  assert('poly: fresh isolation mode with no saved side defaults to fading Rhythm B', freshIso.volB < 0.1 && freshIso.volA === 0.8);
 
   await p.evaluate(() => { $('polyMode').value = 'none'; $('polyMode').dispatchEvent(new Event('change')); });
   await p.click('.tabbtn[data-tab="ex"]');

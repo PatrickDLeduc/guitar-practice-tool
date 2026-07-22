@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#e7e5e0;font-family:system-ui,sans-serif}
+  .dv-turn{padding:40px 44px 60px}
+  .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+  .dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}
+  .dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}
+  .dv-opts{display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start}
+  .dv-opt{flex:none;display:flex;flex-direction:column;gap:9px}
+  .dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}
+  .dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.55)}
+  .dv-next{margin:22px 0 0;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.5)}
+  .tabicon{width:20px;height:20px;display:flex;align-items:center;justify-content:center}
+</style>
+</helmet>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Mobile mockups — visual direction options</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>iOS · faithful dark theme, re-laid-out</div>
+<div style="width:402px">
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402,874">
+<div style="height:100%;display:flex;flex-direction:column;background:#12141a;color:#e8eaf0;font-family:-apple-system,system-ui,sans-serif;box-sizing:border-box">
+
+<div style="padding:66px 18px 12px;display:flex;align-items:center;justify-content:space-between;flex:0 0 auto">
+  <div>
+    <div style="font-size:20px;font-weight:700"><span style="color:#e8a33d">Guitar</span> Practice</div>
+    <div style="font-size:12px;color:#9aa0b0;margin-top:1px">EADGBE · standard tuning</div>
+  </div>
+  <div style="width:34px;height:34px;border-radius:50%;background:#232734;border:1px solid #333846;flex:0 0 auto"></div>
+</div>
+
+<div style="flex:1;overflow:auto;padding:0 18px 12px;display:flex;flex-direction:column;gap:14px">
+
+<sc-if value="{{ isExA }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;gap:8px">
+    <div style="flex:1;background:#1c1f28;border:1px solid #333846;border-radius:12px;padding:12px 14px;font-size:14px;color:#e8eaf0">major 7 arpeggios in 3rds…</div>
+    <div style="width:44px;height:44px;border-radius:12px;background:#e8a33d;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#1a1408;font-weight:700">→</div>
+  </div>
+  <div style="display:flex;gap:6px;overflow-x:auto">
+    <div style="flex:0 0 auto;padding:6px 12px;border-radius:20px;background:#1c1f28;border:1px solid #333846;font-size:12px;color:#9aa0b0;white-space:nowrap">Cycle of 4ths</div>
+    <div style="flex:0 0 auto;padding:6px 12px;border-radius:20px;background:#1c1f28;border:1px solid #333846;font-size:12px;color:#9aa0b0;white-space:nowrap">3 oct legato</div>
+    <div style="flex:0 0 auto;padding:6px 12px;border-radius:20px;background:#1c1f28;border:1px solid #333846;font-size:12px;color:#9aa0b0;white-space:nowrap">CAGED map</div>
+  </div>
+  <div style="background:#1c1f28;border:1px solid #333846;border-radius:14px;padding:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div><div style="font-size:17px;font-weight:700;color:#e8a33d">C maj7 arpeggio</div><div style="font-size:11px;color:#9aa0b0">2 octaves · position</div></div>
+      <div style="display:flex;gap:6px">
+        <div style="width:30px;height:30px;border-radius:8px;background:#232734;border:1px solid #333846"></div>
+        <div style="width:30px;height:30px;border-radius:8px;background:#e8a33d;color:#1a1408;display:flex;align-items:center;justify-content:center;font-size:12px">▶</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;border-top:1px dashed #333846;padding-top:10px">
+      <div style="height:1px;background:#333846"></div>
+      <div style="height:1px;background:#333846"></div>
+      <div style="height:1px;background:#333846"></div>
+      <div style="height:1px;background:#333846"></div>
+      <div style="height:1px;background:#333846"></div>
+      <div style="height:1px;background:#333846"></div>
+    </div>
+    <pre style="margin:8px 0 0;font-family:Consolas,Menlo,monospace;font-size:12px;color:#cdd3e0;line-height:1.5;overflow-x:auto">e|-0-----3-----5--|
+B|---1-----3------|
+G|-----0-----2----|
+D|----------------|
+A|----------------|
+E|----------------|</pre>
+  </div>
+  <div onClick="{{ toggleSheetA }}" style="text-align:center;padding:13px;border-radius:12px;background:#232734;border:1px solid #333846;font-size:14px;color:#e8a33d;font-weight:600">Customize exercise ⌄</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isStackA }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:12px">
+  <div style="display:flex;gap:8px">
+    <div style="flex:1;background:#1c1f28;border:1px solid #333846;border-radius:20px;padding:8px 14px;text-align:center;font-size:14px;font-weight:600">C</div>
+    <div style="flex:1;background:#1c1f28;border:1px solid #333846;border-radius:20px;padding:8px 14px;text-align:center;font-size:14px;font-weight:600">maj7</div>
+  </div>
+  <div style="font-size:12px;color:#5ab0f0">Upper-structure triads, smoothest first</div>
+  <sc-for list="{{ stackRows }}" as="row" hint-placeholder-count="4">
+    <div style="background:#1c1f28;border:1px solid #333846;border-radius:12px;padding:11px 14px;display:flex;align-items:center;justify-content:space-between">
+      <div><div style="font-size:14px;font-weight:600">{{ row.triad }}</div><div style="font-size:11px;color:#9aa0b0">over {{ row.base }}</div></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="font-size:14px;font-weight:700;color:#e8a33d">{{ row.name }}</div>
+        <div style="width:9px;height:9px;border-radius:50%;background:{{ row.dot }}"></div>
+      </div>
+    </div>
+  </sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isProgA }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:12px">
+  <div style="display:flex;gap:8px">
+    <div style="flex:1;background:#1c1f28;border:1px solid #333846;border-radius:12px;padding:12px 14px;font-size:14px">ii-V-I in Bb</div>
+    <div style="width:44px;height:44px;border-radius:12px;background:#e8a33d;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#1a1408;font-weight:700">→</div>
+  </div>
+  <div style="background:#1c1f28;border:1px solid #333846;border-radius:14px;padding:14px">
+    <div style="font-size:11px;color:#9aa0b0;margin-bottom:8px">Voice-led arpeggios · 8 notes/chord</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <div style="padding:7px 12px;border-radius:8px;background:#232734;border:1px solid #333846;font-size:13px;font-weight:600">Cm7</div>
+      <div style="padding:7px 12px;border-radius:8px;background:#232734;border:1px solid #333846;font-size:13px;font-weight:600">F7</div>
+      <div style="padding:7px 12px;border-radius:8px;background:#232734;border:1px solid #333846;font-size:13px;font-weight:600">Bbmaj7</div>
+      <div style="width:30px;height:30px;border-radius:8px;background:#e8a33d;color:#1a1408;display:flex;align-items:center;justify-content:center;font-size:12px;margin-left:auto">▶</div>
+    </div>
+  </div>
+  <div style="background:#1c1f28;border:1px solid #333846;border-radius:14px;padding:14px">
+    <div style="font-size:14px;font-weight:700;color:#5ab0f0;margin-bottom:4px">Harmony game — modal mixture</div>
+    <div style="font-size:12px;color:#9aa0b0;margin-bottom:10px">Keep the I chord, borrow the rest from a parallel mode.</div>
+    <div style="text-align:center;padding:10px;border-radius:10px;background:#232734;font-size:13px;font-weight:600">Roll random progression</div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isVoicA }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:12px">
+  <div style="display:flex;gap:6px">
+    <div style="flex:1;background:#1c1f28;border:1px solid #333846;border-radius:20px;padding:7px 10px;text-align:center;font-size:13px;font-weight:600">C</div>
+    <div style="flex:1;background:#1c1f28;border:1px solid #333846;border-radius:20px;padding:7px 10px;text-align:center;font-size:13px;font-weight:600">maj7</div>
+    <div style="flex:1;background:#1c1f28;border:1px solid #333846;border-radius:20px;padding:7px 10px;text-align:center;font-size:13px;font-weight:600">Drop 2</div>
+  </div>
+  <div style="display:flex;gap:10px">
+    <sc-for list="{{ voicingGrips }}" as="g" hint-placeholder-count="3">
+      <div style="flex:1;background:#1c1f28;border:1px solid #333846;border-radius:12px;padding:10px">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">
+          <sc-for list="{{ g.dots }}" as="d" hint-placeholder-count="16">
+            <div style="width:100%;aspect-ratio:1;border-radius:50%;background:{{ d }}"></div>
+          </sc-for>
+        </div>
+        <div style="text-align:center;font-size:11px;color:#9aa0b0;margin-top:6px">{{ g.label }}</div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isEarA }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:16px;align-items:center;padding-top:6px">
+  <div style="font-size:13px;color:#9aa0b0">Intervals · Basic</div>
+  <div style="width:84px;height:84px;border-radius:50%;background:#e8a33d;color:#1a1408;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700">▶</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%">
+    <div style="padding:14px;border-radius:12px;background:#1c1f28;border:1px solid #333846;text-align:center;font-size:14px;font-weight:600">m3</div>
+    <div style="padding:14px;border-radius:12px;background:#1c1f28;border:1px solid #333846;text-align:center;font-size:14px;font-weight:600">M3</div>
+    <div style="padding:14px;border-radius:12px;background:#1c1f28;border:1px solid #333846;text-align:center;font-size:14px;font-weight:600">P4</div>
+    <div style="padding:14px;border-radius:12px;background:#1c1f28;border:1px solid #333846;text-align:center;font-size:14px;font-weight:600">P5</div>
+  </div>
+  <div style="font-size:13px;color:#5ab0f0;font-weight:600">6 / 8 · streak 3</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPgA }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;gap:8px">
+    <div style="flex:1;background:#1c1f28;border:1px solid #333846;border-radius:12px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:700;color:#e8a33d">12</div><div style="font-size:10px;color:#9aa0b0">day streak</div></div>
+    <div style="flex:1;background:#1c1f28;border:1px solid #333846;border-radius:12px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:700;color:#e8a33d">138</div><div style="font-size:10px;color:#9aa0b0">best BPM</div></div>
+    <div style="flex:1;background:#1c1f28;border:1px solid #333846;border-radius:12px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:700;color:#e8a33d">47</div><div style="font-size:10px;color:#9aa0b0">sessions</div></div>
+  </div>
+  <div style="background:#1c1f28;border:1px solid #333846;border-radius:14px;padding:14px">
+    <div style="font-size:11px;color:#9aa0b0;margin-bottom:8px">Last 7 days</div>
+    <div style="display:flex;gap:6px;align-items:flex-end;height:56px">
+      <sc-for list="{{ chartBars }}" as="h" hint-placeholder-count="7">
+        <div style="flex:1;height:{{ h }}%;background:#5ab0f0;border-radius:3px 3px 0 0"></div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;justify-content:space-between;background:#1c1f28;border:1px solid #333846;border-radius:10px;padding:10px 14px;font-size:13px"><span>A minor scale, 3nps</span><span style="color:#e8a33d;font-weight:600">112</span></div>
+    <div style="display:flex;justify-content:space-between;background:#1c1f28;border:1px solid #333846;border-radius:10px;padding:10px 14px;font-size:13px"><span>Cycle of 4ths arps</span><span style="color:#e8a33d;font-weight:600">96</span></div>
+  </div>
+</div>
+</sc-if>
+
+</div>
+
+<div style="flex:0 0 auto;background:#1c1f28;border-top:1px solid #333846;padding:8px 16px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div onClick="{{ toggleMetroPlayA }}" style="width:34px;height:34px;border-radius:50%;background:#e8a33d;color:#1a1408;display:flex;align-items:center;justify-content:center;font-size:13px;flex:0 0 auto">{{ metroPlayIconA }}</div>
+    <div style="font-size:16px;font-weight:700;color:#e8a33d;min-width:34px;text-align:center">{{ bpmA }}</div>
+    <div style="display:flex;gap:4px">
+      <div onClick="{{ bpmDownA }}" style="width:26px;height:26px;border-radius:7px;background:#232734;border:1px solid #333846;display:flex;align-items:center;justify-content:center;font-size:14px">−</div>
+      <div onClick="{{ bpmUpA }}" style="width:26px;height:26px;border-radius:7px;background:#232734;border:1px solid #333846;display:flex;align-items:center;justify-content:center;font-size:14px">+</div>
+    </div>
+    <div style="flex:1;height:3px;background:#333846;border-radius:2px"></div>
+    <div onClick="{{ toggleMetroA }}" style="font-size:12px;color:#9aa0b0">{{ metroChevronA }}</div>
+  </div>
+  <sc-if value="{{ metroOpenA }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <div style="padding:5px 10px;border-radius:8px;background:#232734;border:1px solid #333846;font-size:11px;color:#9aa0b0">4/4</div>
+    <div style="padding:5px 10px;border-radius:8px;background:#232734;border:1px solid #333846;font-size:11px;color:#9aa0b0">Trainer: off</div>
+    <div style="padding:5px 10px;border-radius:8px;background:#232734;border:1px solid #333846;font-size:11px;color:#9aa0b0">Tap tempo</div>
+  </div>
+  </sc-if>
+</div>
+
+<div style="flex:0 0 auto;background:#1c1f28;border-top:1px solid #333846;display:flex;padding:8px 4px 20px">
+  <sc-for list="{{ tabsA }}" as="t" hint-placeholder-count="6">
+    <div onClick="{{ t.select }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:{{ t.color }}">
+      <div class="tabicon">
+        <sc-if value="{{ t.isEx }}" hint-placeholder-val="{{ false }}"><div style="width:16px;height:16px;border-radius:50%;border:2px solid {{ t.color }}"></div></sc-if>
+        <sc-if value="{{ t.isStack }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:2px"><div style="width:16px;height:3px;background:{{ t.color }};border-radius:1px"></div><div style="width:16px;height:3px;background:{{ t.color }};border-radius:1px"></div><div style="width:16px;height:3px;background:{{ t.color }};border-radius:1px"></div></div></sc-if>
+        <sc-if value="{{ t.isProg }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:3px"><div style="width:5px;height:5px;border-radius:50%;background:{{ t.color }}"></div><div style="width:5px;height:5px;border-radius:50%;background:{{ t.color }}"></div><div style="width:5px;height:5px;border-radius:50%;background:{{ t.color }}"></div></div></sc-if>
+        <sc-if value="{{ t.isVoic }}" hint-placeholder-val="{{ false }}"><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;width:15px;height:15px"><div style="background:{{ t.color }};border-radius:1px"></div><div style="background:{{ t.color }};border-radius:1px"></div><div style="background:{{ t.color }};border-radius:1px"></div><div style="background:{{ t.color }};border-radius:1px"></div></div></sc-if>
+        <sc-if value="{{ t.isEar }}" hint-placeholder-val="{{ false }}"><div style="width:14px;height:14px;border-radius:50%;background:{{ t.color }}"></div></sc-if>
+        <sc-if value="{{ t.isPg }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:flex-end;gap:2px;height:15px"><div style="width:4px;height:6px;background:{{ t.color }}"></div><div style="width:4px;height:11px;background:{{ t.color }}"></div><div style="width:4px;height:15px;background:{{ t.color }}"></div></div></sc-if>
+      </div>
+      <div style="font-size:9.5px;font-weight:600">{{ t.label }}</div>
+    </div>
+  </sc-for>
+</div>
+
+<sc-if value="{{ sheetA }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;z-index:40">
+  <div style="width:100%;background:#1c1f28;border-radius:20px 20px 0 0;padding:16px 18px 30px;border-top:1px solid #333846">
+    <div style="width:36px;height:4px;border-radius:2px;background:#333846;margin:0 auto 14px"></div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:12px">Customize exercise</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;padding:11px 14px;background:#232734;border-radius:10px;font-size:13px"><span style="color:#9aa0b0">Pattern</span><span>In 3rds</span></div>
+      <div style="display:flex;justify-content:space-between;padding:11px 14px;background:#232734;border-radius:10px;font-size:13px"><span style="color:#9aa0b0">Key sequence</span><span>Cycle of 4ths</span></div>
+      <div style="display:flex;justify-content:space-between;padding:11px 14px;background:#232734;border-radius:10px;font-size:13px"><span style="color:#9aa0b0">Fingering</span><span>Auto position</span></div>
+      <div style="display:flex;justify-content:space-between;padding:11px 14px;background:#232734;border-radius:10px;font-size:13px"><span style="color:#9aa0b0">Technique focus</span><span>Alternate picking</span></div>
+    </div>
+    <div onClick="{{ toggleSheetA }}" style="margin-top:16px;text-align:center;padding:13px;border-radius:12px;background:#e8a33d;color:#1a1408;font-weight:700;font-size:14px">Done</div>
+  </div>
+</div>
+</sc-if>
+
+</div>
+</x-import>
+</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Android · refreshed Material style</div>
+<div style="width:412px">
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" dark="{{ true }}" hint-size="412,892">
+<div style="height:100%;display:flex;flex-direction:column;background:#0e1013;color:#eef0f4;font-family:Roboto,system-ui,sans-serif;box-sizing:border-box">
+
+<div style="padding:14px 20px 10px;display:flex;align-items:center;justify-content:space-between;flex:0 0 auto">
+  <div>
+    <div style="font-size:21px;font-weight:700"><span style="color:#f0b74a">Guitar</span> Practice</div>
+    <div style="font-size:12px;color:#9198a8;margin-top:2px">EADGBE · standard tuning</div>
+  </div>
+  <div style="width:36px;height:36px;border-radius:50%;background:#20242c"></div>
+</div>
+
+<div style="flex:1;overflow:auto;padding:0 20px 14px;display:flex;flex-direction:column;gap:16px">
+
+<sc-if value="{{ isExB }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:16px">
+  <div style="display:flex;gap:10px">
+    <div style="flex:1;background:#181b21;border-radius:24px;padding:14px 18px;font-size:14px;color:#eef0f4">major 7 arpeggios in 3rds…</div>
+    <div style="width:48px;height:48px;border-radius:24px;background:#f0b74a;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#211505;font-weight:700">→</div>
+  </div>
+  <div style="display:flex;gap:8px;overflow-x:auto">
+    <div style="flex:0 0 auto;padding:8px 14px;border-radius:20px;background:#181b21;font-size:12px;color:#9198a8;white-space:nowrap">Cycle of 4ths</div>
+    <div style="flex:0 0 auto;padding:8px 14px;border-radius:20px;background:#181b21;font-size:12px;color:#9198a8;white-space:nowrap">3 oct legato</div>
+    <div style="flex:0 0 auto;padding:8px 14px;border-radius:20px;background:#181b21;font-size:12px;color:#9198a8;white-space:nowrap">CAGED map</div>
+  </div>
+  <div style="background:#181b21;border-radius:24px;padding:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div><div style="font-size:18px;font-weight:700;color:#f0b74a">C maj7 arpeggio</div><div style="font-size:11px;color:#9198a8;margin-top:2px">2 octaves · position</div></div>
+      <div style="display:flex;gap:8px">
+        <div style="width:34px;height:34px;border-radius:12px;background:#20242c"></div>
+        <div style="width:34px;height:34px;border-radius:12px;background:#f0b74a;color:#211505;display:flex;align-items:center;justify-content:center;font-size:12px">▶</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:3px;border-top:1px dashed #2a2f3a;padding-top:12px">
+      <div style="height:1px;background:#2a2f3a"></div>
+      <div style="height:1px;background:#2a2f3a"></div>
+      <div style="height:1px;background:#2a2f3a"></div>
+      <div style="height:1px;background:#2a2f3a"></div>
+      <div style="height:1px;background:#2a2f3a"></div>
+      <div style="height:1px;background:#2a2f3a"></div>
+    </div>
+    <pre style="margin:10px 0 0;font-family:Consolas,Menlo,monospace;font-size:12px;color:#c7cdd8;line-height:1.5;overflow-x:auto">e|-0-----3-----5--|
+B|---1-----3------|
+G|-----0-----2----|
+D|----------------|
+A|----------------|
+E|----------------|</pre>
+  </div>
+  <div onClick="{{ toggleSheetB }}" style="text-align:center;padding:15px;border-radius:24px;background:#20242c;font-size:14px;color:#f0b74a;font-weight:600">Customize exercise ⌄</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isStackB }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;gap:10px">
+    <div style="flex:1;background:#181b21;border-radius:20px;padding:10px 16px;text-align:center;font-size:14px;font-weight:600">C</div>
+    <div style="flex:1;background:#181b21;border-radius:20px;padding:10px 16px;text-align:center;font-size:14px;font-weight:600">maj7</div>
+  </div>
+  <div style="font-size:12px;color:#57c2d6">Upper-structure triads, smoothest first</div>
+  <sc-for list="{{ stackRows }}" as="row" hint-placeholder-count="4">
+    <div style="background:#181b21;border-radius:18px;padding:13px 16px;display:flex;align-items:center;justify-content:space-between">
+      <div><div style="font-size:14px;font-weight:600">{{ row.triad }}</div><div style="font-size:11px;color:#9198a8">over {{ row.base }}</div></div>
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="font-size:14px;font-weight:700;color:#f0b74a">{{ row.name }}</div>
+        <div style="width:9px;height:9px;border-radius:50%;background:{{ row.dot }}"></div>
+      </div>
+    </div>
+  </sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isProgB }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;gap:10px">
+    <div style="flex:1;background:#181b21;border-radius:24px;padding:14px 18px;font-size:14px">ii-V-I in Bb</div>
+    <div style="width:48px;height:48px;border-radius:24px;background:#f0b74a;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#211505;font-weight:700">→</div>
+  </div>
+  <div style="background:#181b21;border-radius:24px;padding:18px">
+    <div style="font-size:11px;color:#9198a8;margin-bottom:10px">Voice-led arpeggios · 8 notes/chord</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <div style="padding:9px 14px;border-radius:14px;background:#20242c;font-size:13px;font-weight:600">Cm7</div>
+      <div style="padding:9px 14px;border-radius:14px;background:#20242c;font-size:13px;font-weight:600">F7</div>
+      <div style="padding:9px 14px;border-radius:14px;background:#20242c;font-size:13px;font-weight:600">Bbmaj7</div>
+      <div style="width:34px;height:34px;border-radius:14px;background:#f0b74a;color:#211505;display:flex;align-items:center;justify-content:center;font-size:12px;margin-left:auto">▶</div>
+    </div>
+  </div>
+  <div style="background:#181b21;border-radius:24px;padding:18px">
+    <div style="font-size:14px;font-weight:700;color:#57c2d6;margin-bottom:5px">Harmony game — modal mixture</div>
+    <div style="font-size:12px;color:#9198a8;margin-bottom:12px">Keep the I chord, borrow the rest from a parallel mode.</div>
+    <div style="text-align:center;padding:12px;border-radius:16px;background:#20242c;font-size:13px;font-weight:600">Roll random progression</div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isVoicB }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;gap:8px">
+    <div style="flex:1;background:#181b21;border-radius:20px;padding:8px 10px;text-align:center;font-size:13px;font-weight:600">C</div>
+    <div style="flex:1;background:#181b21;border-radius:20px;padding:8px 10px;text-align:center;font-size:13px;font-weight:600">maj7</div>
+    <div style="flex:1;background:#181b21;border-radius:20px;padding:8px 10px;text-align:center;font-size:13px;font-weight:600">Drop 2</div>
+  </div>
+  <div style="display:flex;gap:12px">
+    <sc-for list="{{ voicingGrips }}" as="g" hint-placeholder-count="3">
+      <div style="flex:1;background:#181b21;border-radius:18px;padding:12px">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+          <sc-for list="{{ g.dots }}" as="d" hint-placeholder-count="16">
+            <div style="width:100%;aspect-ratio:1;border-radius:50%;background:{{ d }}"></div>
+          </sc-for>
+        </div>
+        <div style="text-align:center;font-size:11px;color:#9198a8;margin-top:8px">{{ g.label }}</div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isEarB }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:18px;align-items:center;padding-top:8px">
+  <div style="font-size:13px;color:#9198a8">Intervals · Basic</div>
+  <div style="width:90px;height:90px;border-radius:50%;background:#f0b74a;color:#211505;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700">▶</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%">
+    <div style="padding:16px;border-radius:18px;background:#181b21;text-align:center;font-size:14px;font-weight:600">m3</div>
+    <div style="padding:16px;border-radius:18px;background:#181b21;text-align:center;font-size:14px;font-weight:600">M3</div>
+    <div style="padding:16px;border-radius:18px;background:#181b21;text-align:center;font-size:14px;font-weight:600">P4</div>
+    <div style="padding:16px;border-radius:18px;background:#181b21;text-align:center;font-size:14px;font-weight:600">P5</div>
+  </div>
+  <div style="font-size:13px;color:#57c2d6;font-weight:600">6 / 8 · streak 3</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPgB }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:16px">
+  <div style="display:flex;gap:10px">
+    <div style="flex:1;background:#181b21;border-radius:18px;padding:14px;text-align:center"><div style="font-size:19px;font-weight:700;color:#f0b74a">12</div><div style="font-size:10px;color:#9198a8;margin-top:2px">day streak</div></div>
+    <div style="flex:1;background:#181b21;border-radius:18px;padding:14px;text-align:center"><div style="font-size:19px;font-weight:700;color:#f0b74a">138</div><div style="font-size:10px;color:#9198a8;margin-top:2px">best BPM</div></div>
+    <div style="flex:1;background:#181b21;border-radius:18px;padding:14px;text-align:center"><div style="font-size:19px;font-weight:700;color:#f0b74a">47</div><div style="font-size:10px;color:#9198a8;margin-top:2px">sessions</div></div>
+  </div>
+  <div style="background:#181b21;border-radius:24px;padding:18px">
+    <div style="font-size:11px;color:#9198a8;margin-bottom:10px">Last 7 days</div>
+    <div style="display:flex;gap:8px;align-items:flex-end;height:60px">
+      <sc-for list="{{ chartBars }}" as="h" hint-placeholder-count="7">
+        <div style="flex:1;height:{{ h }}%;background:#57c2d6;border-radius:4px 4px 0 0"></div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;justify-content:space-between;background:#181b21;border-radius:16px;padding:12px 16px;font-size:13px"><span>A minor scale, 3nps</span><span style="color:#f0b74a;font-weight:600">112</span></div>
+    <div style="display:flex;justify-content:space-between;background:#181b21;border-radius:16px;padding:12px 16px;font-size:13px"><span>Cycle of 4ths arps</span><span style="color:#f0b74a;font-weight:600">96</span></div>
+  </div>
+</div>
+</sc-if>
+
+</div>
+
+<div style="flex:0 0 auto;background:#181b21;padding:10px 20px">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div onClick="{{ toggleMetroPlayB }}" style="width:38px;height:38px;border-radius:50%;background:#f0b74a;color:#211505;display:flex;align-items:center;justify-content:center;font-size:14px;flex:0 0 auto">{{ metroPlayIconB }}</div>
+    <div style="font-size:17px;font-weight:700;color:#f0b74a;min-width:36px;text-align:center">{{ bpmB }}</div>
+    <div style="display:flex;gap:5px">
+      <div onClick="{{ bpmDownB }}" style="width:28px;height:28px;border-radius:10px;background:#20242c;display:flex;align-items:center;justify-content:center;font-size:14px">−</div>
+      <div onClick="{{ bpmUpB }}" style="width:28px;height:28px;border-radius:10px;background:#20242c;display:flex;align-items:center;justify-content:center;font-size:14px">+</div>
+    </div>
+    <div style="flex:1;height:4px;background:#20242c;border-radius:2px"></div>
+    <div onClick="{{ toggleMetroB }}" style="font-size:12px;color:#9198a8">{{ metroChevronB }}</div>
+  </div>
+  <sc-if value="{{ metroOpenB }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <div style="padding:6px 12px;border-radius:12px;background:#20242c;font-size:11px;color:#9198a8">4/4</div>
+    <div style="padding:6px 12px;border-radius:12px;background:#20242c;font-size:11px;color:#9198a8">Trainer: off</div>
+    <div style="padding:6px 12px;border-radius:12px;background:#20242c;font-size:11px;color:#9198a8">Tap tempo</div>
+  </div>
+  </sc-if>
+</div>
+
+<div style="flex:0 0 auto;background:#14161b;display:flex;padding:10px 4px 6px">
+  <sc-for list="{{ tabsB }}" as="t" hint-placeholder-count="6">
+    <div onClick="{{ t.select }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px">
+      <div class="tabicon" style="{{ t.pillStyle }}">
+        <sc-if value="{{ t.isEx }}" hint-placeholder-val="{{ false }}"><div style="width:16px;height:16px;border-radius:50%;border:2px solid {{ t.color }}"></div></sc-if>
+        <sc-if value="{{ t.isStack }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:2px"><div style="width:16px;height:3px;background:{{ t.color }};border-radius:1px"></div><div style="width:16px;height:3px;background:{{ t.color }};border-radius:1px"></div><div style="width:16px;height:3px;background:{{ t.color }};border-radius:1px"></div></div></sc-if>
+        <sc-if value="{{ t.isProg }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:3px"><div style="width:5px;height:5px;border-radius:50%;background:{{ t.color }}"></div><div style="width:5px;height:5px;border-radius:50%;background:{{ t.color }}"></div><div style="width:5px;height:5px;border-radius:50%;background:{{ t.color }}"></div></div></sc-if>
+        <sc-if value="{{ t.isVoic }}" hint-placeholder-val="{{ false }}"><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;width:15px;height:15px"><div style="background:{{ t.color }};border-radius:1px"></div><div style="background:{{ t.color }};border-radius:1px"></div><div style="background:{{ t.color }};border-radius:1px"></div><div style="background:{{ t.color }};border-radius:1px"></div></div></sc-if>
+        <sc-if value="{{ t.isEar }}" hint-placeholder-val="{{ false }}"><div style="width:14px;height:14px;border-radius:50%;background:{{ t.color }}"></div></sc-if>
+        <sc-if value="{{ t.isPg }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:flex-end;gap:2px;height:15px"><div style="width:4px;height:6px;background:{{ t.color }}"></div><div style="width:4px;height:11px;background:{{ t.color }}"></div><div style="width:4px;height:15px;background:{{ t.color }}"></div></div></sc-if>
+      </div>
+      <div style="font-size:9.5px;font-weight:600;color:{{ t.labelColor }}">{{ t.label }}</div>
+    </div>
+  </sc-for>
+</div>
+
+<sc-if value="{{ sheetB }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;z-index:40">
+  <div style="width:100%;background:#181b21;border-radius:28px 28px 0 0;padding:18px 20px 34px">
+    <div style="width:36px;height:4px;border-radius:2px;background:#2a2f3a;margin:0 auto 16px"></div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:14px">Customize exercise</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between;padding:13px 16px;background:#20242c;border-radius:16px;font-size:13px"><span style="color:#9198a8">Pattern</span><span>In 3rds</span></div>
+      <div style="display:flex;justify-content:space-between;padding:13px 16px;background:#20242c;border-radius:16px;font-size:13px"><span style="color:#9198a8">Key sequence</span><span>Cycle of 4ths</span></div>
+      <div style="display:flex;justify-content:space-between;padding:13px 16px;background:#20242c;border-radius:16px;font-size:13px"><span style="color:#9198a8">Fingering</span><span>Auto position</span></div>
+      <div style="display:flex;justify-content:space-between;padding:13px 16px;background:#20242c;border-radius:16px;font-size:13px"><span style="color:#9198a8">Technique focus</span><span>Alternate picking</span></div>
+    </div>
+    <div onClick="{{ toggleSheetB }}" style="margin-top:18px;text-align:center;padding:15px;border-radius:20px;background:#f0b74a;color:#211505;font-weight:700;font-size:14px">Done</div>
+  </div>
+</div>
+</sc-if>
+
+</div>
+</x-import>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "make <a class="dv-oid" href="#1a">1a</a> the direction, add the Progress chart animation" · "combine <a class="dv-oid" href="#1b">1b</a>'s Material nav with 1a's colors" · "show the sheet open by default"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TABS = [
+  {key:'ex',label:'Exercises'},
+  {key:'stack',label:'Stack'},
+  {key:'prog',label:'Prog'},
+  {key:'voic',label:'Voicings'},
+  {key:'ear',label:'Ear'},
+  {key:'pg',label:'Progress'},
+];
+class Component extends DCLogic {
+  state = {
+    tabA:0, tabB:0,
+    sheetA:false, sheetB:false,
+    metroOpenA:false, metroOpenB:false,
+    metroPlayA:false, metroPlayB:false,
+    bpmA:82, bpmB:96,
+  };
+  mkTabs(which, activeColor, mutedColor, pillBg){
+    return TABS.map((t,i)=>{
+      const active = this.state['tab'+which]===i;
+      const onPill = active && !!pillBg;
+      return {
+        ...t, i, active,
+        color: onPill ? '#211505' : (active ? activeColor : mutedColor),
+        labelColor: active ? activeColor : mutedColor,
+        pillStyle: onPill
+          ? `background:${pillBg};border-radius:14px;width:44px;height:26px;display:flex;align-items:center;justify-content:center`
+          : 'width:44px;height:26px;display:flex;align-items:center;justify-content:center',
+        select: () => this.setState({['tab'+which]: i}),
+        isEx: t.key==='ex', isStack: t.key==='stack', isProg: t.key==='prog',
+        isVoic: t.key==='voic', isEar: t.key==='ear', isPg: t.key==='pg',
+      };
+    });
+  }
+  renderVals(){
+    const s = this.state;
+    return {
+      tabsA: this.mkTabs('A', '#e8a33d', '#9aa0b0'),
+      tabsB: this.mkTabs('B', '#211505', '#9198a8', '#f0b74a'),
+      isExA: s.tabA===0, isStackA: s.tabA===1, isProgA: s.tabA===2, isVoicA: s.tabA===3, isEarA: s.tabA===4, isPgA: s.tabA===5,
+      isExB: s.tabB===0, isStackB: s.tabB===1, isProgB: s.tabB===2, isVoicB: s.tabB===3, isEarB: s.tabB===4, isPgB: s.tabB===5,
+      sheetA: s.sheetA, sheetB: s.sheetB,
+      toggleSheetA: () => this.setState(st => ({sheetA: !st.sheetA})),
+      toggleSheetB: () => this.setState(st => ({sheetB: !st.sheetB})),
+      metroOpenA: s.metroOpenA, metroOpenB: s.metroOpenB,
+      toggleMetroA: () => this.setState(st => ({metroOpenA: !st.metroOpenA})),
+      toggleMetroB: () => this.setState(st => ({metroOpenB: !st.metroOpenB})),
+      metroChevronA: s.metroOpenA ? '︿' : '⌄',
+      metroChevronB: s.metroOpenB ? '︿' : '⌄',
+      metroPlayIconA: s.metroPlayA ? '⏸' : '▶',
+      metroPlayIconB: s.metroPlayB ? '⏸' : '▶',
+      toggleMetroPlayA: () => this.setState(st => ({metroPlayA: !st.metroPlayA})),
+      toggleMetroPlayB: () => this.setState(st => ({metroPlayB: !st.metroPlayB})),
+      bpmA: s.bpmA, bpmB: s.bpmB,
+      bpmDownA: () => this.setState(st => ({bpmA: Math.max(30, st.bpmA-1)})),
+      bpmUpA: () => this.setState(st => ({bpmA: Math.min(260, st.bpmA+1)})),
+      bpmDownB: () => this.setState(st => ({bpmB: Math.max(30, st.bpmB-1)})),
+      bpmUpB: () => this.setState(st => ({bpmB: Math.min(260, st.bpmB+1)})),
+      stackRows: [
+        {triad:'D major', base:'Cmaj7', name:'Cmaj13♯11', dot:'#58c98f'},
+        {triad:'E minor', base:'Cmaj7', name:'Cmaj9', dot:'#58c98f'},
+        {triad:'A minor', base:'Cmaj7', name:'Cmaj13', dot:'#5ab0f0'},
+        {triad:'D♭ major', base:'Cmaj7', name:'Cmaj7♭9♯11', dot:'#e05c5c'},
+      ],
+      voicingGrips: [
+        {label:'Root pos', dots: ['#333846','#e8a33d','#333846','#333846','#333846','#333846','#5ab0f0','#333846','#333846','#333846','#e8a33d','#333846','#333846','#333846','#333846','#5ab0f0']},
+        {label:'1st inv', dots: ['#333846','#333846','#5ab0f0','#333846','#e8a33d','#333846','#333846','#333846','#333846','#5ab0f0','#333846','#333846','#333846','#e8a33d','#333846','#333846']},
+        {label:'2nd inv', dots: ['#333846','#333846','#333846','#5ab0f0','#333846','#333846','#e8a33d','#333846','#5ab0f0','#333846','#333846','#333846','#333846','#333846','#e8a33d','#333846']},
+      ],
+      chartBars: [40,65,30,80,55,90,70],
+    };
+  }
+}
+</script>
+</body>
+</html>
