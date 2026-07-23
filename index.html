@@ -742,6 +742,11 @@
     </select>
     <input id="mCustom" type="text" placeholder="3x5/8 + 7/8" aria-label="Custom meter sequence"
       title="Bar sequence: 5/8+7/8 alternates, 3x5/8+7/8 repeats, 7/8(2+2+3) sets accents" style="display:none">
+    <select id="mSub" aria-label="Subdivision click" title="Click subdivisions between beats">
+      <option value="1" selected>♩ click</option>
+      <option value="2">♫ 8th click</option>
+      <option value="4">♬ 16th click</option>
+    </select>
     <span id="mBarPos" class="tlbl"></span>
     <div id="mDots" aria-hidden="true"></div>
   </div>
@@ -3572,7 +3577,7 @@ const METERS = {
 const metro = {
   ctx:null, playing:false, bpm:80, beats:4, beat:0, beatInBar:0, nextTime:0, timer:null,
   LOOKAHEAD_MS:25, AHEAD:0.1,
-  trainer:false, barCount:0, accents:[2,0,0,0],
+  trainer:false, barCount:0, accents:[2,0,0,0], sub:1,
   bars:null, barIdx:0,   // custom meter sequence: [{acc:[...], label:'5/8'}, ...]
 };
 // "3x5/8 + 7/8(2+2+3)" → [{acc,label} x3, {acc,label}] — or null if nothing parses.
@@ -3615,9 +3620,9 @@ function applyMeterBar(){
 function metroClick(time, level){
   const osc = metro.ctx.createOscillator(), g = metro.ctx.createGain();
   osc.type = 'square';
-  osc.frequency.value = level===2 ? 1568 : level===1 ? 1319 : 1047;   // G6 / E6 / C6
+  osc.frequency.value = level===2 ? 1568 : level===1 ? 1319 : level===-1 ? 880 : 1047;   // G6 / E6 / A5(sub) / C6
   g.gain.setValueAtTime(0.0001, time);
-  g.gain.exponentialRampToValueAtTime(level===2 ? 0.5 : level===1 ? 0.42 : 0.3, time + 0.002);
+  g.gain.exponentialRampToValueAtTime(level===2 ? 0.5 : level===1 ? 0.42 : level===-1 ? 0.16 : 0.3, time + 0.002);
   g.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
   osc.connect(g); g.connect(metro.ctx.destination);
   osc.start(time); osc.stop(time + 0.07);
@@ -3659,9 +3664,11 @@ function metroScheduler(){
     const level = metro.accents[idx] ?? 0;
     metroClick(metro.nextTime, level);
     metroFlash(idx, level, (metro.nextTime - metro.ctx.currentTime) * 1000);
+    const beatDur = 60 / metro.bpm;
+    for(let s=1; s<metro.sub; s++) metroClick(metro.nextTime + s*beatDur/metro.sub, -1);
     metro.beatInBar++;
     metro.beat++;
-    metro.nextTime += 60 / metro.bpm;
+    metro.nextTime += beatDur;
   }
 }
 function metroStart(){
@@ -3719,6 +3726,7 @@ function applyCustomMeter(){
   if(typeof generate === 'function' && currentTab === 'ex') generate();   // barlines follow the sequence
 }
 $('mCustom').addEventListener('change', applyCustomMeter);
+$('mSub').addEventListener('change', e=> metro.sub = +e.target.value);
 $('mTrain').onclick = ()=>{
   metro.trainer = !metro.trainer; metro.barCount = 0;
   $('mTrain').textContent = metro.trainer ? 'Trainer: ON' : 'Trainer: off';
