@@ -741,7 +741,7 @@
       <option value="custom">Custom…</option>
     </select>
     <input id="mCustom" type="text" placeholder="3x5/8 + 7/8" aria-label="Custom meter sequence"
-      title="Bar sequence: 5/8+7/8 alternates, 3x5/8+7/8 repeats, 7/8(2+2+3) sets accents" style="display:none">
+      title="Bar sequence: 5/8+7/8 alternates, 3x5/8+7/8 repeats, 7/8(2+2+3) sets accents. /16 works too: 17/16, 19/16(3+3+3+3+3+2+2)" style="display:none">
     <select id="mSub" aria-label="Subdivision click" title="Click subdivisions between beats">
       <option value="1" selected>♩ click</option>
       <option value="2">♫ 8th click</option>
@@ -3581,18 +3581,18 @@ const metro = {
   bars:null, barIdx:0,   // custom meter sequence: [{acc:[...], label:'5/8'}, ...]
 };
 // "3x5/8 + 7/8(2+2+3)" → [{acc,label} x3, {acc,label}] — or null if nothing parses.
-// Default accents: /8 groups into 3s then 2s (5=3+2, 7=3+2+2); /4 and /2 accent beat 1.
+// Default accents: /8 and /16 group into 3s then 2s (17/16=3+3+3+3+3+2); /4 and /2 accent beat 1.
 function parseMeterSeq(str){
-  const re = /(?:(\d{1,2})\s*[x×*]\s*)?(\d{1,2})\/(2|4|8)(?:\s*\(\s*([\d\s+]+)\s*\))?/g;
+  const re = /(?:(\d{1,2})\s*[x×*]\s*)?(\d{1,2})\/(2|4|8|16)(?:\s*\(\s*([\d\s+]+)\s*\))?/g;
   const bars = []; let m;
   while((m = re.exec(str))){
     const rep = Math.min(16, +(m[1] || 1)), n = +m[2], den = +m[3];
-    if(n < 1 || n > 15) return null;
+    if(n < 1 || n > 32) return null;
     let groups;
     if(m[4]){
       groups = m[4].split('+').map(s=>+s.trim()).filter(x=>x>0);
       if(groups.reduce((a,b)=>a+b,0) !== n) return null;
-    } else if(den === 8){
+    } else if(den === 8 || den === 16){
       groups = [];
       let r = n;
       while(r > 0){ const g = (r === 4 || r === 2) ? 2 : (r === 1 ? 1 : 3); groups.push(g); r -= g; }
