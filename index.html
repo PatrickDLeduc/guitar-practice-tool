@@ -2269,6 +2269,7 @@ function generate(){
   $('posWrap').style.display = fing==='fixed' ? '' : 'none';
   $('shapeWrap').style.display = fing==='caged' ? '' : 'none';
   const roots = rootSequence(rootPc, seq);
+  trackExercise(qual, pat, seq, dir, fing);   // debounced — what material people actually practice
   const shapeIdxs = fing==='caged' ? (shapeSel==='cycle' ? [0,1,2,3,4] : [+shapeSel])
     : fing==='2str' ? [0,1,2,3,4]
     : fing==='shift' ? [0,1,2,3,4] : [null];
@@ -2354,6 +2355,7 @@ function runFromText(){
   const raw = $('query').value.trim();
   if(!raw){ generate(); return; }
   const p = parseQuery(raw);
+  track('nl_query', {text: raw.slice(0, 120), ok: Object.keys(p).length > 0});  // what people ask for + did we understand it
   if(p.root !== undefined) selRoot.value = p.root;
   if(p.qual) selQual.value = p.qual;
   if(p.pat)  selPat.value = p.pat;
@@ -2508,6 +2510,7 @@ document.querySelectorAll('.tabbtn').forEach(b=> b.onclick = ()=>{
   $('viewPoly').style.display = b.dataset.tab==='poly' ? '' : 'none';
   document.body.classList.remove('sheet');
   currentTab = b.dataset.tab;
+  track('tab_open', {tab: b.dataset.tab});
   if(b.dataset.tab==='stack') renderStack();
   if(b.dataset.tab==='prog' && !progData) renderProg();
   if(b.dataset.tab==='voic'){ renderVoicings(); renderVoicingDrill(); }
@@ -2531,11 +2534,59 @@ const store = {
   load(){ try{ return JSON.parse(localStorage.getItem('gph') || '{}'); }catch(e){ return {}; } },
   save(d){ try{ localStorage.setItem('gph', JSON.stringify(d)); }catch(e){} },
 };
+
+// ---- Anonymous, aggregate usage analytics (see privacy.html). Honors Do Not Track. ----
+// Same beacon pattern as the error reporter below: buffer, then batch-insert to Supabase.
+// No PII: a random per-browser id, coarse device flags, and (for the plain-English boxes)
+// the music query text people type — the whole point is to learn what they ask for.
+const DNT = navigator.doNotTrack === '1' || window.doNotTrack === '1' || navigator.msDoNotTrack === '1';
+window.__ev = [];
+function _vid(){
+  let v = localStorage.getItem('gphVid');
+  if(!v){ v = (crypto.randomUUID ? crypto.randomUUID() : Date.now()+'.'+Math.random().toString(36).slice(2)); localStorage.setItem('gphVid', v); }
+  return v;
+}
+function track(name, props){
+  if(DNT) return;
+  if(window.__ev.length < 100) window.__ev.push({vid:_vid(), name, props: props||{}, at: new Date().toISOString()});
+}
+let _genT;
+function trackExercise(qual, pat, seq, dir, fing){   // generate() fires per keystroke; settle first
+  clearTimeout(_genT);
+  _genT = setTimeout(()=> track('exercise', {qual, pat, seq, dir, fing}), 1500);
+}
+// app_open, with return-visit math computed client-side so retention is derivable from events alone
+(function(){
+  const now = Date.now(), DAY = 86400000;
+  const first = +localStorage.getItem('gphFirst') || now, last = +localStorage.getItem('gphLast') || now;
+  if(!localStorage.getItem('gphFirst')) localStorage.setItem('gphFirst', now);
+  localStorage.setItem('gphLast', now);
+  track('app_open', {
+    days_since_first: Math.floor((now - first) / DAY),
+    days_since_last:  Math.floor((now - last)  / DAY),
+    standalone: matchMedia('(display-mode: standalone)').matches || navigator.standalone === true,  // installed PWA
+    mobile: innerWidth < 720,
+    ref: (document.referrer || '').split('/').slice(0, 3).join('/'),  // origin only — no path, no query
+  });
+})();
+// session length + last tab, on the first time the tab is backgrounded/closed.
+// ponytail: only the first hide is captured; a second visit-then-leave isn't. Enough to see where sessions die.
+const _appStart = Date.now();
+let _sentEnd = false;
+function endSession(){
+  if(_sentEnd) return; _sentEnd = true;
+  track('session_end', {secs: Math.round((Date.now() - _appStart) / 1000), tab: currentTab});
+  flushEvents();   // page may be closing — push now (best-effort, same limitation as the error beacon)
+}
+addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'hidden') endSession(); });
+addEventListener('pagehide', endSession);
+
 function logSession(){
   const d = store.load();
   const key = $('summary').textContent;
   d.sessions = d.sessions || [];
   d.sessions.push({k:key, bpm:metro.bpm, t:Date.now()});
+  track('session_logged', {bpm: metro.bpm});
   if(d.sessions.length > 1000) d.sessions = d.sessions.slice(-1000);
   d.pb = d.pb || {};
   if(!d.pb[key] || metro.bpm > d.pb[key].bpm) d.pb[key] = {bpm:metro.bpm, t:Date.now()};
@@ -2893,6 +2944,7 @@ function renderProgChords(chords, keyPc){
 }
 function renderProg(){
   const {chords, keyPc} = parseProgression($('progIn').value.trim() || 'ii-V-I in C');
+  track('prog_query', {text: ($('progIn').value.trim() || 'ii-V-I in C').slice(0, 120), ok: chords.length > 0});
   if(!chords.length){
     $('progBlock').style.display='';
     $('progName').textContent = 'Couldn’t read that — try roman numerals (ii-V-I in Bb) or chord symbols (Dm7 G7 Cmaj7)';
@@ -3536,6 +3588,7 @@ function earAnswer(btn){
     btn.classList.add('good');
     if(!q.missed){ earState.correct++; earState.streak++; } else earState.streak = 0;
     earLog(q.cat, !q.missed);
+    track('ear_answer', {cat: q.cat, correct: !q.missed});
     $('eMsg').textContent = `✓ ${q.label}`;
     earScoreShow();
     setTimeout(earNew, 1100);
@@ -3989,6 +4042,15 @@ function reportErrs(){
 }
 reportErrs();
 setInterval(reportErrs, 30000);
+
+// Usage-analytics beacon (see track() above). Same batch-insert shape as the error beacon.
+function flushEvents(){
+  if(DNT || !sb || !window.__ev.length) return;
+  const batch = window.__ev.splice(0, 20).map(x=>({...x, ua: navigator.userAgent.slice(0, 300)}));
+  try{ sb.from('events').insert(batch).then(()=>{}); }catch(_){}
+}
+flushEvents();
+setInterval(flushEvents, 30000);
 
 if(sb){
   renderAcct();
