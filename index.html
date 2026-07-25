@@ -7,14 +7,50 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Guitar Practice Helper</title>
-<meta name="description" content="Free guitar practice tool: scales, arpeggios, CAGED, chord theory, voicings, ear training, jam tracks — engraved notation + tab with a metronome, right in your browser.">
+<title>Guitar Practice Helper — Scale &amp; Arpeggio Exercise Generator</title>
+<meta name="description" content="Free guitar practice tool: type an exercise in plain English, get tab + standard notation. Scales, arpeggios, CAGED, voicings, ear training, jam tracks, metronome.">
+<link rel="canonical" href="https://guitarpractice.app/">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Guitar Practice Helper">
+<meta property="og:site_name" content="Guitar Practice Helper">
+<meta property="og:title" content="Guitar Practice Helper — Scale &amp; Arpeggio Exercise Generator">
 <meta property="og:description" content="Type an exercise in plain English, get tab + notation with fingerings. Scales, arpeggios, CAGED, voicings, ear training, jam tracks, and a practice log — free, in your browser.">
 <meta property="og:url" content="https://guitarpractice.app/">
-<meta property="og:image" content="https://guitarpractice.app/icon-512.png">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="https://guitarpractice.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Guitar Practice Helper: type an exercise in plain English, get tab and notation.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Guitar Practice Helper — Scale &amp; Arpeggio Exercise Generator">
+<meta name="twitter:description" content="Type an exercise in plain English, get tab + notation with fingerings. Free, no account, works offline.">
+<meta name="twitter:image" content="https://guitarpractice.app/og.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Guitar Practice Helper",
+  "url": "https://guitarpractice.app/",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Any (web browser)",
+  "browserRequirements": "Requires JavaScript and Web Audio",
+  "description": "Free guitar practice tool that turns a plain-English request into tablature and engraved standard notation: scales, arpeggios, CAGED shapes, chord voicings, progressions with jam tracks, ear training, a metronome with a speed trainer, and a practice log.",
+  "inLanguage": "en",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "license": "https://opensource.org/licenses/MIT",
+  "author": { "@type": "Person", "name": "Patrick Leduc" },
+  "featureList": [
+    "Plain-English exercise generator with tab and standard notation",
+    "Scales, modes, pentatonics and arpeggios in every key",
+    "CAGED system fretboard visualization",
+    "Drop 2, drop 3 and shell chord voicings",
+    "Chord progressions with drum, bass and comping jam tracks",
+    "Interval, chord and scale ear training",
+    "Metronome with tap tempo, odd meters and a speed trainer",
+    "Chromatic tuner",
+    "Practice log with personal-best tempo tracking"
+  ]
+}
+</script>
 <style>
   :root{
     --bg:#12141a; --panel:#1c1f28; --panel2:#232734; --text:#e8eaf0; --muted:#9aa0b0;
@@ -291,6 +327,15 @@
     #metro.open #mTap{width:auto;padding:0 14px}
     #mMore{display:inline-block}
   }
+  /* Static, crawlable description of the tool. Below the app, out of the way of practice. */
+  .about{margin:44px 0 0;border-top:1px solid var(--border);padding-top:26px}
+  .about h2{font-size:19px;margin:0 0 10px}
+  .about h3{font-size:15px;margin:22px 0 6px;color:var(--accent2)}
+  .about p,.about li{font-size:14px;line-height:1.65;color:var(--muted);margin:0 0 10px}
+  .about ul{margin:0 0 10px;padding-left:20px}
+  .about a{color:var(--accent2)}
+  .about .exlist{list-style:none;padding-left:0}
+  .about .exlist li{font-style:italic;color:var(--tab)}
 </style>
 </head>
 <body>
@@ -749,6 +794,81 @@
   </div>
 
   </main>
+
+  <section class="about">
+    <h2>A free guitar practice tool that writes the exercise for you</h2>
+    <p>
+      Guitar Practice Helper turns a plain-English request into guitar tablature and engraved standard
+      notation, with fingerings worked out for you. Describe the drill you want to practice and it is
+      written out in every key you asked for — no PDFs to hunt down, no exercise books, nothing to install.
+      It runs entirely in your browser, works offline, and is free and open source.
+    </p>
+    <p>Things people type into the box:</p>
+    <ul class="exlist">
+      <li>“major 7 arpeggios in 3rds along the cycle of 4ths”</li>
+      <li>“A minor pentatonic 3 notes per string”</li>
+      <li>“dorian mode in 5th position, all 12 keys”</li>
+      <li>“ii-V-I in Bb with guide tones”</li>
+      <li>“blues in A”</li>
+    </ul>
+
+    <h3>Scale and arpeggio exercise generator</h3>
+    <p>
+      Every common scale and arpeggio: major and minor, all seven modes, major and minor pentatonic,
+      blues, harmonic and melodic minor, whole tone, diminished, altered, bebop scales, and triads
+      through 7th chords. Run them straight, in 3rds, in 4ths, in 6ths, or in groups of three and four,
+      ascending, descending, or both. Cycle them through the circle of 4ths or 5ths, chromatically, or in
+      whole steps — including the classic drill where you stay in one neck position through all twelve keys.
+      Choose automatic position playing or three-notes-per-string fingering.
+    </p>
+
+    <h3>CAGED system and fretboard visualization</h3>
+    <p>
+      See the five CAGED shapes as separate fretboard diagrams or as one full-neck map with labeled shape
+      brackets and interval-coloured dots, so the connections between shapes are visible instead of memorized.
+    </p>
+
+    <h3>Chord voicings and chord theory</h3>
+    <p>
+      Drop 2 voicings on three string sets, drop 3, and shell voicings across nine chord qualities, shown as
+      playable grips through every inversion — click any grip to hear it. The chord stacking tool superimposes
+      any triad over any base chord and names the result (D over Cmaj7 becomes Cmaj13♯11), rates the
+      consonance, and can spin the composite arpeggio into a practice exercise.
+    </p>
+
+    <h3>Chord progressions and jam tracks</h3>
+    <p>
+      Enter roman numerals, chord symbols, or “blues in A” and get voice-led arpeggio lines where each chord
+      starts from the tone nearest the last note — or restrict it to guide tones, the 3rds and 7ths. Loop any
+      progression as a backing band with drums, walking bass, and comping pads to practice over. Borrow chords
+      from parallel modes to hear modal mixture, secondary dominants, and moves like the backdoor ♭VII7.
+    </p>
+
+    <h3>Ear training, metronome, and tuner</h3>
+    <p>
+      Interval, chord, and scale recognition at three difficulty levels with random roots, streaks, and scoring.
+      The metronome sits at the bottom of every screen with tap tempo, accent patterns for odd meters like 5/4,
+      7/8, 9/8, and 11/8, and a speed trainer that nudges the tempo up every few bars toward a target. There is a
+      chromatic tuner too.
+    </p>
+
+    <h3>Practice log and progress tracking</h3>
+    <p>
+      Log a session and the app tracks your personal-best tempo per exercise, your practice-day streak, a 14-day
+      activity chart, and ear-training accuracy. Your data stays in your browser by default; signing in is
+      optional and only exists to sync across devices. Any exercise can be bookmarked or shared as a link,
+      because every setting is encoded in the URL.
+    </p>
+
+    <h3>Install it on your phone</h3>
+    <p>
+      It is a progressive web app: open <a href="https://guitarpractice.app/">guitarpractice.app</a> on your
+      phone and add it to your home screen to get a fullscreen practice app that works without a connection —
+      useful when you are practicing somewhere with no signal. The
+      <a href="https://github.com/PatrickDLeduc/guitar-practice-tool" rel="noopener">source is on GitHub</a>
+      under the MIT license.
+    </p>
+  </section>
 
   <p class="sub" style="margin:34px 0 0;text-align:center;font-size:12px">
     Free &amp; open source ·
