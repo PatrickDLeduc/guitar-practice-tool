@@ -1,6 +1,6 @@
 {
   "name": "Guitar Practice Helper",
-  "short_name": "Guitar",
+  "short_name": "Practice",
   "description": "Scales, arpeggios, CAGED, chord theory, ear training, jam tracks, and a practice log.",
   "start_url": ".",
   "display": "standalone",
