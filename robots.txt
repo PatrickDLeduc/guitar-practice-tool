@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://guitarpractice.app/sitemap.xml
