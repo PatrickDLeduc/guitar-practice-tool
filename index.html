@@ -97,7 +97,8 @@
   .nn,.nh{transition:fill .08s}
   .nn.hl{fill:var(--accent)}
   .nh.hl{fill:var(--accent);stroke:var(--accent)}
-  .notation svg{display:block}
+  /* scale the engraved system down to fit rather than clipping its last beat off-screen */
+  .notation svg{display:block;max-width:100%;height:auto}
   .tabbar{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--border)}
   .tabbtn{background:none;color:var(--muted);padding:9px 18px;font-size:14px;border-radius:8px 8px 0 0;border:1px solid transparent;border-bottom:none}
   .tabbtn:hover{color:var(--text)}
@@ -141,21 +142,52 @@
     padding:3px 9px;font-size:12px;margin-right:5px}
   .rowbtns button:hover{border-color:var(--accent);color:var(--accent)}
   #spBox{margin-top:18px}
-  .toolrow{display:flex;justify-content:flex-end;margin-bottom:10px}
-  #copyall{background:var(--panel2);color:var(--muted);padding:8px 14px;font-size:13px;border:1px solid var(--border)}
-  #copyall:hover{color:var(--text)}
+  .toolrow{display:flex;justify-content:flex-end;margin-bottom:4px}
+  #copyall,#shareBtn{background:var(--panel2);color:var(--muted);padding:8px 14px;font-size:13px;border:1px solid var(--border)}
+  #copyall:hover,#shareBtn:hover{color:var(--text)}
+  #shareBtn{margin-right:8px;color:var(--accent2);border-color:var(--accent2)}
+  #shareBtn:hover{color:var(--accent2);filter:brightness(1.2)}
+  .toolhint{font-size:11.5px;color:var(--muted);margin:0 0 14px;text-align:right;line-height:1.5}
+  /* transient tip / confirmation bubble — also how title= text reaches touch users */
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:auto;top:16px;z-index:40;max-width:min(420px,92vw);
+    background:var(--panel2);border:1px solid var(--accent);color:var(--text);border-radius:10px;
+    padding:10px 14px;font-size:13px;line-height:1.4;box-shadow:0 6px 22px rgba(0,0,0,.45);
+    opacity:0;pointer-events:none;transition:opacity .15s}
+  #toast.show{opacity:1}
+  /* desktop: the jargon-heavy controls hide behind a disclosure so the panel opens at 8 fields, not 15 */
+  .ctl.adv{display:none}
+  #exControls.showadv .ctl.adv{display:flex}
+  #advBtn{background:none;color:var(--accent2);border:1px dashed var(--border);padding:7px 12px;font-size:12px;align-self:flex-end}
+  #advBtn:hover{border-color:var(--accent2)}
   .err{color:#f08080;font-size:14px;margin-bottom:14px}
   .shapes{display:flex;gap:8px;overflow-x:auto;padding:6px 0 10px;border-bottom:1px dashed var(--border);margin-bottom:10px}
   .shape{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:4px 6px;flex:0 0 auto}
   .neckwrap{overflow-x:auto;padding:4px 0 10px;border-bottom:1px dashed var(--border);margin-bottom:10px}
+  /* pure-CSS scroll shadow — the edge fade appears only while there is more neck to scroll to.
+     The two "cover" layers scroll with the content (local) and mask the shadow at each end. */
+  .shapes,.neckwrap{
+    background-image:
+      linear-gradient(to right,var(--panel),rgba(28,31,40,0)),
+      linear-gradient(to left,var(--panel),rgba(28,31,40,0)),
+      linear-gradient(to right,rgba(0,0,0,.45),rgba(0,0,0,0)),
+      linear-gradient(to left,rgba(0,0,0,.45),rgba(0,0,0,0));
+    background-position:left center,right center,left center,right center;
+    background-size:30px 100%,30px 100%,14px 100%,14px 100%;
+    background-repeat:no-repeat;
+    background-attachment:local,local,scroll,scroll}
   #techTip{font-size:13px;color:var(--accent);background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin:0 0 14px}
   #metro{position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:1px solid var(--border);
     padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;z-index:10}
-  #mPlay{width:44px;height:44px;border-radius:50%;background:var(--accent);color:#1a1408;font-size:17px;flex:0 0 auto}
+  #mPlay{width:48px;height:48px;border-radius:50%;background:var(--accent);color:#1a1408;font-size:19px;flex:0 0 auto}
   #mPlay.on{background:#e05c5c;color:#fff}
   .mgrp{display:flex;align-items:center;gap:8px}
-  #mBpmVal{font-size:22px;font-weight:700;color:var(--accent);min-width:52px;text-align:center;font-variant-numeric:tabular-nums}
-  #mBpmVal small{font-size:10px;color:var(--muted);display:block;font-weight:400;letter-spacing:1px}
+  .bpmbox{display:flex;flex-direction:column;align-items:center}
+  #mBpmVal{font-size:22px;font-weight:700;color:var(--accent);width:56px;text-align:center;font-variant-numeric:tabular-nums;
+    background:none;border:1px solid transparent;border-radius:7px;padding:0;font-family:inherit;-moz-appearance:textfield}
+  #mBpmVal::-webkit-outer-spin-button,#mBpmVal::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  #mBpmVal:hover{border-color:var(--border)}
+  #mBpmVal:focus{border-color:var(--accent);outline:none}
+  .bpmbox small{font-size:10px;color:var(--muted);font-weight:400;letter-spacing:1px}
   #mSlider{width:180px;accent-color:var(--accent)}
   .mbtn{background:var(--panel2);border:1px solid var(--border);color:var(--text);width:32px;height:32px;border-radius:8px;font-size:15px}
   .mbtn:hover{border-color:var(--accent)}
@@ -196,7 +228,7 @@
   #acctSync{color:var(--muted);font-size:12px;margin:6px 0 14px}
   .ticon,.ts,#custBtn,#custDone,#sheetBack{display:none}
   @media(max-width:640px){
-    body{padding:14px 10px calc(150px + env(safe-area-inset-bottom))}
+    body{padding:14px 10px calc(162px + env(safe-area-inset-bottom))}
     h1{font-size:20px}
     .sub{font-size:12px;margin-bottom:14px}
     #acctBtn{padding:6px 10px;font-size:12px;max-width:120px}
@@ -211,7 +243,8 @@
     .tabbar{position:fixed;bottom:0;left:0;right:0;z-index:12;margin:0;gap:0;
       background:var(--panel);border-bottom:none;border-top:1px solid var(--border);
       padding:7px 4px calc(9px + env(safe-area-inset-bottom))}
-    .tabbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;border:none;white-space:nowrap}
+    .tabbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+      padding:0;border:none;white-space:nowrap;min-height:44px}
     .tabbtn.active{background:none;border:none}
     .ticon{display:block;width:19px;height:19px}
     .ts{display:block;font-size:9.5px;font-weight:600}
@@ -234,17 +267,22 @@
     #trainerGrp input{width:60px}
     .chip{padding:9px 13px;font-size:13px}
     .choice{padding:12px 16px;min-height:44px}
-    .pbtn{width:40px;height:36px;font-size:14px}
-    .mbtn{width:40px;height:40px}
+    .pbtn{width:44px;height:40px;font-size:14px}
+    .mbtn{width:44px;height:44px}
     .rowbtns button{padding:8px 12px}
-    #droneBtn,#loopBtn,#akBtn,#logBtn,#favBtn,#copyall{padding:11px 14px;margin-right:0}
+    #droneBtn,#loopBtn,#akBtn,#logBtn,#favBtn,#copyall,#shareBtn{padding:11px 14px;margin-right:0}
     #mCustom{flex:1 1 110px;width:auto;min-height:40px;font-size:16px}
     .toolrow{flex-wrap:wrap;justify-content:flex-start;gap:6px}
+    .toolhint{text-align:left}
+    /* the sheet is already behind a tap — show every control inside it */
+    #exControls .ctl.adv{display:flex}
+    #advBtn{display:none}
     table.stbl{display:block;overflow-x:auto} /* wide table scrolls instead of clipping the Try-it column */
     /* metronome: slim bar docked above the tab bar; ⋯ expands the rest */
-    #metro{gap:8px;padding:8px 12px;bottom:calc(54px + env(safe-area-inset-bottom))}
-    #mPlay{width:36px;height:36px;font-size:14px}
-    #mBpmVal{font-size:17px;min-width:40px}
+    /* 61px = the tab bar's 7 + 44 + 9 padding/target box plus its 1px top border */
+    #metro{gap:8px;padding:8px 12px;bottom:calc(61px + env(safe-area-inset-bottom))}
+    #mPlay{width:48px;height:48px;font-size:17px}
+    #mBpmVal{font-size:17px;width:46px;min-height:0}
     #mSlider{flex:1 1 80px;min-width:56px;width:auto}
     #mTap,#mSwing,#tunBtn,#beatsGrp,#trainerGrp{display:none}
     #metro.open #mTap,#metro.open #mSwing,#metro.open #tunBtn{display:inline-block}
@@ -263,23 +301,25 @@
   </div>
   <p class="sub">Describe an exercise and get tablature. Standard tuning (EADGBE).</p>
 
-  <div class="tabbar">
-    <button class="tabbtn active" data-tab="ex"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/></svg><span class="tl">Exercises</span><span class="ts">Exercises</span></button>
-    <button class="tabbtn" data-tab="stack"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="8.5" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="14" width="16" height="3" rx="1" fill="currentColor"/></svg><span class="tl">Chord stacking</span><span class="ts">Stack</span></button>
-    <button class="tabbtn" data-tab="prog"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="4" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="10" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/></svg><span class="tl">Progressions</span><span class="ts">Prog</span></button>
-    <button class="tabbtn" data-tab="voic"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="3" y="11" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="11" width="6" height="6" rx="1" fill="currentColor"/></svg><span class="tl">Voicings</span><span class="ts">Voicings</span></button>
-    <button class="tabbtn" data-tab="ear"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="currentColor"/></svg><span class="tl">Ear training</span><span class="ts">Ear</span></button>
-    <button class="tabbtn" data-tab="pg"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="3" y="11" width="4" height="7" fill="currentColor"/><rect x="8" y="7" width="4" height="11" fill="currentColor"/><rect x="13" y="2" width="4" height="16" fill="currentColor"/></svg><span class="tl">Progress</span><span class="ts">Progress</span></button>
-    <button class="tabbtn" data-tab="poly"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="6" cy="10" r="3" fill="currentColor"/><circle cx="14" cy="6" r="2" fill="currentColor"/><circle cx="14" cy="14" r="2" fill="currentColor"/></svg><span class="tl">Polyrhythm</span><span class="ts">Poly</span></button>
-  </div>
+  <nav class="tabbar" role="tablist" aria-label="Sections">
+    <button class="tabbtn active" role="tab" aria-selected="true" data-tab="ex"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/></svg><span class="tl">Exercises</span><span class="ts">Exercises</span></button>
+    <button class="tabbtn" role="tab" aria-selected="false" data-tab="stack"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="8.5" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="14" width="16" height="3" rx="1" fill="currentColor"/></svg><span class="tl">Chord stacking</span><span class="ts">Stack</span></button>
+    <button class="tabbtn" role="tab" aria-selected="false" data-tab="prog"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="4" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="10" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/></svg><span class="tl">Progressions</span><span class="ts">Prog</span></button>
+    <button class="tabbtn" role="tab" aria-selected="false" data-tab="voic"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="3" y="11" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="11" width="6" height="6" rx="1" fill="currentColor"/></svg><span class="tl">Voicings</span><span class="ts">Voicings</span></button>
+    <button class="tabbtn" role="tab" aria-selected="false" data-tab="ear"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="currentColor"/></svg><span class="tl">Ear training</span><span class="ts">Ear</span></button>
+    <button class="tabbtn" role="tab" aria-selected="false" data-tab="pg"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="3" y="11" width="4" height="7" fill="currentColor"/><rect x="8" y="7" width="4" height="11" fill="currentColor"/><rect x="13" y="2" width="4" height="16" fill="currentColor"/></svg><span class="tl">Progress</span><span class="ts">Progress</span></button>
+    <button class="tabbtn" role="tab" aria-selected="false" data-tab="poly"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="6" cy="10" r="3" fill="currentColor"/><circle cx="14" cy="6" r="2" fill="currentColor"/><circle cx="14" cy="14" r="2" fill="currentColor"/></svg><span class="tl">Polyrhythm</span><span class="ts">Poly</span></button>
+  </nav>
 
-  <div id="viewEx">
+  <main>
+  <div id="viewEx" role="tabpanel">
   <div class="inputrow">
     <input id="query" type="text" placeholder='e.g. "major 7 arpeggios in 3rds along the cycle of 4ths"'
       autocomplete="off">
     <button id="go">Generate</button>
   </div>
 
+  <p id="qMsg" class="err" style="display:none" aria-live="polite"></p>
   <div class="chips" id="chips"></div>
   <div class="chips" id="favChips" style="display:none"></div>
 
@@ -336,18 +376,18 @@
       <option value="4">5th position</option>
       <option value="cycle">Cycle all 5</option>
     </select></div>
-    <div class="ctl"><label>Tap note</label><select id="selTap">
+    <div class="ctl adv"><label>Tap note</label><select id="selTap">
       <option value="none" selected>Off</option>
       <option value="octave">Tap octave</option>
       <option value="fifth">Tap 5th</option>
     </select></div>
-    <div class="ctl"><label>Variation</label><select id="selVar">
+    <div class="ctl adv"><label>Variation</label><select id="selVar">
       <option value="none" selected>Normal</option>
       <option value="rev">Reversed groups</option>
       <option value="zigzag">Zigzag groups</option>
       <option value="pedal">Pedal root</option>
     </select></div>
-    <div class="ctl"><label>Technique focus</label><select id="selTech">
+    <div class="ctl adv"><label>Technique focus</label><select id="selTech">
       <option value="none" selected>None</option>
       <option value="alternate">Alternate picking</option>
       <option value="economy">Economy picking</option>
@@ -355,15 +395,16 @@
       <option value="sweep">Sweep picking</option>
       <option value="hybrid">Hybrid picking</option>
     </select></div>
-    <div class="ctl"><label>CAGED shapes</label><select id="selShapes">
+    <div class="ctl adv"><label>CAGED shapes</label><select id="selShapes">
       <option value="neck" selected>Full-neck map</option>
       <option value="on">Separate shapes</option>
       <option value="off">Hidden</option>
     </select></div>
-    <div class="ctl"><label>Notation</label><select id="selNote">
+    <div class="ctl adv"><label>Notation</label><select id="selNote">
       <option value="on" selected>Staff + tab</option>
       <option value="off">Tab only (text)</option>
     </select></div>
+    <button id="advBtn" aria-expanded="false">More options &#8964;</button>
     <button id="custDone">Done</button>
   </div>
   <button id="custBtn">Customize exercise &#8964;</button>
@@ -377,12 +418,15 @@
     <button id="droneBtn" title="Sustain the root note as a drone">Drone: C</button>
     <button id="favBtn" title="Save this exercise to My exercises">★ Save</button>
     <button id="logBtn" title="Save this exercise + current tempo to your practice log">✓ Log @ 80</button>
+    <button id="shareBtn" title="Copy a link that reopens this exact exercise">Share link</button>
     <button id="copyall">Copy all tabs</button>
   </div>
+  <p class="toolhint">Auto-advance moves to the next key as the metronome runs · Drone holds the root under you ·
+    ★ Save pins this to your chips · ✓ Log records today at the current tempo</p>
   <div id="out"></div>
   </div><!-- /viewEx -->
 
-  <div id="viewStack" style="display:none">
+  <div id="viewStack" role="tabpanel" style="display:none">
     <div class="controls">
       <div class="ctl"><label>Base chord root</label><select id="sBaseRoot"></select></div>
       <div class="ctl"><label>Base chord quality</label><select id="sBaseQual"></select></div>
@@ -429,7 +473,7 @@
     </div>
   </div>
 
-  <div id="viewProg" style="display:none">
+  <div id="viewProg" role="tabpanel" style="display:none">
     <div class="inputrow">
       <input id="progIn" type="text" placeholder='e.g. "ii-V-I in Bb" · "Dm7 G7 Cmaj7 Am7 D7 Gmaj7" · "blues in A"' autocomplete="off">
       <button id="progGo">Generate</button>
@@ -458,6 +502,10 @@
       </select></div>
     </div>
     <p class="sub">Arpeggios are voice-led: each chord starts from the tone nearest the previous note, alternating direction. ▶ plays the line with chord pads underneath at the metronome tempo.</p>
+    <div class="keyblock" id="progBlock" style="display:none">
+      <div class="keyhead"><span class="keyname" id="progName"></span><button class="pbtn" id="progPlay" aria-label="Play progression">▶</button><button id="loopBtn2" class="pbtn" style="width:auto;padding:0 8px">Loop: off</button><button id="jamBtn" class="pbtn" style="width:auto;padding:0 10px" title="Looping backing track: drums, bass, comping — solo over it">Jam ▶</button></div>
+      <div class="notation" id="progOut"></div>
+    </div>
     <div class="hgbox">
       <div class="keyhead"><span class="keyname">Harmony game — modal mixture</span></div>
       <p class="sub" style="margin-bottom:10px">Stay on the home I chord, borrow every other chord from a parallel mode. Click chords to build a progression, or roll a random one.</p>
@@ -507,13 +555,9 @@
       </div>
     </div>
 
-    <div class="keyblock" id="progBlock" style="display:none">
-      <div class="keyhead"><span class="keyname" id="progName"></span><button class="pbtn" id="progPlay" aria-label="Play progression">▶</button><button id="loopBtn2" class="pbtn" style="width:auto;padding:0 8px">Loop: off</button><button id="jamBtn" class="pbtn" style="width:auto;padding:0 10px" title="Looping backing track: drums, bass, comping — solo over it">Jam ▶</button></div>
-      <div class="notation" id="progOut"></div>
-    </div>
   </div>
 
-  <div id="viewVoic" style="display:none">
+  <div id="viewVoic" role="tabpanel" style="display:none">
     <div class="chips"><button class="chip dicechip" id="vDice">🎲 Surprise me</button></div>
     <div class="controls">
       <div class="ctl"><label>Root</label><select id="vRoot"></select></div>
@@ -553,7 +597,7 @@
     </div>
   </div>
 
-  <div id="viewPg" style="display:none">
+  <div id="viewPg" role="tabpanel" style="display:none">
     <div class="earbox">
       <div class="keyhead" style="justify-content:space-between">
         <span class="keyname">Practice log</span>
@@ -568,7 +612,7 @@
     </div>
   </div>
 
-  <div id="viewEar" style="display:none">
+  <div id="viewEar" role="tabpanel" style="display:none">
     <div class="controls">
       <div class="ctl"><label>What to train</label><select id="eCat">
         <option value="intervals" selected>Intervals</option>
@@ -599,7 +643,7 @@
     </div>
   </div>
 
-  <div id="viewPoly" style="display:none">
+  <div id="viewPoly" role="tabpanel" style="display:none">
     <div class="chips" id="polyPresets">
       <button class="chip" data-a="2" data-b="3">2:3</button>
       <button class="chip" data-a="3" data-b="4">3:4</button>
@@ -704,6 +748,8 @@
     </div>
   </div>
 
+  </main>
+
   <p class="sub" style="margin:34px 0 0;text-align:center;font-size:12px">
     Free &amp; open source ·
     <a href="https://github.com/PatrickDLeduc/guitar-practice-tool/issues" target="_blank" rel="noopener" style="color:var(--accent2)">Feedback &amp; bug reports</a> ·
@@ -717,7 +763,8 @@
   <button id="mPlay" title="Start/stop metronome" aria-label="Start or stop metronome">&#9654;</button>
   <div class="mgrp">
     <button class="mbtn" id="mDown" aria-label="Slower">&minus;</button>
-    <div id="mBpmVal">80<small>BPM</small></div>
+    <div class="bpmbox"><input id="mBpmVal" type="number" min="30" max="260" value="80" inputmode="numeric"
+      aria-label="Tempo in beats per minute" title="Type an exact tempo"><small>BPM</small></div>
     <button class="mbtn" id="mUp" aria-label="Faster">+</button>
   </div>
   <input id="mSlider" type="range" min="30" max="260" value="80" aria-label="Tempo">
@@ -757,6 +804,8 @@
     <span class="tlbl">every</span><input id="tBars" type="number" min="1" max="16" value="4" aria-label="Trainer bars between increases"><span class="tlbl">bars</span>
   </div>
 </div>
+
+<div id="toast" role="status" aria-live="polite"></div>
 
 <div id="tunWrap" role="dialog" aria-label="Chromatic tuner">
   <div class="acctbox" style="text-align:center">
@@ -2268,6 +2317,7 @@ function generate(){
         shapeSel=selShape.value, tapIv=selTap.value;
   $('posWrap').style.display = fing==='fixed' ? '' : 'none';
   $('shapeWrap').style.display = fing==='caged' ? '' : 'none';
+  syncAdvVisibility();
   const roots = rootSequence(rootPc, seq);
   trackExercise(qual, pat, seq, dir, fing);   // debounced — what material people actually practice
   const shapeIdxs = fing==='caged' ? (shapeSel==='cycle' ? [0,1,2,3,4] : [+shapeSel])
@@ -2351,23 +2401,42 @@ function generate(){
   });
 }
 
+// Every musical field a plain-English query can set, with the value it falls back to.
+// Anything the query does NOT mention resets — otherwise "C major scale" silently
+// inherits "groups of 3, legato" from whatever was typed before it.
+// Display preferences (CAGED map, notation vs text, tap note) are deliberately NOT in
+// here: they are the user's view settings, not part of what they asked for.
+const NL_FIELDS = [
+  ['root',      ()=>selRoot, '0'       ],
+  ['qual',      ()=>selQual, 'maj'     ],
+  ['pat',       ()=>selPat,  'straight'],
+  ['seq',       ()=>selSeq,  'single'  ],
+  ['dir',       ()=>selDir,  'asc'     ],
+  ['oct',       ()=>selOct,  '2'       ],
+  ['fing',      ()=>selFing, 'pos'     ],
+  ['pos',       ()=>selPos,  '5'       ],
+  ['variation', ()=>selVar,  'none'    ],
+  ['tech',      ()=>selTech, 'none'    ],
+  ['nv',        ()=>selNV,   'quarter' ],
+];
 function runFromText(){
   const raw = $('query').value.trim();
   if(!raw){ generate(); return; }
   const p = parseQuery(raw);
-  track('nl_query', {text: raw.slice(0, 120), ok: Object.keys(p).length > 0});  // what people ask for + did we understand it
-  if(p.root !== undefined) selRoot.value = p.root;
-  if(p.qual) selQual.value = p.qual;
-  if(p.pat)  selPat.value = p.pat;
-  if(p.seq)  selSeq.value = p.seq;
-  if(p.dir)  selDir.value = p.dir;
-  if(p.oct)  selOct.value = p.oct;
-  if(p.fing) selFing.value = p.fing;
-  if(p.pos)  selPos.value = p.pos;
-  if(p.variation) selVar.value = p.variation;
-  if(p.tech) selTech.value = p.tech;
-  if(p.nv)   selNV.value = p.nv;
-  generate();
+  // A query with no scale/chord type and no key in it was not understood, whatever else matched.
+  // (parseQuery always fills in `seq` as a fallback, so a non-empty result proves nothing.)
+  const understood = p.qual !== undefined || p.root !== undefined;
+  track('nl_query', {text: raw.slice(0, 120), ok: understood});  // what people ask for + did we understand it
+  const msg = $('qMsg');
+  if(!understood){
+    msg.textContent = 'No scale or chord type in there that I recognise. Name one — “minor pentatonic”, '
+      + '“maj7 arpeggios”, “dorian” — or tap an example below.';
+    msg.style.display = '';
+    return;   // leave the current exercise up rather than rendering something unrelated
+  }
+  msg.style.display = 'none';
+  NL_FIELDS.forEach(([k, sel, dflt])=>{ sel().value = p[k] !== undefined ? p[k] : dflt; });
+  generate();   // #summary spells out the resulting exercise in words
 }
 
 $('go').onclick = runFromText;
@@ -2458,6 +2527,39 @@ $('copyall').onclick = ()=>{
   $('copyall').textContent='Copied!'; setTimeout(()=>$('copyall').textContent='Copy all tabs',1200);
 };
 
+// ---- Toast: transient confirmations, and how title= text reaches touch users ----
+let toastTimer = null;
+function toast(msg, ms){
+  const t = $('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=> t.classList.remove('show'), ms || 2600);
+}
+// On touch there is no hover, so 72 buttons explained only by title= explained nothing.
+// Long-press fires contextmenu on both Android and iOS; show the tip instead of the callout.
+if(matchMedia('(hover: none)').matches){
+  document.addEventListener('contextmenu', e=>{
+    const el = e.target.closest('[title]');
+    if(!el || !el.title) return;
+    e.preventDefault(); toast(el.title, 3500);
+  });
+}
+
+// ---- Share: the drill is already encoded in the URL, but an installed PWA has no
+// address bar to copy it from, so the link needs a button of its own. ----
+$('shareBtn').onclick = async ()=>{
+  stateToHash();
+  const url = location.href;
+  const title = ($('summary').textContent || 'Guitar practice exercise').split(' · ').slice(0,2).join(' · ');
+  try{
+    if(navigator.share){ await navigator.share({title: 'Guitar Practice Helper', text: title, url}); return; }
+    await navigator.clipboard.writeText(url);
+    toast('Link copied — it reopens this exact exercise.');
+  }catch(e){
+    if(e && e.name === 'AbortError') return;   // user dismissed the share sheet
+    toast('Couldn’t copy automatically. The link is in your address bar.');
+  }
+};
+
 // ---- Chord stacking UI ----
 const STACK_QUALS = ['maj','maj7','dom7','min','min7','m7b5','dim7','minmaj7','maj6','min6','aug','dim'];
 FLAT_NAMES.forEach((n,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=n; $('sBaseRoot').appendChild(o); });
@@ -2500,7 +2602,10 @@ function renderStack(){
 ['sBaseRoot','sBaseQual','sTriSet','sSort'].forEach(id=> $(id).addEventListener('change', renderStack));
 // tab switching
 document.querySelectorAll('.tabbtn').forEach(b=> b.onclick = ()=>{
-  document.querySelectorAll('.tabbtn').forEach(x=>x.classList.toggle('active', x===b));
+  document.querySelectorAll('.tabbtn').forEach(x=>{
+    x.classList.toggle('active', x===b);
+    x.setAttribute('aria-selected', x===b ? 'true' : 'false');
+  });
   $('viewEx').style.display = b.dataset.tab==='ex' ? '' : 'none';
   $('viewStack').style.display = b.dataset.tab==='stack' ? '' : 'none';
   $('viewProg').style.display = b.dataset.tab==='prog' ? '' : 'none';
@@ -2529,6 +2634,19 @@ const sheet = on => document.body.classList.toggle('sheet', on);
 $('custBtn').onclick = ()=> sheet(true);
 $('custDone').onclick = ()=> sheet(false);
 $('sheetBack').onclick = ()=> sheet(false);
+// desktop: the five jargon-heavy fields sit behind a disclosure (mobile CSS always shows them)
+$('advBtn').onclick = ()=>{
+  const open = $('exControls').classList.toggle('showadv');
+  $('advBtn').setAttribute('aria-expanded', open);
+  $('advBtn').innerHTML = (open ? 'Fewer options &#8963;' : 'More options &#8964;');
+};
+// ...but never hide a setting that is actually in effect — a shared link or a text query
+// can set fingering/technique/etc., and a silently hidden non-default is worse than clutter.
+function syncAdvVisibility(){
+  const dirty = [[selTap,'none'],[selVar,'none'],[selTech,'none'],[selShapes,'neck'],[selNote,'on']]
+    .some(([s,d])=> s.value !== d);
+  if(dirty && !$('exControls').classList.contains('showadv')) $('advBtn').onclick();
+}
 // ---- Progress tracking (localStorage) ----
 const store = {
   load(){ try{ return JSON.parse(localStorage.getItem('gph') || '{}'); }catch(e){ return {}; } },
@@ -2675,12 +2793,12 @@ function renderProgress(){
     ? '<table class="stbl"><tr><th>Exercise</th><th>Best BPM</th><th>When</th></tr>' +
       pb.map(([k,v])=>`<tr><td>${k}</td><td><b style="color:var(--accent)">${v.bpm}</b></td><td>${new Date(v.t).toLocaleDateString()}</td></tr>`).join('') +
       '</table>'
-    : '<p class="sub">—</p>';
+    : '<p class="sub">No bests yet — every “✓ Log” records the tempo you played at, and the highest one per exercise lands here.</p>';
   // ear stats
   const ear = d.ear || {};
   $('pgEar').textContent = Object.keys(ear).length
     ? Object.entries(ear).map(([cat,e])=> `${cat}: ${e.c}/${e.t} (${Math.round(100*e.c/Math.max(1,e.t))}%)`).join(' · ')
-    : '—';
+    : 'Nothing yet — answer a few questions in the Ear training tab.';
 }
 $('logBtn').onclick = logSession;
 $('pgClear').onclick = async ()=>{
@@ -2794,6 +2912,7 @@ function stopPlayback(){
     clearTimeout(playState.endTimer);
     playState = null;
     document.querySelectorAll('.nn.hl,.nh.hl').forEach(e=>e.classList.remove('hl'));
+    keepAwake();
   }
 }
 // Plays a flat list of {s,f} notes as 8th notes at the metronome tempo, after a 4-click count-in.
@@ -2830,6 +2949,7 @@ function playNotes(noteList, btn, pads, skipCountIn){
       } else stopPlayback();
     }, total)};
   trackPlayback(ctx, start, eighth, noteList.length, btn && btn.closest('.keyblock'), sw);
+  keepAwake();
   if(btn){ btn.textContent = '■'; btn.classList.add('playing'); }
 }
 let droneNodes = null;
@@ -2941,14 +3061,18 @@ function renderProgChords(chords, keyPc){
   $('progName').textContent = chords.map(c=>c.label).join(' – ');
   $('progOut').innerHTML = renderNotationSystems(groups, keyPc, chords.map(c=>c.label), selNV.value)
     .map(s=>`<div class="nsys">${s}</div>`).join('');
+  showProgResult();
 }
+// Every path that produces a progression ends here, including the harmony-game buttons far
+// down the page. 'nearest' is a no-op when the result is already on screen.
+function showProgResult(){ $('progBlock').scrollIntoView({block:'nearest'}); }
 function renderProg(){
   const {chords, keyPc} = parseProgression($('progIn').value.trim() || 'ii-V-I in C');
   track('prog_query', {text: ($('progIn').value.trim() || 'ii-V-I in C').slice(0, 120), ok: chords.length > 0});
   if(!chords.length){
     $('progBlock').style.display='';
     $('progName').textContent = 'Couldn’t read that — try roman numerals (ii-V-I in Bb) or chord symbols (Dm7 G7 Cmaj7)';
-    $('progOut').innerHTML=''; progData=null; return;
+    $('progOut').innerHTML=''; progData=null; showProgResult(); return;
   }
   renderProgChords(chords, keyPc);
 }
@@ -3495,6 +3619,7 @@ function playGripSeq(seq, btn, skipCountIn){
       if(playState && playState.loop){ const a = playState.argsG; playState = null; playGripSeq(a[0], a[1], true); }
       else stopPlayback();
     }, total)};
+  keepAwake();
   if(btn){ btn.textContent = '■'; btn.classList.add('playing'); }
 }
 $('vdPlay').onclick = ()=>{
@@ -3724,6 +3849,24 @@ function metroScheduler(){
     metro.nextTime += beatDur;
   }
 }
+// ---- Keep the screen awake while something is sounding ----
+// Phone on a music stand + metronome running should not sleep after 30s.
+// ponytail: driven off the two audio-state flags; call keepAwake() wherever either changes.
+let wakeLock = null;
+async function keepAwake(){
+  const want = metro.playing || !!playState;
+  try{
+    if(want && !wakeLock && 'wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', ()=>{ wakeLock = null; });
+    } else if(!want && wakeLock){
+      const w = wakeLock; wakeLock = null; await w.release();
+    }
+  }catch(e){}   // unsupported, or denied in a background tab — practice still works
+}
+// the OS drops the lock whenever the tab is hidden; take it back on return
+addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'visible') keepAwake(); });
+
 function metroStart(){
   if(poly.playing) polyPause();
   ensureAudio();
@@ -3733,15 +3876,17 @@ function metroStart(){
   metro.timer = setInterval(metroScheduler, metro.LOOKAHEAD_MS);
   metro.playing = true;
   $('mPlay').classList.add('on'); $('mPlay').innerHTML = '&#9632;';
+  keepAwake();
 }
 function metroStop(){
   clearInterval(metro.timer); metro.timer = null; metro.playing = false;
   $('mPlay').classList.remove('on'); $('mPlay').innerHTML = '&#9654;';
   document.querySelectorAll('#mDots .dot').forEach(d=>d.classList.remove('hit','acc'));
+  keepAwake();
 }
 function setBpm(v){
   metro.bpm = Math.min(260, Math.max(30, Math.round(v)));
-  $('mBpmVal').innerHTML = metro.bpm + '<small>BPM</small>';
+  if(document.activeElement !== $('mBpmVal')) $('mBpmVal').value = metro.bpm;  // don't fight the typist
   $('mSlider').value = metro.bpm;
   const lb = document.getElementById('logBtn');
   if(lb && !/Logged/.test(lb.textContent)) lb.textContent = '✓ Log @ ' + metro.bpm;
@@ -3758,6 +3903,10 @@ $('mPlay').onclick = ()=> metro.playing ? metroStop() : metroStart();
 $('mSlider').addEventListener('input', e=> setBpm(+e.target.value));
 $('mUp').onclick = ()=> setBpm(metro.bpm + 1);
 $('mDown').onclick = ()=> setBpm(metro.bpm - 1);
+// type an exact tempo: the slider is ~2 BPM per pixel on a phone, and ±1 is 40 taps to cross 40 BPM
+$('mBpmVal').addEventListener('input', e=>{ if(e.target.value !== '') setBpm(+e.target.value); });
+$('mBpmVal').addEventListener('blur', ()=> $('mBpmVal').value = metro.bpm);
+$('mBpmVal').addEventListener('keydown', e=>{ if(e.key === 'Enter') $('mBpmVal').blur(); });
 $('mBeats').addEventListener('change', e=>{
   const custom = e.target.value === 'custom';
   $('mCustom').style.display = custom ? '' : 'none';
@@ -3890,7 +4039,10 @@ $('tunClose').onclick = tunerStop;
 $('tunWrap').onclick = e=>{ if(e.target === $('tunWrap')) tunerStop(); };
 document.addEventListener('keydown', e=>{
   if(currentTab === 'poly') return;
-  if(e.code === 'Space' && document.activeElement.tagName !== 'INPUT'){
+  // Space toggles the metronome only when no control has focus — otherwise it swallowed
+  // Space on every button and select in the app (buttons never fired, dropdowns never opened).
+  if(e.code === 'Space' && !/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(document.activeElement.tagName)
+     && !document.activeElement.isContentEditable){
     e.preventDefault(); $('mPlay').onclick();
   }
 });
@@ -3916,7 +4068,9 @@ metro.onBar = akOnBar;
       if(b) b.onclick();
     }
   } else {
-    $('query').value = EXAMPLES[0];
+    // first visit: open on a single key, not 12 — the cycle demo was 7.5 screens of scroll
+    // before the user had touched anything. The cycle examples are one chip-tap away.
+    $('query').value = 'A minor pentatonic in groups of 3';
     runFromText();
   }
   hashReady = true;
