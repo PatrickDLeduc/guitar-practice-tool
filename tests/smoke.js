@@ -579,6 +579,24 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.evaluate(() => { $('polyMode').value = 'none'; $('polyMode').dispatchEvent(new Event('change')); });
   await p.click('.tabbtn[data-tab="ex"]');
 
+  // analytics: the beacon is prod-only (this test used to insert ~2 fake visitors per CI run into
+  // the real events table), and the canned first-visit query must not be counted as a user query.
+  const analytics = await p.evaluate(() => {
+    const idle = window.__ev.length;    // on localhost the guard should have buffered nothing at all
+    evOff = false;
+    $('query').value = 'C major scale';
+    $('go').click();                    // user path — onclick must not pass its MouseEvent as `demo`
+    const user = window.__ev.find(e => e.name === 'nl_query');
+    window.__ev.length = 0;
+    runFromText(true);                  // first-visit demo path
+    const demo = window.__ev.find(e => e.name === 'nl_query');
+    window.__ev.length = 0; evOff = true;
+    return { idle, user: user && user.props, demo: demo && demo.props };
+  });
+  assert('analytics: nothing buffered off guitarpractice.app (CI must not reach prod)', analytics.idle === 0);
+  assert('analytics: a real Generate click is not flagged demo', !!analytics.user && analytics.user.demo === false);
+  assert('analytics: the first-visit demo query is flagged demo', !!analytics.demo && analytics.demo.demo === true);
+
   await p.context().close();
 
   // ---------- mobile ----------

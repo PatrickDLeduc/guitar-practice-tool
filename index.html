@@ -2539,14 +2539,17 @@ const NL_FIELDS = [
   ['tech',      ()=>selTech, 'none'    ],
   ['nv',        ()=>selNV,   'quarter' ],
 ];
-function runFromText(){
+// `demo` = the canned first-visit query below, not something a human asked for. Without the
+// flag it was 34 of the first 57 nl_query events, reading as 100% adoption of the plain-English
+// box — the app counting its own demo as a user.
+function runFromText(demo){
   const raw = $('query').value.trim();
   if(!raw){ generate(); return; }
   const p = parseQuery(raw);
   // A query with no scale/chord type and no key in it was not understood, whatever else matched.
   // (parseQuery always fills in `seq` as a fallback, so a non-empty result proves nothing.)
   const understood = p.qual !== undefined || p.root !== undefined;
-  track('nl_query', {text: raw.slice(0, 120), ok: understood});  // what people ask for + did we understand it
+  track('nl_query', {text: raw.slice(0, 120), ok: understood, demo: demo === true});  // what people ask for + did we understand it
   const msg = $('qMsg');
   if(!understood){
     msg.textContent = 'No scale or chord type in there that I recognise. Name one — “minor pentatonic”, '
@@ -2559,7 +2562,7 @@ function runFromText(){
   generate();   // #summary spells out the resulting exercise in words
 }
 
-$('go').onclick = runFromText;
+$('go').onclick = ()=> runFromText();   // wrapped: the raw handler would pass a MouseEvent as `demo`
 $('query').addEventListener('keydown', e=>{ if(e.key==='Enter') runFromText(); });
 [selRoot,selQual,selPat,selSeq,selDir,selOct,selShapes,selNote,selFing,selVar,selTech,selPos,selNV,selShape,selTap].forEach(s=> s.addEventListener('change', generate));
 $('mBeats').addEventListener('change', generate);   // barlines follow the meter
@@ -2778,6 +2781,10 @@ const store = {
 // No PII: a random per-browser id, coarse device flags, and (for the plain-English boxes)
 // the music query text people type — the whole point is to learn what they ask for.
 const DNT = navigator.doNotTrack === '1' || window.doNotTrack === '1' || navigator.msDoNotTrack === '1';
+// Prod-only. tests/smoke.js drives this exact code in headless Chrome on every CI run, so without
+// this guard ~21 of the first 28 "visitors" in the events table were GitHub Actions.
+// `let`, not `const`, so the smoke test can flip it to assert on the buffer.
+let evOff = DNT || location.hostname !== 'guitarpractice.app';
 window.__ev = [];
 function _vid(){
   let v = localStorage.getItem('gphVid');
@@ -2785,7 +2792,7 @@ function _vid(){
   return v;
 }
 function track(name, props){
-  if(DNT) return;
+  if(evOff) return;
   if(window.__ev.length < 100) window.__ev.push({vid:_vid(), name, props: props||{}, at: new Date().toISOString()});
 }
 let _genT;
@@ -2814,7 +2821,7 @@ let _sentEnd = false;
 function endSession(){
   if(_sentEnd) return; _sentEnd = true;
   track('session_end', {secs: Math.round((Date.now() - _appStart) / 1000), tab: currentTab});
-  flushEvents();   // page may be closing — push now (best-effort, same limitation as the error beacon)
+  flushEvents(true);   // page is closing — needs the keepalive path, see flushEvents
 }
 addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'hidden') endSession(); });
 addEventListener('pagehide', endSession);
@@ -4191,7 +4198,7 @@ metro.onBar = akOnBar;
     // first visit: open on a single key, not 12 — the cycle demo was 7.5 screens of scroll
     // before the user had touched anything. The cycle examples are one chip-tap away.
     $('query').value = 'A minor pentatonic in groups of 3';
-    runFromText();
+    runFromText(true);
   }
   hashReady = true;
 })();
@@ -4205,9 +4212,10 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
 
 // ---- Accounts & cloud sync (Supabase) — optional; app is fully usable without it ----
 // PKCE flow so the OAuth redirect uses ?code= and never touches the app's state hash.
+const SB_URL = 'https://dlvdhuadhnglggayndgo.supabase.co';
+const SB_KEY = 'sb_publishable_Skuc6Noua6GMZYaQ7ZMBZw_GcDPMQne';   // publishable; RLS allows anon INSERT only
 const sb = window.supabase
-  ? window.supabase.createClient('https://dlvdhuadhnglggayndgo.supabase.co',
-      'sb_publishable_Skuc6Noua6GMZYaQ7ZMBZw_GcDPMQne', {auth:{flowType:'pkce'}})
+  ? window.supabase.createClient(SB_URL, SB_KEY, {auth:{flowType:'pkce'}})
   : null;
 let acctUser = null, acctPlan = 'free';
 function isPro(){ return acctPlan === 'pro'; }   // entitlement hook for future ads/subscriptions
@@ -4318,9 +4326,21 @@ reportErrs();
 setInterval(reportErrs, 30000);
 
 // Usage-analytics beacon (see track() above). Same batch-insert shape as the error beacon.
-function flushEvents(){
-  if(DNT || !sb || !window.__ev.length) return;
+function flushEvents(final){
+  if(evOff || !sb || !window.__ev.length) return;
   const batch = window.__ev.splice(0, 20).map(x=>({...x, ua: navigator.userAgent.slice(0, 300)}));
+  // On pagehide the browser kills in-flight fetches, so session_end landed for only 5 of the first
+  // 28 sessions. keepalive survives unload; supabase-js exposes no way to set it, hence raw REST.
+  if(final){
+    try{
+      fetch(SB_URL + '/rest/v1/events', {
+        method: 'POST', keepalive: true, body: JSON.stringify(batch),
+        headers: {apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY,
+                  'Content-Type': 'application/json', Prefer: 'return=minimal'},
+      }).catch(()=>{});
+    }catch(_){}
+    return;
+  }
   try{ sb.from('events').insert(batch).then(()=>{}); }catch(_){}
 }
 flushEvents();
