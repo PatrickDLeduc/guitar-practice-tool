@@ -66,6 +66,7 @@
   .instrow{display:flex;align-items:center;gap:8px;margin:0 0 18px}
   .instrow label{color:var(--muted);font-size:13px}
   .instrow select{padding:5px 8px}
+  .vlabel{font-size:10px;font-weight:700;color:var(--accent);text-align:center;margin-bottom:2px}
   .inputrow{display:flex;gap:8px;margin-bottom:10px}
   #query{flex:1;padding:12px 14px;font-size:15px;background:var(--panel);border:1px solid var(--border);
     border-radius:10px;color:var(--text);outline:none}
@@ -628,7 +629,7 @@
     <p class="sub" id="voicSub"></p>
     <div class="shapes" id="voicOut" style="border:none;flex-wrap:wrap"></div>
 
-    <div class="hgbox" style="margin-top:14px">
+    <div class="hgbox" id="vdBox" style="margin-top:14px">
       <div class="keyhead"><span class="keyname">Voicing drill — up the neck</span><button class="pbtn" id="vdPlay" title="Strum through the sequence, 2 beats per chord, at metronome tempo" aria-label="Play voicing drill">▶</button><button id="loopBtn3" class="pbtn" style="width:auto;padding:0 8px">Loop: off</button></div>
       <p class="sub" style="margin-bottom:10px">Uses the voicing type and string set selected above. Play each grip in time; the sequence climbs the neck.</p>
       <div class="controls" style="margin-bottom:10px">
@@ -1347,6 +1348,10 @@ const SHARP_KEYS = new Set([7,2,9,4,11,6]);   // G D A E B F#/Gb→sharp side
 // Guitar is written an octave above sounding pitch. dval = diatonic staff value.
 // Guitar is a transposing instrument in notation: written an octave above sounding.
 // Piano is not, so it passes up8va=false and gets concert pitch.
+// Staff positions in diatonic-value space (dval = octave*7 + letter index).
+// Treble E4..F5, bass G2..A3, middle C exactly between the two — which is what makes
+// a grand staff fall out of one linear dval->y map.
+const TREB_TOP = 38, TREB_BOT = 30, MID_C = 28, BASS_TOP = 26, BASS_BOT = 18;
 function spellWritten(midi, useSharps, up8va){
   const w = midi + (up8va === false ? 0 : 12);
   const pc = w % 12, oct = Math.floor(w/12) - 1;
@@ -1384,9 +1389,6 @@ function renderNotationSystems(groups, rootPc, labels, nv, fingers){
     const fingPad = fmap ? 13 : 0;                          // room for the finger-number row
     const staffTop = (labels ? 28 : 12) + fingPad + (maxD-38)*SP/2;   // y of top staff line (F5, dval 38)
     const yOf = d => staffTop + (38-d)*SP/2;
-    // dval = oct*7+letter, so treble E4..F5 = 30..38 and bass G2..A3 = 18..26 with
-    // middle C (28) landing exactly between them — grand-staff geometry for free.
-    const BASS_TOP = 26, BASS_BOT = 18, MID_C = 28;
     const inBass = d => piano && d < MID_C;
     const tabTop = yOf(minD) + 26;
     const H = piano ? yOf(minD) + 24 + fingPad : tabTop + 5*TS + 18;
@@ -2443,6 +2445,48 @@ function keyboardSVG(pitches, rootPc){
   }
   return s + blacks + '</svg>';   // blacks last so they sit above the white keys
 }
+// A single voicing stacked on a grand staff. Separate from renderNotationSystems because
+// that one lays notes out in time (columns, stems, flags, bar lines); this is one vertical
+// sonority, drawn as stemless whole notes the way a voicing chart shows it.
+function chordStaffSVG(pitches, rootPc){
+  const SP = 8, X = 62, W = 88;
+  const useSharps = SHARP_KEYS.has(rootPc);
+  const sps = pitches.map(p => spellWritten(p, useSharps, false)).sort((a,b)=> a.dval - b.dval);
+  const maxD = Math.max(TREB_TOP, ...sps.map(s=>s.dval));
+  const minD = Math.min(BASS_BOT, ...sps.map(s=>s.dval));
+  const top = 10 + (maxD-TREB_TOP)*SP/2;
+  const yOf = d => top + (TREB_TOP-d)*SP/2;
+  const H = yOf(minD) + 12;
+  let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  for(let d=TREB_BOT; d<=TREB_TOP; d+=2)
+    s += `<line x1="10" y1="${yOf(d)}" x2="${W-4}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
+  for(let d=BASS_BOT; d<=BASS_TOP; d+=2)
+    s += `<line x1="10" y1="${yOf(d)}" x2="${W-4}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
+  s += `<line x1="10" y1="${yOf(TREB_TOP)}" x2="10" y2="${yOf(BASS_BOT)}" stroke="#4a5061" stroke-width="2.5"/>`;
+  s += `<text x="12" y="${yOf(TREB_BOT)-8}" font-size="${SP*5.2}" fill="#cdd3e0" font-family="'Segoe UI Symbol','Noto Music',serif">\u{1D11E}</text>`;
+  s += `<text x="14" y="${yOf(BASS_TOP)+SP*2.65}" font-size="${SP*2.46}" fill="#cdd3e0" font-family="'Segoe UI Symbol','Noto Music',serif">\u{1D122}</text>`;
+  let accSlot = 0;
+  sps.forEach((sp, i)=>{
+    const d = sp.dval, bass = d < MID_C, y = yOf(d);
+    // seconds can't share a column — nudge the upper note right, as engraving does
+    const x = (i > 0 && d - sps[i-1].dval === 1) ? X + 9 : X;
+    if(bass) for(let k=BASS_BOT-2; k>=d; k-=2)
+      s += `<line x1="${x-8}" y1="${yOf(k)}" x2="${x+8}" y2="${yOf(k)}" stroke="#4a5061" stroke-width="1"/>`;
+    else {
+      for(let k=MID_C; k>=d; k-=2)
+        s += `<line x1="${x-8}" y1="${yOf(k)}" x2="${x+8}" y2="${yOf(k)}" stroke="#4a5061" stroke-width="1"/>`;
+      for(let k=TREB_TOP+2; k<=d; k+=2)
+        s += `<line x1="${x-8}" y1="${yOf(k)}" x2="${x+8}" y2="${yOf(k)}" stroke="#4a5061" stroke-width="1"/>`;
+    }
+    if(sp.acc !== 0){   // stagger stacked accidentals so they don't overprint
+      s += `<text x="${x - 13 - (accSlot%2)*9}" y="${y+4}" font-size="12" fill="#cdd3e0" font-family="'Segoe UI Symbol',serif">${sp.acc<0?'♭':'♯'}</text>`;
+      accSlot++;
+    }
+    s += `<ellipse cx="${x}" cy="${y}" rx="5" ry="3.6" transform="rotate(-18 ${x} ${y})" fill="none" stroke="#e8eaf0" stroke-width="1.5"/>`;
+  });
+  return s + '</svg>';
+}
+
 function keyboardRow(pitches, rootPc){
   const d = document.createElement('div');
   d.className = 'shapes';
@@ -2777,6 +2821,10 @@ function applyInstrument(regen){
   if(piano && selShapes.value === 'on') selShapes.value = 'neck';
   $('handWrap').style.display = piano ? '' : 'none';
   $('tunBtn').style.display = piano ? 'none' : '';
+  // The voicing drill climbs neck positions, which has no keyboard equivalent; and the
+  // string-set choice doesn't change a piano voicing except for the two shell forms.
+  $('vdBox').style.display = piano ? 'none' : '';
+  $('vSet').closest('.ctl').style.display = (piano && $('vType').value !== 'shell') ? 'none' : '';
   if(regen) generate();
 }
 $('selInst').addEventListener('change', e=>{
@@ -3822,12 +3870,55 @@ function gripA11y(cell, label){
   cell.setAttribute('aria-label', label);
   cell.onkeydown = e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); cell.onclick(); } };
 }
+// Piano placement. voicingStacks() has already done the voicing theory, so this only
+// picks an octave. Anchoring the *root* to a fixed octave puts wide stacks (a R-7-3 shell
+// spans 16 semitones) far too high, so centre each voicing's centroid near middle C —
+// that lands shells in the left hand and drop voicings around middle C, as played.
+function pianoVoicings(rootPc, qualKey, type, setDef){
+  return voicingStacks(qualKey, type, setDef).map(({inv, degLabel, stack})=>{
+    const mean = stack.reduce((a,b)=>a+b, 0) / stack.length;
+    let R0 = 48 + rootPc, best = 1e9;
+    for(let r = 24 + rootPc; r <= 72 + rootPc; r += 12){
+      const d = Math.abs(r + mean - 60);
+      if(d < best){ best = d; R0 = r; }
+    }
+    return {
+      // matches the guitar wording: a drop voicing derives from a close-position inversion
+      inv: type==='shell' ? inv : 'from ' + inv,
+      degLabel, pitches: stack.map(iv => R0 + iv),
+    };
+  });
+}
 function renderVoicings(){
   vFillTypes();
   vFillSets();
   const rootPc=+$('vRoot').value, q=$('vQual').value, type=$('vType').value;
   const setDef = VOICE_SETS[type][+$('vSet').value || 0];
   const NM = SHARP_KEYS.has(rootPc) ? SHARP_NAMES : FLAT_NAMES;
+  if(instrument === 'piano'){
+    // only the shell forms differ on a keyboard; the string-set choice is inert
+    $('vSet').closest('.ctl').style.display = type === 'shell' ? '' : 'none';
+    const vs = pianoVoicings(rootPc, q, type, setDef);
+    const shellLabel = (type==='shell' && vs[0])
+      ? setDef.label.replace(/^root on \d\w* /, '').replace(/[()]/g, '')
+      : null;
+    $('voicSub').textContent = `${NM[rootPc]}${CHORD_SYM[q] ?? ''} — ${type==='shell' ? 'shell voicing ' + shellLabel : type}. Click a voicing to hear it.`;
+    const out = $('voicOut'); out.innerHTML='';
+    vs.forEach(v=>{
+      const cell = document.createElement('div');
+      cell.className = 'shape vgrip';
+      cell.title = 'Click to hear';
+      cell.innerHTML = `<div class="vlabel">${v.inv}</div>` + chordStaffSVG(v.pitches, rootPc) +
+                       keyboardSVG(v.pitches, rootPc);
+      gripA11y(cell, 'Play voicing ' + v.inv);
+      cell.onclick = ()=>{
+        const ctx = ensureAudio(); const t = ctx.currentTime + 0.05;
+        v.pitches.forEach((m,i)=> pad(ctx, m, t + i*0.05, 1.8, 0.12));
+      };
+      out.appendChild(cell);
+    });
+    return;
+  }
   const grips = buildGrips(rootPc, q, type, setDef);
   const setLabel = (type==='shell' && grips[0])
     ? setDef.label.replace(/\(R-.+?\)/, setDef.form==='173' ? `(R-${grips[0].degLabel}-3)` : `(R-3-${grips[0].degLabel})`)
@@ -3892,6 +3983,7 @@ function allGrips(rootPc, qualKey, type, setDef){
 }
 let vdSeq = [];
 function renderVoicingDrill(){
+  if(instrument === 'piano'){ vdSeq = []; return; }   // the drill is neck positions
   const type = $('vType').value, setDef = VOICE_SETS[type][+$('vSet').value || 0];
   const rootPc = +$('vRoot').value, mode = $('vdMode').value, dir = $('vdDir').value;
   const NM = SHARP_KEYS.has(rootPc) ? SHARP_NAMES : FLAT_NAMES;

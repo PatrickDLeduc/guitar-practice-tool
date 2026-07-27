@@ -742,6 +742,53 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
     assert('piano: one finger number per note wherever shown',
       ['cRH','cLH','fRH','desc','both','harm'].every(k => fng[k].aligned));
 
+    // voicings on piano: same interval theory, keyboard + grand-staff rendering
+    const voi = await p.evaluate(() => {
+      document.querySelector('.tabbtn[data-tab="voic"]').click();
+      const set = (root, q, type) => {
+        document.getElementById('vRoot').value = String(root);
+        document.getElementById('vQual').value = q;
+        document.getElementById('vType').value = type;
+        ['vRoot', 'vQual', 'vType'].forEach(id => document.getElementById(id).dispatchEvent(new Event('change')));
+        return [...document.querySelectorAll('#voicOut .vgrip')];
+      };
+      const cells = set(0, 'maj7', 'drop2');
+      const pitches = t => pianoVoicings(...t.slice(0, 3), VOICE_SETS[t[2]][t[3] || 0]).map(v => v.pitches);
+      return {
+        cells: cells.length,
+        labels: cells.map(c => c.querySelector('.vlabel').textContent),
+        twoSvgs: cells.every(c => c.querySelectorAll('svg').length === 2),
+        clickable: cells.every(c => c.getAttribute('role') === 'button' && c.tabIndex === 0),
+        drop2: pitches([0, 'maj7', 'drop2']),
+        shell: pitches([10, 'dom7', 'shell']),
+        triad: pitches([7, 'maj', 'triad']),
+        drillHidden: document.getElementById('vdBox').style.display === 'none',
+        // guitar path must still work after the piano branch was added
+        guitar: (() => {
+          instrument = 'guitar';
+          renderVoicings();
+          const n = document.querySelectorAll('#voicOut .vgrip').length;
+          instrument = 'piano'; renderVoicings();
+          return n;
+        })(),
+      };
+    });
+    assert('piano: drop2 gives 4 inversions with staff + keyboard',
+      voi.cells === 4 && voi.twoSvgs && voi.clickable);
+    assert('piano: voicings labelled as derived from close position',
+      JSON.stringify(voi.labels) === '["from root pos","from 1st inv","from 2nd inv","from 3rd inv"]');
+    assert('piano: Cmaj7 drop2 root position is G3-C4-E4-B4 (got ' + voi.drop2[0] + ')',
+      JSON.stringify(voi.drop2[0]) === '[55,60,64,71]');
+    assert('piano: Bb7 shell sits in the left hand, not an octave high (got ' + voi.shell[0] + ')',
+      JSON.stringify(voi.shell[0]) === '[46,56,62]');
+    assert('piano: every voicing centred near middle C',
+      [...voi.drop2, ...voi.shell, ...voi.triad].every(ps => {
+        const mean = ps.reduce((a, b) => a + b, 0) / ps.length;
+        return mean > 48 && mean < 72;
+      }));
+    assert('piano: neck-position voicing drill hidden', voi.drillHidden);
+    assert('guitar: voicing grips still render after the piano branch', voi.guitar > 0);
+
     // guitar-only fingering choice survives a detour through piano
     const rt = await p.evaluate(() => {
       const sel = document.getElementById('selInst'), r = {};
