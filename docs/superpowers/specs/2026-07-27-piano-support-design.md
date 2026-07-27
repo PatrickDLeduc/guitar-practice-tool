@@ -183,6 +183,10 @@ All four phases shipped. Where implementation contradicted the design, the desig
 
 **Copy output.** "Copy all tabs" produced `undefined` for pitch-only notes. Piano copies pitch names with octaves instead (`C3 D3 E3 F3 …`), spelled per key.
 
+**Mobile was not considered in the design, and needed two fixes.** The keyboard is one wide picture whose whole point is seeing every lit key at once, so on narrow screens it now **scales to fit** rather than scrolling inside `.shapes` (which hid ~93px of keys in portrait). Fretboard diagrams keep scrolling — a 15-fret neck squashed to 322px would be illegible — so the keyboard row carries its own `.kbdrow` class instead of changing `.shape` globally.
+
+Separately, the metronome's compact bar was gated on `@media(max-width:640px)`. A phone in landscape is ~812px wide, so it fell through to the full desktop bar, which wrapped into stacked rows taking 31% of a 375px-tall viewport — with the ⋯ collapse button hidden, so there was no way to shrink it. The slim-bar rules now trigger on **narrow *or* short** viewports (`max-height:560px`), with a further trim below 420px. This benefits guitar in landscape too.
+
 ### Fingering coverage is partial, deliberately
 
 The design assumed the full table could be written. It could not be written *reliably* — traditions differ for several left hands, and a plausible-looking wrong fingering is silent and would only surface at the keyboard. What shipped:
