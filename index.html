@@ -62,7 +62,10 @@
   .wrap{max-width:960px;margin:0 auto}
   h1{font-size:26px;margin:0 0 4px}
   h1 .g{color:var(--accent)}
-  .sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+  .sub{color:var(--muted);margin:0 0 10px;font-size:14px}
+  .instrow{display:flex;align-items:center;gap:8px;margin:0 0 18px}
+  .instrow label{color:var(--muted);font-size:13px}
+  .instrow select{padding:5px 8px}
   .inputrow{display:flex;gap:8px;margin-bottom:10px}
   #query{flex:1;padding:12px 14px;font-size:15px;background:var(--panel);border:1px solid var(--border);
     border-radius:10px;color:var(--text);outline:none}
@@ -344,7 +347,14 @@
     <h1><span class="g">Guitar</span> Practice Helper</h1>
     <button id="acctBtn" style="display:none">Sign in</button>
   </div>
-  <p class="sub">Describe an exercise and get tablature. Standard tuning (EADGBE).</p>
+  <p class="sub" id="subLine">Describe an exercise and get tablature. Standard tuning (EADGBE).</p>
+  <div class="instrow">
+    <label for="selInst">Instrument</label>
+    <select id="selInst" aria-label="Instrument">
+      <option value="guitar" selected>Guitar</option>
+      <option value="piano">Piano</option>
+    </select>
+  </div>
 
   <nav class="tabbar" role="tablist" aria-label="Sections">
     <button class="tabbtn active" role="tab" aria-selected="true" data-tab="ex"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/></svg><span class="tl">Exercises</span><span class="ts">Exercises</span></button>
@@ -1027,14 +1037,24 @@ const QUALITIES = {
 };
 
 // Build the note pool (array of MIDI numbers) for a root pc and quality.
+// Which instrument the exercise/progression/voicing views render for.
+// The theory above this line is instrument-free; only note *placement* below cares.
+let instrument = 'guitar';   // 'guitar' | 'piano'
+const PIANO_TOP = 96;        // C7 — well inside an 88-key board
+
 function buildPool(rootPc, qualKey, octaves, customIvs){
-  let root = 40 + ((rootPc - 4 + 12) % 12);        // E2..Eb3
+  // Guitar anchors low (open-position friendly); piano starts at C3 so two
+  // octaves straddle middle C, where scales are actually practised.
+  let root = instrument === 'piano'
+    ? 48 + rootPc                                   // C3..B3
+    : 40 + ((rootPc - 4 + 12) % 12);                // E2..Eb3
   const iv = customIvs || QUALITIES[qualKey].intervals;
   const pool = [];
   for(let o=0; o<octaves; o++) iv.forEach(x => pool.push(root + 12*o + x));
   pool.push(root + 12*octaves);                     // top root
   // Drop anything above the highest playable note (matters for 3-octave ranges)
-  return pool.filter(p => p <= STRINGS[5] + MAX_FRET);
+  const top = instrument === 'piano' ? PIANO_TOP : STRINGS[5] + MAX_FRET;
+  return pool.filter(p => p <= top);
 }
 
 // Pattern generators: return array of "groups" of pool indices.
@@ -1066,8 +1086,13 @@ function candidates(p, strs){
   for(const s of (strs || [0,1,2,3,4,5])){ const f = p - STRINGS[s]; if(f>=0 && f<=MAX_FRET) c.push({s,f}); }
   return c;
 }
+// The single choke point where pitches become placed notes. Every caller routes
+// through here — buildKeyExercise, progressionLine, guideToneLine — so piano
+// support is one branch, not one per call site. Notes always carry `p` (MIDI);
+// only guitar notes also carry `s`/`f`, and downstream code branches on that.
 function assignFingering(pitches, strs){
   if(!pitches.length) return [];
+  if(instrument === 'piano') return pitches.map(p => ({p}));
   const out = [];
   // Anchor: root position, prefer a low string with fret 1..10.
   let first = null, best = 1e9;
@@ -1076,7 +1101,7 @@ function assignFingering(pitches, strs){
     if(cost < best){ best = cost; first = c; }
   }
   let hand = Math.max(first.f, 1), prevS = first.s;
-  out.push(first);
+  out.push({...first, p: pitches[0]});
   for(let i=1;i<pitches.length;i++){
     let pick = null, bc = 1e9;
     for(const c of candidates(pitches[i], strs)){
@@ -1084,7 +1109,7 @@ function assignFingering(pitches, strs){
       const cost = Math.abs(eff - hand)*1.6 + Math.abs(c.s - prevS)*0.8;
       if(cost < bc){ bc = cost; pick = c; }
     }
-    out.push(pick);
+    out.push({...pick, p: pitches[i]});
     if(pick.f > 0) hand = hand*0.6 + pick.f*0.4;
     prevS = pick.s;
   }
@@ -1104,6 +1129,9 @@ function rootSequence(startPc, seq){
 // Full exercise for one key -> {name, groups:[[{s,f},...],...], noteNames}
 function buildKeyExercise(rootPc, qualKey, pat, dir, octaves, customIvs, customName, fingering, variation, posFret, shapeIdx, tapIv){
   let pool, posMap = null, shapeLabel = null;
+  // Fretboard-shaped fingering modes are meaningless on a keyboard. A stale share
+  // link can still carry one, so fall back rather than building a bogus shape.
+  if(instrument === 'piano'){ fingering = 'pos'; tapIv = 'none'; }
   if(fingering === 'fixed'){
     // every tone of the key that falls inside the 5-fret window, low to high
     const ivs = customIvs || QUALITIES[qualKey].intervals;
@@ -1207,8 +1235,20 @@ function buildKeyExercise(rootPc, qualKey, pat, dir, octaves, customIvs, customN
       });
     }
   }
+  // The posMap/3nps/tap branches above build {s,f} directly rather than going through
+  // assignFingering, so they need `p` attached. Derived, so re-setting a shared posMap
+  // entry is idempotent.
+  if(instrument !== 'piano')
+    fgroups.forEach(g => g.forEach(n => { if(n.p === undefined) n.p = STRINGS[n.s] + n.f; }));
   const name = customName || (FLAT_NAMES[rootPc] + ' ' + QUALITIES[qualKey].label + (shapeLabel ? ' — ' + shapeLabel : ''));
   return { name, groups: fgroups };
+}
+
+// Piano's plain-text form: pitch names with octave, grouped like the tab systems.
+// Spelled per key so a Bb exercise copies as "Bb C D Eb", not "A# C D D#".
+function renderNoteNames(groups, rootPc){
+  const NM = SHARP_KEYS.has(rootPc) ? SHARP_NAMES : FLAT_NAMES;
+  return groups.map(g => g.map(n => NM[n.p % 12] + (Math.floor(n.p/12) - 1)).join(' ')).join('\n');
 }
 
 // Render one key's groups to ASCII tab systems (array of 6-line strings).
@@ -1253,8 +1293,10 @@ const FLAT_SPELL  = [['C',0],['D',-1],['D',0],['E',-1],['E',0],['F',0],['G',-1],
 const SHARP_SPELL = [['C',0],['C',1],['D',0],['D',1],['E',0],['F',0],['F',1],['G',0],['G',1],['A',0],['A',1],['B',0]];
 const SHARP_KEYS = new Set([7,2,9,4,11,6]);   // G D A E B F#/Gb→sharp side
 // Guitar is written an octave above sounding pitch. dval = diatonic staff value.
-function spellWritten(midi, useSharps){
-  const w = midi + 12;
+// Guitar is a transposing instrument in notation: written an octave above sounding.
+// Piano is not, so it passes up8va=false and gets concert pitch.
+function spellWritten(midi, useSharps, up8va){
+  const w = midi + (up8va === false ? 0 : 12);
   const pc = w % 12, oct = Math.floor(w/12) - 1;
   const [letter, acc] = (useSharps ? SHARP_SPELL : FLAT_SPELL)[pc];
   return { dval: oct*7 + LETTER_DIA[letter], acc };
@@ -1279,33 +1321,58 @@ function renderNotationSystems(groups, rootPc, labels, nv){
       x+=gapW;
     });
     const W = x - gapW + padR;
-    cols.forEach(c=>{ c.sp = spellWritten(STRINGS[c.n.s]+c.n.f, useSharps); });
+    // Piano reads at concert pitch on a grand staff; guitar is written 8va and gets tab.
+    const piano = instrument === 'piano';
+    cols.forEach(c=>{ c.sp = spellWritten(piano ? c.n.p : STRINGS[c.n.s]+c.n.f, useSharps, !piano); });
     const maxD = Math.max(38, ...cols.map(c=>c.sp.dval));
-    const minD = Math.min(30, ...cols.map(c=>c.sp.dval));
+    const minD = Math.min(piano ? 18 : 30, ...cols.map(c=>c.sp.dval));
     const staffTop = (labels ? 28 : 12) + (maxD-38)*SP/2;   // y of top staff line (F5, dval 38)
     const yOf = d => staffTop + (38-d)*SP/2;
+    // dval = oct*7+letter, so treble E4..F5 = 30..38 and bass G2..A3 = 18..26 with
+    // middle C (28) landing exactly between them — grand-staff geometry for free.
+    const BASS_TOP = 26, BASS_BOT = 18, MID_C = 28;
+    const inBass = d => piano && d < MID_C;
     const tabTop = yOf(minD) + 26;
-    const H = tabTop + 5*TS + 18;
+    const H = piano ? yOf(minD) + 24 : tabTop + 5*TS + 18;
     let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
     // chord labels (progression mode)
     marks.forEach(mk=>{
       s += `<text x="${mk.x+2}" y="14" font-size="12" font-weight="700" fill="var(--accent)">${mk.label}</text>`;
     });
-    // staff (5 lines, E4..F5 = dval 30..38)
+    // staff (5 lines, E4..F5 = dval 30..38); piano adds the bass staff and a brace
     for(let d=30; d<=38; d+=2)
       s += `<line x1="12" y1="${yOf(d)}" x2="${W-6}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
+    if(piano){
+      for(let d=BASS_BOT; d<=BASS_TOP; d+=2)
+        s += `<line x1="12" y1="${yOf(d)}" x2="${W-6}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
+      s += `<line x1="12" y1="${yOf(38)}" x2="12" y2="${yOf(BASS_BOT)}" stroke="#4a5061" stroke-width="2.5"/>`;
+    }
     // treble clef
     s += `<text x="14" y="${yOf(30)-8}" font-size="${SP*5.2}" fill="#cdd3e0" font-family="'Segoe UI Symbol','Noto Music',serif">\u{1D11E}</text>`;
+    if(piano)   // bass clef, sized/offset so its body sits inside the bass staff rather than
+      // riding above it. Empirical, like the treble offset above — these glyphs' metrics vary
+      // by font, so this is tuned to look right, not derived. ponytail: good enough until a
+      // real music font (SMuFL) is worth embedding.
+      s += `<text x="16" y="${yOf(BASS_TOP)+SP*2.65}" font-size="${SP*2.46}" fill="#cdd3e0" font-family="'Segoe UI Symbol','Noto Music',serif">\u{1D122}</text>`;
     // notes
     cols.forEach(c=>{
-      const y = yOf(c.sp.dval);
-      for(let d=28; d>=c.sp.dval; d-=2)
-        s += `<line x1="${c.x-8}" y1="${yOf(d)}" x2="${c.x+8}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
-      for(let d=40; d<=c.sp.dval; d+=2)
-        s += `<line x1="${c.x-8}" y1="${yOf(d)}" x2="${c.x+8}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
+      const d0 = c.sp.dval, bass = inBass(d0);
+      const y = yOf(d0);
+      if(bass){
+        // below the bass staff only — a bass-staff note is by definition under middle C,
+        // so it never needs a ledger above its own top line (A3, dval 26).
+        for(let d=BASS_BOT-2; d>=d0; d-=2)
+          s += `<line x1="${c.x-8}" y1="${yOf(d)}" x2="${c.x+8}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
+      } else {
+        for(let d=28; d>=d0; d-=2)
+          s += `<line x1="${c.x-8}" y1="${yOf(d)}" x2="${c.x+8}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
+        for(let d=40; d<=d0; d+=2)
+          s += `<line x1="${c.x-8}" y1="${yOf(d)}" x2="${c.x+8}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
+      }
       if(c.sp.acc !== 0)
         s += `<text x="${c.x-14}" y="${y+4}" font-size="13" fill="#cdd3e0" font-family="'Segoe UI Symbol',serif">${c.sp.acc<0?'♭':'♯'}</text>`;
-      const up = c.sp.dval < 34;
+      // stems flip about each staff's own middle line (B4=34 treble, D3=22 bass)
+      const up = d0 < (bass ? 22 : 34);
       const sx = up ? c.x+4.4 : c.x-4.4;
       const sy2 = up ? y-SP*3.1 : y+SP*3.1;
       s += `<line x1="${sx}" y1="${up?y-1:y+1}" x2="${sx}" y2="${sy2}" stroke="#e8eaf0" stroke-width="1.2"/>`;
@@ -1316,10 +1383,14 @@ function renderNotationSystems(groups, rootPc, labels, nv){
       }
       s += `<ellipse class="nh" cx="${c.x}" cy="${y}" rx="4.8" ry="3.5" transform="rotate(-18 ${c.x} ${y})" ${nv==='half' ? 'fill="none" stroke="#e8eaf0" stroke-width="1.5"' : 'fill="#e8eaf0"'}/>`;
     });
-    // bar lines through staff and tab
+    // bar lines: one continuous stroke through the grand staff, or staff + tab on guitar
     cols.forEach(c=>{
       if(!c.n.bar) return;
       const bx = c.x + colW/2;
+      if(piano){
+        s += `<line x1="${bx}" y1="${yOf(38)}" x2="${bx}" y2="${yOf(BASS_BOT)}" stroke="#6a7186" stroke-width="1.5"/>`;
+        return;
+      }
       s += `<line x1="${bx}" y1="${yOf(38)}" x2="${bx}" y2="${yOf(30)}" stroke="#6a7186" stroke-width="1.5"/>`;
       s += `<line x1="${bx}" y1="${tabTop}" x2="${bx}" y2="${tabTop+5*TS}" stroke="#6a7186" stroke-width="1.5"/>`;
     });
@@ -1330,16 +1401,18 @@ function renderNotationSystems(groups, rootPc, labels, nv){
         const mid = cols[Math.min(i+1, cols.length-1)];
         s += `<text x="${mid.x}" y="${staffTop-3}" text-anchor="middle" font-size="9" font-style="italic" fill="var(--muted)">3</text>`;
       }
-    // tab (top line = high e)
-    for(let i=0;i<6;i++){
-      const y = tabTop + i*TS;
-      s += `<line x1="12" y1="${y}" x2="${W-6}" y2="${y}" stroke="#4a5061" stroke-width="1"/>`;
-      s += `<text x="4" y="${y+3.5}" font-size="9" fill="var(--muted)" font-family="monospace">${STRING_LABELS[i]}</text>`;
+    // tab (top line = high e) — guitar only; a keyboard has no strings to number
+    if(!piano){
+      for(let i=0;i<6;i++){
+        const y = tabTop + i*TS;
+        s += `<line x1="12" y1="${y}" x2="${W-6}" y2="${y}" stroke="#4a5061" stroke-width="1"/>`;
+        s += `<text x="4" y="${y+3.5}" font-size="9" fill="var(--muted)" font-family="monospace">${STRING_LABELS[i]}</text>`;
+      }
+      cols.forEach(c=>{
+        const y = tabTop + (5 - c.n.s)*TS;
+        s += `<text class="nn" x="${c.x}" y="${y+3.5}" text-anchor="middle" font-size="11" font-weight="600" font-family="Consolas,monospace" fill="#cdd3e0" paint-order="stroke" stroke="#1c1f28" stroke-width="5">${c.n.f}</text>`;
+      });
     }
-    cols.forEach(c=>{
-      const y = tabTop + (5 - c.n.s)*TS;
-      s += `<text class="nn" x="${c.x}" y="${y+3.5}" text-anchor="middle" font-size="11" font-weight="600" font-family="Consolas,monospace" fill="#cdd3e0" paint-order="stroke" stroke="#1c1f28" stroke-width="5">${c.n.f}</text>`;
-    });
     return s + '</svg>';
   });
 }
@@ -2487,7 +2560,8 @@ function generate(){
         : $('mBeats').value.replace(/[ab]$/,'');
       $('summary').textContent += ` · ${bars} bar${bars>1?'s':''}/key in ${meterName}`;
     }
-    copyText += '\n\n' + ex.name + '\n' + renderTab(ex.groups).join('\n\n');
+    copyText += '\n\n' + ex.name + '\n' +
+      (instrument === 'piano' ? renderNoteNames(ex.groups, pc) : renderTab(ex.groups).join('\n\n'));
     const div=document.createElement('div'); div.className='keyblock';
     const head=document.createElement('div'); head.className='keyhead';
     head.innerHTML = `<span class="keyname">${ex.name}</span>`;
@@ -2497,7 +2571,8 @@ function generate(){
     pb.onclick = ()=>{ if(playState && playState.btn===pb) stopPlayback(); else playNotes(ex.groups.flat(), pb); };
     head.appendChild(pb);
     div.appendChild(head);
-    if(selShapes.value === 'on') div.appendChild(shapesRow(pc, qual));
+    if(instrument === 'piano'){ /* no fretboard diagrams on a keyboard */ }
+    else if(selShapes.value === 'on') div.appendChild(shapesRow(pc, qual));
     else if(selShapes.value === 'neck'){
       let win = null;
       if(fing==='fixed') win = {lo:posFret, hi:posFret+4};
@@ -2508,7 +2583,8 @@ function generate(){
       }
       div.appendChild(neckRow(pc, qual, win));
     }
-    if(selNote.value === 'on'){
+    // "Tab only (text)" has nothing to show for a keyboard — piano always gets the staff.
+    if(selNote.value === 'on' || instrument === 'piano'){
       const nd=document.createElement('div'); nd.className='notation';
       nd.innerHTML = renderNotationSystems(ex.groups, pc, null, selNV.value).map(s=>`<div class="nsys">${s}</div>`).join('');
       div.appendChild(nd);
@@ -2564,6 +2640,35 @@ $('query').addEventListener('keydown', e=>{ if(e.key==='Enter') runFromText(); }
 [selRoot,selQual,selPat,selSeq,selDir,selOct,selShapes,selNote,selFing,selVar,selTech,selPos,selNV,selShape,selTap].forEach(s=> s.addEventListener('change', generate));
 $('mBeats').addEventListener('change', generate);   // barlines follow the meter
 
+// ---- Instrument (guitar | piano) ----
+// Guitar-only controls are hidden, not removed, so switching back restores the
+// player's previous choice instead of silently resetting it.
+const GUITAR_ONLY_FING = ['3nps','fixed','caged','2str','shift'];
+let stashedFing = null;   // guitar fingering parked while piano mode is active
+function applyInstrument(regen){
+  const piano = instrument === 'piano';
+  $('subLine').textContent = piano
+    ? 'Describe an exercise and get grand-staff notation.'
+    : 'Describe an exercise and get tablature. Standard tuning (EADGBE).';
+  [...selFing.options].forEach(o=>{ if(GUITAR_ONLY_FING.includes(o.value)) o.hidden = piano; });
+  if(piano){
+    if(GUITAR_ONLY_FING.includes(selFing.value)){ stashedFing = selFing.value; selFing.value = 'pos'; }
+  } else if(stashedFing && selFing.value === 'pos'){
+    selFing.value = stashedFing; stashedFing = null;   // untouched while away, so give it back
+  }
+  // CAGED map, tap, and picking-technique tips are all fretboard concepts
+  [selShapes, selTap, selTech].forEach(s=> s.closest('.ctl').style.display = piano ? 'none' : '');
+  $('tunBtn').style.display = piano ? 'none' : '';
+  if(regen) generate();
+}
+$('selInst').addEventListener('change', e=>{
+  instrument = e.target.value === 'piano' ? 'piano' : 'guitar';
+  const d = store.load(); d.instr = instrument; store.save(d);
+  stopPlayback();
+  applyInstrument(true);
+  stateToHash();
+});
+
 $('droneBtn').onclick = toggleDrone;
 $('loopBtn').onclick = ()=> setLoop(!playLoop);
 // ---- Auto-advance keys with the metronome ----
@@ -2612,6 +2717,7 @@ function stateToHash(){
     while(end > 0 && ex[end-1] === EX_DEFAULTS[end-1]) end--;
     const parts = [];
     if(currentTab !== 'ex') parts.push('t=' + currentTab);
+    if(instrument === 'piano') parts.push('i=p');   // absent = guitar, so old links are untouched
     if(end > 0) parts.push('ex=' + ex.slice(0, end).join('.'));
     if($('progIn').value.trim()) parts.push('pi=' + encodeURIComponent($('progIn').value.trim()));
     if($('progN').value !== '8') parts.push('pn=' + $('progN').value);
@@ -2632,6 +2738,7 @@ function parseHash(){
     const i = kv.indexOf('='); if(i < 0) return;
     const k = kv.slice(0, i), v = kv.slice(i+1);
     if(k === 't') st.t = v;
+    else if(k === 'i') st.i = v === 'p' ? 'piano' : 'guitar';
     else if(k === 'ex'){
       const vals = v.split('.');
       st.ex = EX_DEFAULTS.map((d, j)=> vals[j] !== undefined ? vals[j] : d).join('|');
@@ -2791,7 +2898,7 @@ function track(name, props){
 let _genT;
 function trackExercise(qual, pat, seq, dir, fing){   // generate() fires per keystroke; settle first
   clearTimeout(_genT);
-  _genT = setTimeout(()=> track('exercise', {qual, pat, seq, dir, fing}), 1500);
+  _genT = setTimeout(()=> track('exercise', {qual, pat, seq, dir, fing, instr: instrument}), 1500);
 }
 // app_open, with return-visit math computed client-side so retention is derivable from events alone
 (function(){
@@ -3005,21 +3112,24 @@ let playState = null;
 function trackPlayback(ctx, start, unit, count, container, sw){
   if(!container) return;
   const nn = container.querySelectorAll('.nn'), nh = container.querySelectorAll('.nh');
-  if(nn.length !== count) return;   // tab-only text mode (or stale DOM) — nothing to highlight
+  // Guitar leads on the tab number and drags its notehead along; piano has noteheads only.
+  const lead = nn.length === count ? nn : nh;
+  const alt  = lead === nn ? nh : null;
+  if(lead.length !== count) return;   // tab-only text mode (or stale DOM) — nothing to highlight
   const st = playState;
   sw = sw || 0;
   let last = -1;
   (function tick(){
-    if(playState !== st){ if(last>=0){ nn[last].classList.remove('hl'); nh[last]?.classList.remove('hl'); } return; }
+    if(playState !== st){ if(last>=0){ lead[last].classList.remove('hl'); alt?.[last]?.classList.remove('hl'); } return; }
     // pairwise mapping so the highlight lands on swung 8ths at their delayed onsets
     const el = ctx.currentTime - start;
     const pair = Math.floor(el / (2*unit));
     const i = pair*2 + (el - pair*2*unit >= (1+sw)*unit ? 1 : 0);
-    if(i >= count){ if(last>=0){ nn[last].classList.remove('hl'); nh[last]?.classList.remove('hl'); } return; }
+    if(i >= count){ if(last>=0){ lead[last].classList.remove('hl'); alt?.[last]?.classList.remove('hl'); } return; }
     if(i !== last && i >= 0){
-      if(last >= 0){ nn[last].classList.remove('hl'); nh[last]?.classList.remove('hl'); }
-      nn[i].classList.add('hl'); nh[i]?.classList.add('hl');
-      nn[i].scrollIntoView({block:'nearest', inline:'nearest'});
+      if(last >= 0){ lead[last].classList.remove('hl'); alt?.[last]?.classList.remove('hl'); }
+      lead[i].classList.add('hl'); alt?.[i]?.classList.add('hl');
+      lead[i].scrollIntoView({block:'nearest', inline:'nearest'});
       last = i;
     }
     requestAnimationFrame(tick);
@@ -3057,7 +3167,9 @@ function playNotes(noteList, btn, pads, skipCountIn){
   const start = t0 + countDur;
   // swing: delay every 2nd 8th by a third of the unit (2:1 triplet feel)
   const sw = swingOn && (nvSel ? nvSel.value : 'quarter') === 'eighth' ? 1/3 : 0;
-  noteList.forEach((n,i)=> pluck(ctx, STRINGS[n.s]+n.f, start + (i + (i%2 ? sw : 0))*eighth, eighth, 0.16, g));
+  // Karplus-Strong is a plucked string; piano borrows the existing soft pad voice.
+  const voice = instrument === 'piano' ? pad : pluck;
+  noteList.forEach((n,i)=> voice(ctx, n.p, start + (i + (i%2 ? sw : 0))*eighth, eighth, 0.16, g));
   if(pads) pads.forEach(p=> p.pitches.forEach(m=> tone(ctx, m, start + p.at*eighth, p.dur*eighth, 0.06, 'sine', g)));
   const total = (countDur + (noteList.length + sw)*eighth + (playLoop ? 0.02 : 0.3)) * 1000;
   playState = {g, btn, loop: playLoop, args:[noteList, btn, pads],
@@ -4172,6 +4284,10 @@ metro.onBar = akOnBar;
 // ---- init: restore from URL hash, or show the demo ----
 (function init(){
   const st = parseHash();
+  // A shared link states the instrument outright; otherwise fall back to the last one used.
+  instrument = (st && st.i) || (store.load().instr === 'piano' ? 'piano' : 'guitar');
+  $('selInst').value = instrument;
+  applyInstrument(false);
   if(st){
     if(st.ex){
       const v = st.ex.split('|');

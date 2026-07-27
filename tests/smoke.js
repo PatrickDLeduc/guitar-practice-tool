@@ -610,6 +610,69 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
            drift.length === 0);
   }
 
+  // ---------- piano mode ----------
+  {
+    // octave convention pinned in both directions: guitar notation is written 8va, piano is not
+    const sp = await p.evaluate(() => ({
+      concert: spellWritten(60, false, false).dval,
+      written: spellWritten(60, false, true).dval,
+    }));
+    assert('piano: middle C is dval 28 concert / 35 written (got ' + sp.concert + '/' + sp.written + ')',
+      sp.concert === 28 && sp.written === 35);
+
+    const pm = await p.evaluate(() => {
+      const sel = document.getElementById('selInst');
+      sel.value = 'piano'; sel.dispatchEvent(new Event('change'));
+      document.getElementById('query').value = 'C major scale 2 octaves';
+      runFromText();
+      const svg = document.querySelector('#out .nsys svg');
+      const staffLines = [...svg.querySelectorAll('line')]
+        .filter(l => +l.getAttribute('x1') === 12 && +l.getAttribute('x2') > 100)
+        .map(l => +l.getAttribute('y1')).sort((a, b) => a - b);
+      const clefs = [...svg.querySelectorAll('text')]
+        .map(t => t.textContent).filter(t => t.codePointAt(0) > 0x1D100);
+      const ex = buildKeyExercise(0, 'majscale', 'straight', 'asc', 2, null, null, 'pos', 'none', 5, null, 'none');
+      const notes = ex.groups.flat();
+      // fretboard modes must be refused even if a stale share link asks for one
+      const forced = buildKeyExercise(0, 'majscale', 'straight', 'asc', 2, null, null, 'caged', 'none', 5, 0, 'none');
+      return {
+        staffLines, clefs,
+        tabLines: [...svg.querySelectorAll('text')].filter(t => 'eBGDAE'.includes(t.textContent) && t.getAttribute('font-family') === 'monospace').length,
+        tabNums: document.querySelectorAll('#out .nn').length,
+        noteheads: document.querySelectorAll('#out .nh').length,
+        hasPitch: notes.every(n => typeof n.p === 'number'),
+        hasNoStrings: notes.every(n => n.s === undefined && n.f === undefined),
+        lowest: Math.min(...notes.map(n => n.p)),
+        forcedNoStrings: forced.groups.flat().every(n => n.s === undefined),
+        names: renderNoteNames(ex.groups, 0),
+      };
+    });
+    assert('piano: grand staff has 10 lines, 16px gap (got ' + pm.staffLines.length + ')',
+      pm.staffLines.length === 10 && pm.staffLines[5] - pm.staffLines[4] === 16 && pm.staffLines[1] - pm.staffLines[0] === 8);
+    assert('piano: both clefs drawn', pm.clefs.includes('\u{1D11E}') && pm.clefs.includes('\u{1D122}'));
+    assert('piano: no tab staff or fret numbers', pm.tabLines === 0 && pm.tabNums === 0);
+    assert('piano: notes carry pitch and no string/fret', pm.hasPitch && pm.hasNoStrings);
+    assert('piano: 2-octave scale renders 15 noteheads (got ' + pm.noteheads + ')', pm.noteheads === 15);
+    assert('piano: C major starts at C3 (got ' + pm.lowest + ')', pm.lowest === 48);
+    assert('piano: fretboard fingering mode refused', pm.forcedNoStrings);
+    assert('piano: note names spelled with octaves', pm.names.startsWith('C3 D3 E3 F3 G3 A3 B3 C4'));
+
+    // guitar-only fingering choice survives a detour through piano
+    const rt = await p.evaluate(() => {
+      const sel = document.getElementById('selInst'), r = {};
+      sel.value = 'guitar'; sel.dispatchEvent(new Event('change'));
+      selFing.value = 'caged'; selFing.dispatchEvent(new Event('change'));
+      sel.value = 'piano';  sel.dispatchEvent(new Event('change'));
+      r.inPiano = selFing.value;
+      sel.value = 'guitar'; sel.dispatchEvent(new Event('change'));
+      r.restored = selFing.value;
+      r.tabBack = document.querySelectorAll('#out .nn').length > 0;
+      return r;
+    });
+    assert('piano: fretboard fingering restored on return to guitar',
+      rt.inPiano === 'pos' && rt.restored === 'caged' && rt.tabBack);
+  }
+
   await p.context().close();
 
   // ---------- mobile ----------
