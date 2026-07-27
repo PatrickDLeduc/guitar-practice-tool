@@ -2347,6 +2347,49 @@ function shapeSVG(shape){
   });
   return s + '</svg>';
 }
+// ---- Keyboard SVG (piano's answer to the fretboard diagram) ----
+const WHITE_PC = [0,2,4,5,7,9,11];
+const BLACK_AFTER = {0:1, 1:3, 3:6, 4:8, 5:10};   // white index -> the black pc right of it
+// Sounding pitches lit on a keyboard, rounded out to whole octaves so the picture
+// always starts on a C and ends on a B — a keyboard cut mid-octave is unreadable.
+function keyboardSVG(pitches, rootPc){
+  if(!pitches.length) return '';
+  const lit = new Set(pitches);
+  const loC = Math.floor(Math.min(...pitches)/12)*12;
+  const hiB = Math.floor(Math.max(...pitches)/12)*12 + 11;
+  const octs = (hiB + 1 - loC)/12;
+  const WW = 19, WH = 76, BW = 11.5, BH = 47, PADL = 8, PADT = 6, PADB = 14;
+  const W = PADL*2 + octs*7*WW, H = PADT + WH + PADB;
+  const ivOf = m => ((m - rootPc) % 12 + 12) % 12;
+  let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Keyboard diagram">`;
+  let blacks = '';
+  for(let o=0; o<octs; o++){
+    for(let wi=0; wi<7; wi++){
+      const m = loC + o*12 + WHITE_PC[wi];
+      const x = PADL + (o*7 + wi)*WW;
+      const on = lit.has(m), iv = ivOf(m);
+      s += `<rect x="${x}" y="${PADT}" width="${WW}" height="${WH}" fill="${on ? (IV_COLORS[iv] || '#8a93a8') : '#e8eaf0'}" stroke="#4a5061" stroke-width="1"/>`;
+      if(on) s += `<text x="${x+WW/2}" y="${PADT+WH-7}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#14161c">${INTERVAL_NAMES[iv]}</text>`;
+      // octave marker under every C so the range is readable at a glance
+      if(WHITE_PC[wi] === 0)
+        s += `<text x="${x+WW/2}" y="${H-3}" text-anchor="middle" font-size="8" fill="var(--muted)">C${Math.floor(m/12)-1}</text>`;
+      const bpc = BLACK_AFTER[wi];
+      if(bpc === undefined) continue;
+      const bm = loC + o*12 + bpc, bx = x + WW - BW/2;
+      const bon = lit.has(bm), biv = ivOf(bm);
+      blacks += `<rect x="${bx}" y="${PADT}" width="${BW}" height="${BH}" fill="${bon ? (IV_COLORS[biv] || '#8a93a8') : '#14161c'}" stroke="#4a5061" stroke-width="1"/>`;
+      if(bon) blacks += `<text x="${bx+BW/2}" y="${PADT+BH-5}" text-anchor="middle" font-size="7" font-weight="700" fill="#14161c">${INTERVAL_NAMES[biv]}</text>`;
+    }
+  }
+  return s + blacks + '</svg>';   // blacks last so they sit above the white keys
+}
+function keyboardRow(pitches, rootPc){
+  const d = document.createElement('div');
+  d.className = 'shapes';
+  d.innerHTML = `<div class="shape">${keyboardSVG(pitches, rootPc)}</div>`;
+  return d;
+}
+
 // One long fretboard: all tones dotted, CAGED windows shown as labeled brackets above.
 function fullNeckSVG(rootPc, qualKey, win){
   const shapes = cagedShapes(rootPc, qualKey);
@@ -2571,7 +2614,9 @@ function generate(){
     pb.onclick = ()=>{ if(playState && playState.btn===pb) stopPlayback(); else playNotes(ex.groups.flat(), pb); };
     head.appendChild(pb);
     div.appendChild(head);
-    if(instrument === 'piano'){ /* no fretboard diagrams on a keyboard */ }
+    if(instrument === 'piano'){
+      if(selShapes.value !== 'off') div.appendChild(keyboardRow(ex.groups.flat().map(n=>n.p), pc));
+    }
     else if(selShapes.value === 'on') div.appendChild(shapesRow(pc, qual));
     else if(selShapes.value === 'neck'){
       let win = null;
@@ -2656,8 +2701,13 @@ function applyInstrument(regen){
   } else if(stashedFing && selFing.value === 'pos'){
     selFing.value = stashedFing; stashedFing = null;   // untouched while away, so give it back
   }
-  // CAGED map, tap, and picking-technique tips are all fretboard concepts
-  [selShapes, selTap, selTech].forEach(s=> s.closest('.ctl').style.display = piano ? 'none' : '');
+  // Tap notes and picking technique are fretboard concepts; the diagram select stays
+  // but switches from CAGED shapes to the keyboard, so piano keeps an off switch too.
+  [selTap, selTech].forEach(s=> s.closest('.ctl').style.display = piano ? 'none' : '');
+  selShapes.closest('.ctl').querySelector('label').textContent = piano ? 'Keyboard' : 'CAGED shapes';
+  selShapes.options[0].textContent = piano ? 'Show keyboard' : 'Full-neck map';
+  selShapes.options[1].hidden = piano;              // "separate shapes" has no keyboard analogue
+  if(piano && selShapes.value === 'on') selShapes.value = 'neck';
   $('tunBtn').style.display = piano ? 'none' : '';
   if(regen) generate();
 }

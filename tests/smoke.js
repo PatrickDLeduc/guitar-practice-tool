@@ -657,6 +657,37 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
     assert('piano: fretboard fingering mode refused', pm.forcedNoStrings);
     assert('piano: note names spelled with octaves', pm.names.startsWith('C3 D3 E3 F3 G3 A3 B3 C4'));
 
+    // keyboard diagram: whole octaves, correct keys lit for a black-key-heavy key signature
+    const kb = await p.evaluate(() => {
+      const read = q => {
+        document.getElementById('query').value = q;
+        runFromText();
+        const svg = document.querySelector('#out .shapes svg');
+        const rects = [...svg.querySelectorAll('rect')];
+        return {
+          whites: rects.filter(r => +r.getAttribute('width') === 19).length,
+          blacks: rects.filter(r => +r.getAttribute('width') === 11.5).length,
+          litW: rects.filter(r => +r.getAttribute('width') === 19 && r.getAttribute('fill') !== '#e8eaf0').length,
+          litB: rects.filter(r => +r.getAttribute('width') === 11.5 && r.getAttribute('fill') !== '#14161c').length,
+          octaveMarks: [...svg.querySelectorAll('text')].map(t => t.textContent).filter(t => /^C\d$/.test(t)),
+        };
+      };
+      const r = { c: read('C major scale 2 octaves'), eb: read('Eb major scale 1 octave') };
+      document.getElementById('selShapes').value = 'off';
+      document.getElementById('selShapes').dispatchEvent(new Event('change'));
+      r.offHides = document.querySelectorAll('#out .shapes').length === 0;
+      document.getElementById('selShapes').value = 'neck';
+      document.getElementById('selShapes').dispatchEvent(new Event('change'));
+      return r;
+    });
+    assert('piano: keyboard spans whole octaves (' + kb.c.whites + ' white, ' + kb.c.blacks + ' black)',
+      kb.c.whites % 7 === 0 && kb.c.blacks / 5 === kb.c.whites / 7);
+    assert('piano: C major lights 15 white keys, no black', kb.c.litW === 15 && kb.c.litB === 0);
+    assert('piano: Eb major lights Eb/Ab/Bb as black keys (4W/4B, got ' + kb.eb.litW + 'W/' + kb.eb.litB + 'B)',
+      kb.eb.litW === 4 && kb.eb.litB === 4);
+    assert('piano: octave markers under each C', JSON.stringify(kb.c.octaveMarks) === '["C3","C4","C5"]');
+    assert('piano: keyboard can be switched off', kb.offHides);
+
     // guitar-only fingering choice survives a detour through piano
     const rt = await p.evaluate(() => {
       const sel = document.getElementById('selInst'), r = {};
