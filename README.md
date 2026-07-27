@@ -1,6 +1,6 @@
 # 🎸 Guitar Practice Helper
 
-A free, open-source practice environment for guitarists — scales, arpeggios, CAGED visualization, chord theory, ear training, jam tracks, and a practice log, all in **a single HTML file** that runs entirely in your browser. No install, no account required (an optional account syncs your progress across devices). Works offline, and installs to your phone's home screen as an app (PWA).
+A free, open-source practice environment for guitarists **and pianists** — scales, arpeggios, CAGED visualization, chord theory, ear training, jam tracks, and a practice log, all in **a single HTML file** that runs entirely in your browser. No install, no account required (an optional account syncs your progress across devices). Works offline, and installs to your phone's home screen as an app (PWA).
 
 **[▶ Try it live](https://guitarpractice.app/)**
 
@@ -18,6 +18,11 @@ Type a request in plain English and get tablature + standard notation:
 Every exercise is rendered as engraved standard notation (written the guitar octave up, spelled correctly per key) aligned column-for-column with tab, with auto-generated fingerings.
 
 ## Features
+
+### Piano mode
+An **Instrument** switch at the top swaps the whole app between guitar and piano. The theory engine is shared — every scale, arpeggio, pattern, key sequence, progression and voicing works identically — but piano renders **grand-staff notation at concert pitch** (guitar is written the octave up) with a **keyboard diagram** instead of tab and fretboard shapes. Standard scale fingerings are shown for plain scale runs, for either hand; patterns like "in 3rds" show none, because no conventional fingering exists for them. Fretboard-only ideas — CAGED, tap notes, picking technique, the neck-position voicing drill — are simply absent rather than faked.
+
+Fingering coverage is deliberately partial: all 12 major right hands, left hands for C/G/D/A/E/F, and A minor. Keys without a verified fingering show no numbers rather than a guess.
 
 ### Exercises
 - **Material**: all common arpeggios (triads through 7th chords) and scales (major/minor, all modes, pentatonics, blues, harmonic/melodic minor, whole tone, diminished, altered, bebop, and more)
