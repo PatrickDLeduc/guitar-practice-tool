@@ -842,6 +842,52 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('mobile: exercise dice works', (await p.locator('.keyblock').count()) > 0);
   await p.click('.tabbtn[data-tab="poly"]');
   assert('mobile: poly tab opens and shows ratio controls', await p.locator('#polyA').isVisible());
+
+  // piano keyboard must fit the width rather than hide keys behind a scrollbar
+  await p.click('.tabbtn[data-tab="ex"]');
+  const kbFit = await p.evaluate(() => {
+    const sel = document.getElementById('selInst');
+    sel.value = 'piano'; sel.dispatchEvent(new Event('change'));
+    document.getElementById('query').value = 'C major scale 2 octaves';
+    runFromText();
+    const svg = document.querySelector('#out .kbdrow svg');
+    const box = svg.closest('.kbdrow');
+    const r = svg.getBoundingClientRect(), b = box.getBoundingClientRect();
+    const lit = [...svg.querySelectorAll('rect')].filter(x => {
+      const f = x.getAttribute('fill'); return f !== '#e8eaf0' && f !== '#14161c';
+    });
+    return {
+      natural: +svg.getAttribute('width'),
+      rendered: Math.round(r.width),
+      fits: r.width <= b.width + 1,
+      scrolls: box.scrollWidth > box.clientWidth + 1,
+      allLitVisible: Math.max(...lit.map(x => x.getBoundingClientRect().right)) <= b.right + 1
+                  && Math.min(...lit.map(x => x.getBoundingClientRect().left)) >= b.left - 1,
+    };
+  });
+  assert('mobile: keyboard scales to fit, no hidden keys (' + kbFit.natural + '->' + kbFit.rendered + ')',
+    kbFit.fits && !kbFit.scrolls && kbFit.allLitVisible && kbFit.rendered < kbFit.natural);
+  await p.context().close();
+
+  // ---------- landscape phone ----------
+  // A phone in landscape is ~812px wide, so the width-only breakpoint used to leave it on the
+  // full desktop metronome: it wrapped into stacked rows and ate a third of the viewport, with
+  // no collapse button reachable.
+  p = await newPage({ width: 812, height: 375 });
+  const land = await p.evaluate(() => {
+    const h = () => Math.round(document.getElementById('metro').getBoundingClientRect().height);
+    const more = document.getElementById('mMore');
+    const slim = h();
+    const moreVisible = getComputedStyle(more).display !== 'none';
+    more.click(); const expanded = h();
+    more.click();
+    return { slim, moreVisible, expanded, backToSlim: h(), vh: innerHeight };
+  });
+  assert('landscape: metronome collapsed to a slim bar (' + land.slim + 'px, ' +
+    Math.round(land.slim / land.vh * 100) + '% of viewport)', land.slim < 60);
+  assert('landscape: collapse button reachable', land.moreVisible);
+  assert('landscape: it expands and collapses again',
+    land.expanded > land.slim && land.backToSlim === land.slim);
   await p.context().close();
 
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'no page errors');
