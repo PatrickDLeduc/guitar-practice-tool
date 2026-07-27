@@ -167,6 +167,35 @@ Each phase is independently shippable and useful on its own.
 | 3 | `PIANO_FING` table + render | Mostly data entry |
 | 4 | Piano voicings | Reuses everything above |
 
+## As built — deviations from the design above
+
+All four phases shipped. Where implementation contradicted the design, the design was wrong:
+
+**Staff gap is not a compromise.** The design flagged uniform step spacing as "tighter than engraved music". It isn't: on a real grand staff middle C is exactly one ledger line below the treble staff and one above the bass, which is precisely what pitch-linear spacing produces. Measured output is 8px line spacing and a 16px inter-staff gap, with middle C at the midpoint. No `STAFF_GAP` constant was needed.
+
+**`buildPool` needed an instrument branch.** Not anticipated. Guitar anchors the pool at E2–Eb3, which is far too low to read or play at a keyboard. Piano anchors at C3 so a two-octave run straddles middle C.
+
+**Voicing placement was rewritten.** The design said "place the root in the octave nearest C3". That is wrong for wide stacks — a R-7-3 shell spans 16 semitones and landed at Bb3-Ab4-D5, an octave above where anyone plays it. Voicings are now placed by centring each stack's **centroid** near middle C, which puts shells in the left hand (Bb2-Ab3-D4) and drop voicings around middle C (G3-C4-E4-B4).
+
+**`chordStaffSVG` is a separate renderer.** `renderNotationSystems` lays notes out in time — columns, stems, flags, bar lines. A voicing is one vertical sonority. It is drawn separately as stemless whole notes, with two engraving details the main renderer doesn't need: seconds nudged right so noteheads don't overlap, and stacked accidentals staggered so they don't overprint.
+
+**Two suppressions the design missed.** The follow-along playback highlight anchored on `.nn` (tab fret numbers), which piano has none of — it now anchors on whichever collection matches the note count, so highlighting works on both instruments. The neck-position voicing drill is hidden on piano rather than faked, since climbing neck positions has no keyboard equivalent.
+
+**Copy output.** "Copy all tabs" produced `undefined` for pitch-only notes. Piano copies pitch names with octaves instead (`C3 D3 E3 F3 …`), spelled per key.
+
+### Fingering coverage is partial, deliberately
+
+The design assumed the full table could be written. It could not be written *reliably* — traditions differ for several left hands, and a plausible-looking wrong fingering is silent and would only surface at the keyboard. What shipped:
+
+| | Covered | Absent |
+|---|---|---|
+| Major RH | all 12 keys | — |
+| Major LH | C, G, D, A, E, F | B, Gb, Db, Ab, Eb, Bb |
+| Natural minor | A (both hands) | all other keys |
+| Harmonic / melodic minor | aliases to natural minor | wherever natural minor is absent |
+
+Unlisted keys render **no numbers at all** rather than a guess. Adding a key is one row in `PIANO_FING`; the smoke test checks row shape (7 entries per hand, fingers in 1–5) but cannot check musical correctness. **These need verification at an actual piano before being trusted, and the gaps need filling by ear.**
+
 ## Risks
 
 - **The `p` refactor touches the shared guitar path.** Mitigated by test 1 above, which must be written *before* the refactor so the baseline is captured from current behavior.
