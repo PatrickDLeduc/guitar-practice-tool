@@ -56,6 +56,12 @@
     --bg:#12141a; --panel:#1c1f28; --panel2:#232734; --text:#e8eaf0; --muted:#9aa0b0;
     --accent:#e8a33d; --accent2:#5ab0f0; --border:#333846; --tab:#cdd3e0;
   }
+  /* Bravura (SIL OFL 1.1, Steinberg) subset to the two clef glyphs — 4KB inline, so the
+     staff engraves properly offline and on any OS. SMuFL fixes the metrics: 1em = 4 staff
+     spaces, and each clef's glyph origin sits on the line it names. Full font and license:
+     https://github.com/steinbergmedia/bravura */
+  @font-face{font-family:Bravura;font-display:block;
+    src:url(data:font/woff2;base64,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) format('woff2')}
   *{box-sizing:border-box}
   /* The page never pans sideways — anything wide (neck, tab, stats) scrolls inside its own
      box. clip, not hidden: it doesn't make html/body a scroll container. */
@@ -1386,6 +1392,13 @@ function spellWritten(midi, useSharps, up8va){
   const [letter, acc] = (useSharps ? SHARP_SPELL : FLAT_SPELL)[pc];
   return { dval: oct*7 + LETTER_DIA[letter], acc };
 }
+// Clefs are drawn with Bravura, so SMuFL's metrics do the positioning: one em is exactly four
+// staff spaces, and a clef's glyph origin sits on the line the clef names — G clef on its G
+// line, F clef on its F line. No per-font fudge factors; give it the line and it lands.
+// dLine is the dval of that line, x its left edge.
+const clefSVG = (ch, x, dLine, SP, yOf) =>
+  `<text x="${x}" y="${yOf(dLine)}" font-size="${SP*4}" fill="#cdd3e0"`
+  + ` font-family="Bravura,'Segoe UI Symbol','Noto Music',serif">${ch}</text>`;
 function renderNotationSystems(groups, rootPc, labels, nv, fingers){
   nv = nv || 'quarter';
   // Fingers arrive as one flat array aligned with the notes in reading order. Piano note
@@ -1433,13 +1446,9 @@ function renderNotationSystems(groups, rootPc, labels, nv, fingers){
         s += `<line x1="12" y1="${yOf(d)}" x2="${W-6}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
       s += `<line x1="12" y1="${yOf(38)}" x2="12" y2="${yOf(BASS_BOT)}" stroke="#4a5061" stroke-width="2.5"/>`;
     }
-    // treble clef
-    s += `<text x="14" y="${yOf(30)-8}" font-size="${SP*5.2}" fill="#cdd3e0" font-family="'Segoe UI Symbol','Noto Music',serif">\u{1D11E}</text>`;
-    if(piano)   // bass clef, sized/offset so its body sits inside the bass staff rather than
-      // riding above it. Empirical, like the treble offset above — these glyphs' metrics vary
-      // by font, so this is tuned to look right, not derived. ponytail: good enough until a
-      // real music font (SMuFL) is worth embedding.
-      s += `<text x="16" y="${yOf(BASS_TOP)+SP*2.65}" font-size="${SP*2.46}" fill="#cdd3e0" font-family="'Segoe UI Symbol','Noto Music',serif">\u{1D122}</text>`;
+    // clefs sit on their own line: G4 (dval 32) on the treble staff, F3 (dval 24) on the bass
+    s += clefSVG('\u{1D11E}', 14, 32, SP, yOf);
+    if(piano) s += clefSVG('\u{1D122}', 16, 24, SP, yOf);
     // notes
     cols.forEach(c=>{
       const d0 = c.sp.dval, bass = inBass(d0);
@@ -2493,8 +2502,8 @@ function chordStaffSVG(pitches, rootPc){
   for(let d=BASS_BOT; d<=BASS_TOP; d+=2)
     s += `<line x1="10" y1="${yOf(d)}" x2="${W-4}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
   s += `<line x1="10" y1="${yOf(TREB_TOP)}" x2="10" y2="${yOf(BASS_BOT)}" stroke="#4a5061" stroke-width="2.5"/>`;
-  s += `<text x="12" y="${yOf(TREB_BOT)-8}" font-size="${SP*5.2}" fill="#cdd3e0" font-family="'Segoe UI Symbol','Noto Music',serif">\u{1D11E}</text>`;
-  s += `<text x="14" y="${yOf(BASS_TOP)+SP*2.65}" font-size="${SP*2.46}" fill="#cdd3e0" font-family="'Segoe UI Symbol','Noto Music',serif">\u{1D122}</text>`;
+  s += clefSVG('\u{1D11E}', 12, 32, SP, yOf);
+  s += clefSVG('\u{1D122}', 14, 24, SP, yOf);
   let accSlot = 0;
   sps.forEach((sp, i)=>{
     const d = sp.dval, bass = d < MID_C, y = yOf(d);

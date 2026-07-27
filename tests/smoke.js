@@ -649,12 +649,33 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
         .map(l => +l.getAttribute('y1')).sort((a, b) => a - b);
       const clefs = [...svg.querySelectorAll('text')]
         .map(t => t.textContent).filter(t => t.codePointAt(0) > 0x1D100);
+      // Where each clef's ink actually lands, in staff coordinates. Rasterise the glyph and
+      // scan it rather than trusting font metrics — the em box is not the ink.
+      const inkEm = ch => {
+        const R = 100, N = 3 * R, cv = document.createElement('canvas');
+        cv.width = cv.height = N;
+        const g = cv.getContext('2d');
+        g.font = `${R}px Bravura`; g.fillStyle = '#fff';
+        g.fillText(ch, R, 2 * R);                       // origin at (R, 2R)
+        const px = g.getImageData(0, 0, N, N).data;
+        let t = Infinity, b = -Infinity;
+        for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (px[(y * N + x) * 4 + 3] > 20) {
+          if (y < t) t = y; if (y > b) b = y;
+        }
+        return { top: (t - 2 * R) / R, h: (b - t) / R };
+      };
+      const clefInkY = {};
+      [...svg.querySelectorAll('text')].filter(t => t.textContent.codePointAt(0) > 0x1D100).forEach(t => {
+        const m = inkEm(t.textContent), fs = +t.getAttribute('font-size'), y = +t.getAttribute('y');
+        clefInkY[t.textContent] = { top: y + m.top * fs, bot: y + (m.top + m.h) * fs };
+      });
       const ex = buildKeyExercise(0, 'majscale', 'straight', 'asc', 2, null, null, 'pos', 'none', 5, null, 'none');
       const notes = ex.groups.flat();
       // fretboard modes must be refused even if a stale share link asks for one
       const forced = buildKeyExercise(0, 'majscale', 'straight', 'asc', 2, null, null, 'caged', 'none', 5, 0, 'none');
       return {
-        staffLines, clefs,
+        staffLines, clefs, clefInkY,
+        bravuraLoaded: document.fonts.check('32px Bravura'),
         tabLines: [...svg.querySelectorAll('text')].filter(t => 'eBGDAE'.includes(t.textContent) && t.getAttribute('font-family') === 'monospace').length,
         tabNums: document.querySelectorAll('#out .nn').length,
         noteheads: document.querySelectorAll('#out .nh').length,
@@ -668,6 +689,22 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
     assert('piano: grand staff has 10 lines, 16px gap (got ' + pm.staffLines.length + ')',
       pm.staffLines.length === 10 && pm.staffLines[5] - pm.staffLines[4] === 16 && pm.staffLines[1] - pm.staffLines[0] === 8);
     assert('piano: both clefs drawn', pm.clefs.includes('\u{1D11E}') && pm.clefs.includes('\u{1D122}'));
+    // The inlined Bravura subset is what makes the clef placement exact — if it ever fails to
+    // decode, the fallback system glyph lands somewhere else entirely and everything below
+    // silently drifts, so check the font first.
+    assert('piano: inlined Bravura subset loaded', pm.bravuraLoaded);
+    {
+      // Ink, not the em box, has to line up with the staff. Bravura places the G clef 4.39
+      // spaces above its G line and 2.63 below, the F clef 1.05 above its F line and 2.54
+      // below — measured off the shipped subset, so a bad subset or a lost glyph fails here.
+      const L = pm.staffLines, SP = 8, near = (a, b) => Math.abs(a - b) <= 1.5;
+      const g = pm.clefInkY['\u{1D11E}'], f = pm.clefInkY['\u{1D122}'];
+      const gLine = L[3], fLine = L[6];        // G4 = 2nd treble line up, F3 = 2nd bass line down
+      assert(`piano: G clef hangs off its G line (ink ${g.top.toFixed(0)}..${g.bot.toFixed(0)}, G line ${gLine}, staff ${L[0]}..${L[4]})`,
+        near(g.top, gLine - 4.39 * SP) && near(g.bot, gLine + 2.63 * SP));
+      assert(`piano: F clef sits on its F line (ink ${f.top.toFixed(0)}..${f.bot.toFixed(0)}, F line ${fLine}, staff ${L[5]}..${L[9]})`,
+        near(f.top, fLine - 1.05 * SP) && near(f.bot, fLine + 2.54 * SP));
+    }
     assert('piano: no tab staff or fret numbers', pm.tabLines === 0 && pm.tabNums === 0);
     assert('piano: notes carry pitch and no string/fret', pm.hasPitch && pm.hasNoStrings);
     assert('piano: 2-octave scale renders 15 noteheads (got ' + pm.noteheads + ')', pm.noteheads === 15);
