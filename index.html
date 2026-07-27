@@ -57,6 +57,9 @@
     --accent:#e8a33d; --accent2:#5ab0f0; --border:#333846; --tab:#cdd3e0;
   }
   *{box-sizing:border-box}
+  /* The page never pans sideways — anything wide (neck, tab, stats) scrolls inside its own
+     box. clip, not hidden: it doesn't make html/body a scroll container. */
+  html,body{overflow-x:clip}
   :focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
   /* Horizontal padding is notch-aware: viewport-fit=cover means a landscape phone puts the
      notch and the rounded corner over the page edges. env() is 0 where there is no notch. */
@@ -236,7 +239,6 @@
   #mBpmVal:hover{border-color:var(--border)}
   #mBpmVal:focus{border-color:var(--accent);outline:none}
   .bpmbox small{font-size:10px;color:var(--muted);font-weight:400;letter-spacing:1px}
-  #mSlider{width:180px;accent-color:var(--accent)}
   .mbtn{background:var(--panel2);border:1px solid var(--border);color:var(--text);width:32px;height:32px;border-radius:8px;font-size:15px}
   .mbtn:hover{border-color:var(--accent)}
   #mTap{width:auto;padding:0 12px;font-size:13px}
@@ -343,7 +345,6 @@
     #metro.open{max-height:210px;overflow-y:auto;align-content:flex-start}
     #mPlay{width:48px;height:48px;font-size:17px}
     #mBpmVal{font-size:17px;width:46px;min-height:0}
-    #mSlider{flex:1 1 80px;min-width:56px;width:auto}
     #mTap,#mSwing,#tunBtn,#beatsGrp,#trainerGrp{display:none}
     #metro.open #mTap,#metro.open #mSwing,#metro.open #tunBtn{display:inline-block}
     #metro.open #beatsGrp,#metro.open #trainerGrp{display:flex}
@@ -931,7 +932,6 @@
       aria-label="Tempo in beats per minute" title="Type an exact tempo"><small>BPM</small></div>
     <button class="mbtn" id="mUp" aria-label="Faster">+</button>
   </div>
-  <input id="mSlider" type="range" min="30" max="260" value="80" aria-label="Tempo">
   <button class="mbtn" id="mTap">Tap</button>
   <button class="mbtn" id="mSwing" style="width:auto;padding:0 10px" title="Swing pairs of 8th notes in playback and jam grooves">Swing: off</button>
   <button class="mbtn" id="tunBtn" style="width:auto;padding:0 10px" title="Chromatic tuner (uses the microphone)">Tuner</button>
@@ -4368,7 +4368,6 @@ function metroStop(){
 function setBpm(v){
   metro.bpm = Math.min(260, Math.max(30, Math.round(v)));
   if(document.activeElement !== $('mBpmVal')) $('mBpmVal').value = metro.bpm;  // don't fight the typist
-  $('mSlider').value = metro.bpm;
   const lb = document.getElementById('logBtn');
   if(lb && !/Logged/.test(lb.textContent)) lb.textContent = '✓ Log @ ' + metro.bpm;
 }
@@ -4381,10 +4380,9 @@ function buildDots(){
   }
 }
 $('mPlay').onclick = ()=> metro.playing ? metroStop() : metroStart();
-$('mSlider').addEventListener('input', e=> setBpm(+e.target.value));
 $('mUp').onclick = ()=> setBpm(metro.bpm + 1);
 $('mDown').onclick = ()=> setBpm(metro.bpm - 1);
-// type an exact tempo: the slider is ~2 BPM per pixel on a phone, and ±1 is 40 taps to cross 40 BPM
+// type an exact tempo: ±1 is 40 taps to cross 40 BPM (the slider that used to cover this is gone)
 $('mBpmVal').addEventListener('input', e=>{ if(e.target.value !== '') setBpm(+e.target.value); });
 $('mBpmVal').addEventListener('blur', ()=> $('mBpmVal').value = metro.bpm);
 $('mBpmVal').addEventListener('keydown', e=>{ if(e.key === 'Enter') $('mBpmVal').blur(); });
