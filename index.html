@@ -58,7 +58,10 @@
   }
   *{box-sizing:border-box}
   :focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;padding:24px 16px 110px}
+  /* Horizontal padding is notch-aware: viewport-fit=cover means a landscape phone puts the
+     notch and the rounded corner over the page edges. env() is 0 where there is no notch. */
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;
+    padding:24px calc(16px + env(safe-area-inset-right)) 110px calc(16px + env(safe-area-inset-left))}
   .wrap{max-width:960px;margin:0 auto}
   h1{font-size:26px;margin:0 0 4px}
   h1 .g{color:var(--accent)}
@@ -273,7 +276,7 @@
   #acctSync{color:var(--muted);font-size:12px;margin:6px 0 14px}
   .ticon,.ts,#custBtn,#custDone,#sheetBack{display:none}
   @media(max-width:640px){
-    body{padding:14px 10px calc(162px + env(safe-area-inset-bottom))}
+    body{padding:14px calc(10px + env(safe-area-inset-right)) calc(162px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left))}
     h1{font-size:20px}
     .sub{font-size:12px;margin-bottom:14px}
     #acctBtn{padding:6px 10px;font-size:12px;max-width:120px}
@@ -331,7 +334,13 @@
      width-only breakpoint left it on the full desktop bar, which wrapped into stacked rows
      eating a third of the viewport — with no ⋯ button to collapse it. ⋯ expands it back. */
   @media (max-width:640px), (max-height:560px){
-    #metro{gap:8px;padding:8px 12px}
+    /* viewport-fit=cover lets the page run under the notch, so the first and last controls
+       (play, ⋯) were clipped by it in landscape. Only `bottom` was inset-aware before. */
+    #metro{gap:8px;padding:8px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left))}
+    /* Expanded, the bar grew unbounded as its controls wrapped — 273px in portrait, past the
+       162px body reserves, so it covered the page. Cap it and scroll inside instead; touch
+       targets stay 44px rather than being shrunk to fit. */
+    #metro.open{max-height:210px;overflow-y:auto;align-content:flex-start}
     #mPlay{width:48px;height:48px;font-size:17px}
     #mBpmVal{font-size:17px;width:46px;min-height:0}
     #mSlider{flex:1 1 80px;min-width:56px;width:auto}

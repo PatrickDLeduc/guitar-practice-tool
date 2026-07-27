@@ -888,6 +888,66 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('landscape: collapse button reachable', land.moreVisible);
   assert('landscape: it expands and collapses again',
     land.expanded > land.slim && land.backToSlim === land.slim);
+
+  // viewport-fit=cover puts the notch over the page edges in landscape; the bar must keep its
+  // controls inside the safe area. env() is 0 here, so simulate a phone-class inset instead.
+  const notch = await p.evaluate(() => {
+    const m = document.getElementById('metro');
+    const probe = () => {
+      const mr = m.getBoundingClientRect(), cs = getComputedStyle(m);
+      const inner = { l: mr.left + parseFloat(cs.paddingLeft), r: mr.right - parseFloat(cs.paddingRight) };
+      const kids = [...m.children].filter(c => getComputedStyle(c).display !== 'none');
+      return {
+        overflowsX: m.scrollWidth > m.clientWidth + 1,
+        allInside: kids.every(c => {
+          const r = c.getBoundingClientRect();
+          return r.left >= inner.l - 1 && r.right <= inner.r + 1;
+        }),
+      };
+    };
+    const before = probe();
+    const s = document.createElement('style');
+    s.textContent = '#metro{padding-left:71px !important;padding-right:71px !important}';
+    document.head.appendChild(s);
+    const sim = probe();
+    s.remove();
+    // and the rule itself must actually reference the horizontal insets
+    const css = [...document.styleSheets].filter(x => !x.href)
+      .flatMap(x => [...x.cssRules]).map(r => r.cssText).join('');
+    return { before, sim, hasInsets: /safe-area-inset-left/.test(css) && /safe-area-inset-right/.test(css) };
+  });
+  assert('landscape: metronome padding is notch-aware', notch.hasInsets);
+  assert('landscape: controls stay inside the safe area under a 59px notch',
+    notch.before.allInside && notch.sim.allInside && !notch.sim.overflowsX);
+  await p.context().close();
+
+  // ---------- portrait: expanded metronome must stay bounded ----------
+  // Expanded, it grew unbounded as controls wrapped (273px, past the 162px body reserves) and
+  // covered the page. It is capped and scrolls internally now, with 44px touch targets intact.
+  p = await newPage({ width: 393, height: 852 });
+  const port = await p.evaluate(() => {
+    const m = document.getElementById('metro'), more = document.getElementById('mMore');
+    const h = () => Math.round(m.getBoundingClientRect().height);
+    const slim = h();
+    more.click();
+    const open = h();
+    const reachable = ['mTap', 'mSwing', 'tunBtn', 'beatsGrp', 'trainerGrp'].every(id => {
+      const el = document.getElementById(id);
+      return el && getComputedStyle(el).display !== 'none' && el.offsetTop < m.scrollHeight;
+    });
+    const tapH = document.getElementById('mTap').getBoundingClientRect().height;
+    const scrolls = m.scrollHeight > m.clientHeight + 1;
+    more.click();
+    return { slim, open, reachable, scrolls, tapH, backToSlim: h() === slim, vh: innerHeight };
+  });
+  assert('portrait: collapsed bar stays slim (' + port.slim + 'px)', port.slim < 80);
+  assert('portrait: expanded bar capped at ' + port.open + 'px (' +
+    Math.round(port.open / port.vh * 100) + '% of viewport, was 273/32%)', port.open <= 215);
+  assert('portrait: every expanded control still reachable by scrolling',
+    port.reachable && port.scrolls);
+  assert('portrait: touch targets not shrunk to fit (Tap = ' + Math.round(port.tapH) + 'px)',
+    port.tapH >= 40);
+  assert('portrait: collapses back', port.backToSlim);
   await p.context().close();
 
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'no page errors');
