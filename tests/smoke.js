@@ -579,6 +579,37 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.evaluate(() => { $('polyMode').value = 'none'; $('polyMode').dispatchEvent(new Event('change')); });
   await p.click('.tabbtn[data-tab="ex"]');
 
+  // ---------- guitar regression guard ----------
+  // Baseline captured from the pre-piano-support engine. Guitar note placement and tab
+  // output must not shift when instrument-aware code paths change. If a deliberate
+  // guitar change makes this fail, re-capture the baseline in the same commit.
+  {
+    const base = JSON.parse(require('fs').readFileSync(__dirname + '/guitar-baseline.json', 'utf8'));
+    const cases = Object.keys(base).filter(k => k.startsWith('ex:')).map(k => k.slice(3).split('|'));
+    const got = await p.evaluate((cases) => {
+      const res = {};
+      cases.forEach(c => {
+        const [pc, qual, pat, dir, oct, fing, posFret, si] = c;
+        const ex = buildKeyExercise(+pc, qual, pat, dir, +oct, null, null, fing, 'none', +posFret,
+                                    si === '' ? null : +si, 'none');
+        res['ex:' + c.join('|')] = {
+          name: ex.name,
+          sf: ex.groups.map(g => g.map(n => n.s + ',' + n.f).join(' ')),
+          tab: renderTab(ex.groups).join('\n===\n'),
+        };
+      });
+      const chords = parseProgression('ii-V-I in Bb').chords;
+      res['prog:ii-V-I in Bb'] = {
+        arps: progressionLine(chords, 8).map(g => g.map(n => n.s + ',' + n.f).join(' ')),
+        guide: guideToneLine(chords).map(g => g.map(n => n.s + ',' + n.f).join(' ')),
+      };
+      return res;
+    }, cases);
+    const drift = Object.keys(base).filter(k => JSON.stringify(base[k]) !== JSON.stringify(got[k]));
+    assert('guitar: engine output unchanged vs baseline' + (drift.length ? ' — drifted: ' + drift.join(', ') : ''),
+           drift.length === 0);
+  }
+
   await p.context().close();
 
   // ---------- mobile ----------
