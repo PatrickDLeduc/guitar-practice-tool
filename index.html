@@ -422,6 +422,11 @@
       <option value="2str">2 strings, up the neck</option>
       <option value="shift">Position-shift connector</option>
     </select></div>
+    <div class="ctl" id="handWrap" style="display:none"><label>Fingering</label><select id="selHand" aria-label="Fingering hand">
+      <option value="rh" selected>Right hand</option>
+      <option value="lh">Left hand</option>
+      <option value="off">Hide</option>
+    </select></div>
     <div class="ctl" id="posWrap" style="display:none"><label>Neck position</label><select id="selPos"></select></div>
     <div class="ctl" id="shapeWrap" style="display:none"><label>CAGED shape</label><select id="selShape">
       <option value="0">Lowest position</option>
@@ -1251,6 +1256,53 @@ function renderNoteNames(groups, rootPc){
   return groups.map(g => g.map(n => NM[n.p % 12] + (Math.floor(n.p/12) - 1)).join(' ')).join('\n');
 }
 
+// ---- Standard piano scale fingerings ----
+// Stored as the repeating one-octave unit plus the finger for the final top note.
+// `first` is the opening octave, `rep` every octave after it (they differ in the left
+// hand, which opens on the pinky and thereafter crosses with 4). Multi-octave runs are
+// first + rep*(n-1) + end, which is exactly how these are taught.
+//
+// ONLY well-attested fingerings are listed. A key with no entry renders no numbers at
+// all — a plausible-looking wrong fingering is worse than none, because it is silent
+// and you would only discover it at the keyboard. See docs spec for the gap list.
+const RH_C = {first:[1,2,3,1,2,3,4], end:5};                   // C-position: thumb on the tonic
+const LH_C = {first:[5,4,3,2,1,3,2], rep:[1,4,3,2,1,3,2], end:1};
+const PIANO_FING = {
+  majscale: {
+    0:  {rh:RH_C, lh:LH_C},   // C
+    7:  {rh:RH_C, lh:LH_C},   // G
+    2:  {rh:RH_C, lh:LH_C},   // D
+    9:  {rh:RH_C, lh:LH_C},   // A
+    4:  {rh:RH_C, lh:LH_C},   // E
+    11: {rh:RH_C},                                             // B  — LH not verified
+    5:  {rh:{first:[1,2,3,4,1,2,3], end:4}, lh:LH_C},          // F
+    10: {rh:{first:[4,1,2,3,1,2,3], end:4}},                   // Bb — LH not verified
+    3:  {rh:{first:[3,1,2,3,4,1,2], end:3}},                   // Eb — LH not verified
+    8:  {rh:{first:[3,4,1,2,3,1,2], end:3}},                   // Ab — LH not verified
+    1:  {rh:{first:[2,3,1,2,3,4,1], end:2}},                   // Db — LH not verified
+    6:  {rh:{first:[2,3,4,1,2,3,4], end:5}},                   // Gb — LH not verified
+  },
+  // A natural minor is the white keys, so it inherits the C-position hand shape outright.
+  natmin: { 9: {rh:RH_C, lh:LH_C} },
+};
+// Harmonic and melodic minor keep the natural-minor finger sequence in the keys we list:
+// the raised 6th/7th change the pitches, not which finger takes them.
+// ponytail: true for A minor; re-check per key if others get added.
+const FING_ALIAS = {harmmin:'natmin', melmin:'natmin'};
+
+function pianoFingers(qualKey, rootPc, octaves, dir, hand){
+  const row = (PIANO_FING[FING_ALIAS[qualKey] || qualKey] || {})[rootPc];
+  const f = row && row[hand];
+  if(!f) return null;
+  const asc = f.first.slice();
+  for(let o=1; o<octaves; o++) asc.push(...(f.rep || f.first));
+  asc.push(f.end);
+  if(dir === 'desc') return asc.slice().reverse();
+  // "both" replays the top note on the way down, matching applyDirection's mirror
+  if(dir === 'both')  return asc.concat(asc.slice().reverse());
+  return asc;
+}
+
 // Render one key's groups to ASCII tab systems (array of 6-line strings).
 const STRING_LABELS = ['e','B','G','D','A','E'];  // display top to bottom
 function renderTab(groups, maxWidth){
@@ -1301,8 +1353,11 @@ function spellWritten(midi, useSharps, up8va){
   const [letter, acc] = (useSharps ? SHARP_SPELL : FLAT_SPELL)[pc];
   return { dval: oct*7 + LETTER_DIA[letter], acc };
 }
-function renderNotationSystems(groups, rootPc, labels, nv){
+function renderNotationSystems(groups, rootPc, labels, nv, fingers){
   nv = nv || 'quarter';
+  // Fingers arrive as one flat array aligned with the notes in reading order. Piano note
+  // objects are freshly built per note, so a Map keyed on identity stays unambiguous.
+  const fmap = fingers ? new Map(groups.flat().map((n,i)=>[n, fingers[i]])) : null;
   const SP=8, TS=13, colW=26, gapW=14, padL=56, padR=12, maxPx=800;
   const useSharps = SHARP_KEYS.has(rootPc);
   // wrap groups into systems by pixel width
@@ -1326,14 +1381,15 @@ function renderNotationSystems(groups, rootPc, labels, nv){
     cols.forEach(c=>{ c.sp = spellWritten(piano ? c.n.p : STRINGS[c.n.s]+c.n.f, useSharps, !piano); });
     const maxD = Math.max(38, ...cols.map(c=>c.sp.dval));
     const minD = Math.min(piano ? 18 : 30, ...cols.map(c=>c.sp.dval));
-    const staffTop = (labels ? 28 : 12) + (maxD-38)*SP/2;   // y of top staff line (F5, dval 38)
+    const fingPad = fmap ? 13 : 0;                          // room for the finger-number row
+    const staffTop = (labels ? 28 : 12) + fingPad + (maxD-38)*SP/2;   // y of top staff line (F5, dval 38)
     const yOf = d => staffTop + (38-d)*SP/2;
     // dval = oct*7+letter, so treble E4..F5 = 30..38 and bass G2..A3 = 18..26 with
     // middle C (28) landing exactly between them — grand-staff geometry for free.
     const BASS_TOP = 26, BASS_BOT = 18, MID_C = 28;
     const inBass = d => piano && d < MID_C;
     const tabTop = yOf(minD) + 26;
-    const H = piano ? yOf(minD) + 24 : tabTop + 5*TS + 18;
+    const H = piano ? yOf(minD) + 24 + fingPad : tabTop + 5*TS + 18;
     let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
     // chord labels (progression mode)
     marks.forEach(mk=>{
@@ -1382,6 +1438,10 @@ function renderNotationSystems(groups, rootPc, labels, nv){
         s += `<path d="M ${sx} ${fy} q 7 ${up?3:-3} 4 ${up?10:-10}" stroke="#e8eaf0" stroke-width="1.3" fill="none"/>`;
       }
       s += `<ellipse class="nh" cx="${c.x}" cy="${y}" rx="4.8" ry="3.5" transform="rotate(-18 ${c.x} ${y})" ${nv==='half' ? 'fill="none" stroke="#e8eaf0" stroke-width="1.5"' : 'fill="#e8eaf0"'}/>`;
+      // finger numbers in one consistent row per staff (above treble, below bass) rather
+      // than hugging each notehead — a scale's numbers are far easier to read in a line.
+      const fg = fmap && fmap.get(c.n);
+      if(fg) s += `<text class="fng" x="${c.x}" y="${bass ? yOf(BASS_BOT)+13 : yOf(maxD)-7}" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--accent)">${fg}</text>`;
     });
     // bar lines: one continuous stroke through the grand staff, or staff + tab on guitar
     cols.forEach(c=>{
@@ -2631,7 +2691,13 @@ function generate(){
     // "Tab only (text)" has nothing to show for a keyboard — piano always gets the staff.
     if(selNote.value === 'on' || instrument === 'piano'){
       const nd=document.createElement('div'); nd.className='notation';
-      nd.innerHTML = renderNotationSystems(ex.groups, pc, null, selNV.value).map(s=>`<div class="nsys">${s}</div>`).join('');
+      // Standard fingerings describe a plain scale run. Patterns, variations and odd
+      // directions have no conventional fingering, so none is shown rather than invented.
+      const hand = $('selHand').value;
+      const fingers = (instrument === 'piano' && hand !== 'off' && pat === 'straight'
+                       && variation === 'none' && fing === 'pos')
+        ? pianoFingers(qual, pc, oct, dir, hand) : null;
+      nd.innerHTML = renderNotationSystems(ex.groups, pc, null, selNV.value, fingers).map(s=>`<div class="nsys">${s}</div>`).join('');
       div.appendChild(nd);
     } else {
       const pre=document.createElement('pre'); pre.className='tab';
@@ -2683,6 +2749,7 @@ function runFromText(){
 $('go').onclick = runFromText;
 $('query').addEventListener('keydown', e=>{ if(e.key==='Enter') runFromText(); });
 [selRoot,selQual,selPat,selSeq,selDir,selOct,selShapes,selNote,selFing,selVar,selTech,selPos,selNV,selShape,selTap].forEach(s=> s.addEventListener('change', generate));
+$('selHand').addEventListener('change', generate);
 $('mBeats').addEventListener('change', generate);   // barlines follow the meter
 
 // ---- Instrument (guitar | piano) ----
@@ -2708,6 +2775,7 @@ function applyInstrument(regen){
   selShapes.options[0].textContent = piano ? 'Show keyboard' : 'Full-neck map';
   selShapes.options[1].hidden = piano;              // "separate shapes" has no keyboard analogue
   if(piano && selShapes.value === 'on') selShapes.value = 'neck';
+  $('handWrap').style.display = piano ? '' : 'none';
   $('tunBtn').style.display = piano ? 'none' : '';
   if(regen) generate();
 }

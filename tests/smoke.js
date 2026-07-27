@@ -688,6 +688,60 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
     assert('piano: octave markers under each C', JSON.stringify(kb.c.octaveMarks) === '["C3","C4","C5"]');
     assert('piano: keyboard can be switched off', kb.offHides);
 
+    // standard scale fingerings
+    const fng = await p.evaluate(() => {
+      const run = (q, hand) => {
+        document.getElementById('selHand').value = hand;
+        document.getElementById('query').value = q;
+        runFromText();
+        const blocks = [...document.querySelectorAll('#out .keyblock')];
+        return {
+          seq: [...document.querySelectorAll('#out .fng')].map(t => t.textContent).join(''),
+          // wherever numbers appear at all, there must be exactly one per note
+          aligned: blocks.every(b => {
+            const f = b.querySelectorAll('.fng').length;
+            return f === 0 || f === b.querySelectorAll('.nh').length;
+          }),
+        };
+      };
+      // table shape — catches data-entry slips in any row that gets added later
+      const badRows = [];
+      Object.entries(PIANO_FING).forEach(([q, keys]) => Object.entries(keys).forEach(([pc, row]) =>
+        Object.entries(row).forEach(([hand, f]) => {
+          if (f.first.length !== 7) badRows.push(`${q}/${pc}/${hand} first=${f.first.length}`);
+          if (f.rep && f.rep.length !== 7) badRows.push(`${q}/${pc}/${hand} rep=${f.rep.length}`);
+          if (!(f.end >= 1 && f.end <= 5)) badRows.push(`${q}/${pc}/${hand} end=${f.end}`);
+          if (f.first.concat(f.rep || [], f.end).some(x => x < 1 || x > 5)) badRows.push(`${q}/${pc}/${hand} finger out of range`);
+        })));
+      return {
+        badRows,
+        cRH: run('C major scale 2 octaves', 'rh'),
+        cLH: run('C major scale 2 octaves', 'lh'),
+        fRH: run('F major scale 1 octave', 'rh'),
+        desc: run('C major scale 1 octave descending', 'rh'),
+        both: run('C major scale 1 octave ascending and descending', 'rh'),
+        thirds: run('C major scale in 3rds', 'rh'),
+        unlisted: run('Bb major scale 1 octave', 'lh'),
+        hidden: run('C major scale 1 octave', 'off'),
+        harm: run('A harmonic minor scale 1 octave', 'rh'),
+      };
+    });
+    assert('piano: fingering table rows well-formed' + (fng.badRows.length ? ' — ' + fng.badRows.join(', ') : ''),
+      fng.badRows.length === 0);
+    assert('piano: C major RH 2 octaves = 123123412312345 (got ' + fng.cRH.seq + ')',
+      fng.cRH.seq === '123123412312345');
+    assert('piano: C major LH 2 octaves = 543213214321321 (got ' + fng.cLH.seq + ')',
+      fng.cLH.seq === '543213214321321');
+    assert('piano: F major RH thumbs on F and C (got ' + fng.fRH.seq + ')', fng.fRH.seq === '12341234');
+    assert('piano: descending reverses the run (got ' + fng.desc.seq + ')', fng.desc.seq === '54321321');
+    assert('piano: asc+desc replays the top note (got ' + fng.both.seq + ')', fng.both.seq === '1231234554321321');
+    assert('piano: no fingering invented for in-3rds', fng.thirds.seq === '');
+    assert('piano: unlisted key shows no fingering', fng.unlisted.seq === '');
+    assert('piano: fingering can be hidden', fng.hidden.seq === '');
+    assert('piano: harmonic minor inherits the natural-minor hand', fng.harm.seq === '12312345');
+    assert('piano: one finger number per note wherever shown',
+      ['cRH','cLH','fRH','desc','both','harm'].every(k => fng[k].aligned));
+
     // guitar-only fingering choice survives a detour through piano
     const rt = await p.evaluate(() => {
       const sel = document.getElementById('selInst'), r = {};
