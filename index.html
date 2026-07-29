@@ -3756,13 +3756,20 @@ function hgUpdate(){
 }
 function hgRandom(n){
   const chords = hgPaletteChords();
+  // never repeat the bar we just played; ponytail: reject-and-retry, palette is tiny
+  const pick = ()=>{
+    const prev = hgProg[hgProg.length-1];
+    let c; do { c = chords[1 + Math.floor(Math.random()*(chords.length-1))]; }
+    while(chords.length > 2 && c.pc===prev.pc && c.qual===prev.qual);
+    return c;
+  };
   hgProg = [chords[0]];
   while(hgProg.length < n-1){
-    const c = chords[1 + Math.floor(Math.random()*(chords.length-1))];
+    const c = pick();
     hgProg.push(c);
     if(c.resolveTo && hgProg.length < n-1) hgProg.push(c.resolveTo);
   }
-  hgProg.push(Math.random() < 0.6 ? chords[0] : chords[1 + Math.floor(Math.random()*(chords.length-1))]);
+  hgProg.push(Math.random() < 0.35 ? chords[0] : pick());
   hgUpdate();
 }
 // Classic borrowed-chord moves: [semitone offset from key, quality] per chord

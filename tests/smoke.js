@@ -987,6 +987,25 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('portrait: collapses back', port.backToSlim);
   await p.context().close();
 
+  // ---------- harmony game: random rolls must not be stuck on the I chord ----------
+  p = await newPage({ width: 1280, height: 900 });
+  const roll = await p.evaluate(() => {
+    let dup = 0, homeEnd = 0;
+    const N = 400;
+    for (let i = 0; i < N; i++) {
+      hgRandom(4);
+      const l = hgProg.map(c => c.label);
+      if (l.some((x, j) => j && x === l[j - 1])) dup++;
+      if (l[l.length - 1] === l[0]) homeEnd++;
+    }
+    return { dup, homeEnd, N, len: hgProg.length };
+  });
+  assert('harmony game: random x4 gives 4 bars', roll.len === 4);
+  assert('harmony game: never repeats a chord back-to-back', roll.dup === 0);
+  assert('harmony game: ends on I ' + Math.round(100 * roll.homeEnd / roll.N) + '% of rolls (was 60%)',
+    roll.homeEnd / roll.N < 0.5);
+  await p.context().close();
+
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'no page errors');
   if (errs.length) failed = 1;
   await browser.close();
