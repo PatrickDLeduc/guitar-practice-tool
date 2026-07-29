@@ -282,7 +282,7 @@
   .acctlegal a{color:var(--muted)}
   #acctPlan{display:inline-block;padding:1px 8px;border-radius:9px;border:1px solid var(--accent);color:var(--accent);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-left:6px}
   #acctSync{color:var(--muted);font-size:12px;margin:6px 0 14px}
-  .ticon,.ts,#custBtn,#custDone,#sheetBack{display:none}
+  .ticon,.ts,#custBtn,#custDone,#sheetBack,#advDiv{display:none}
   @media(max-width:640px){
     body{padding:14px calc(10px + env(safe-area-inset-right)) calc(162px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left))}
     h1{font-size:20px}
@@ -294,6 +294,9 @@
     #go::after{content:'\2192';font-size:19px}
     .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
     .chips::-webkit-scrollbar{display:none}
+    /* the scrollbar is hidden, so fade the right edge to signal there's more off-screen */
+    .chips,.neckwrap{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent);
+      mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent)}
     .chip{flex:0 0 auto;white-space:nowrap}
     /* bottom icon tab bar (mobile design 1a) */
     .tabbar{position:fixed;bottom:0;left:0;right:0;z-index:12;margin:0;gap:0;
@@ -309,10 +312,15 @@
     #exControls{display:none}
     #custBtn{display:block;width:100%;padding:13px;border-radius:12px;background:var(--panel2);
       border:1px solid var(--border);color:var(--accent);font-size:14px;margin-bottom:14px}
-    body.sheet #sheetBack{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20}
+    /* transparent tap-catcher, not a dim: the sheet is half-height so the exercise above it
+       stays visible and re-renders live as controls change */
+    body.sheet #sheetBack{display:block;position:fixed;inset:0;background:transparent;z-index:20}
     body.sheet #exControls{display:grid;grid-template-columns:1fr 1fr;position:fixed;left:0;right:0;bottom:0;z-index:21;
       margin:0;border:none;border-top:1px solid var(--border);border-radius:20px 20px 0 0;
-      max-height:72vh;overflow-y:auto;padding:22px 18px calc(26px + env(safe-area-inset-bottom))}
+      box-shadow:0 -8px 30px rgba(0,0,0,.45);
+      max-height:48vh;overflow-y:auto;padding:22px 18px calc(26px + env(safe-area-inset-bottom))}
+    #advDiv{display:block;grid-column:1/-1;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+      color:var(--muted);border-top:1px dashed var(--border);padding-top:12px;margin-top:6px}
     body.sheet #exControls::before{content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);
       width:36px;height:4px;border-radius:2px;background:var(--border)}
     #custDone{display:block;grid-column:1/-1;background:var(--accent);color:#1a1408;padding:13px;border-radius:12px;margin-top:6px}
@@ -337,6 +345,12 @@
     /* metronome docks above the tab bar; the slim-bar rules live in their own query below */
     /* 61px = the tab bar's 7 + 44 + 9 padding/target box plus its 1px top border */
     #metro{bottom:calc(61px + env(safe-area-inset-bottom))}
+    /* scrolling down through notation slides the idle bottom chrome away (JS keeps it
+       pinned while the metronome or playback is running); any scroll up brings it back */
+    .tabbar,#metro{transition:transform .25s ease}
+    body.chromehide .tabbar{transform:translateY(115%)}
+    body.chromehide #metro{transform:translateY(calc(100% + 62px + env(safe-area-inset-bottom)))}
+    #ePlay,#eReplay,#eReveal{min-height:44px}
   }
   /* Slim metronome: narrow screens OR short ones. A phone in landscape is ~812px wide, so a
      width-only breakpoint left it on the full desktop bar, which wrapped into stacked rows
@@ -472,6 +486,7 @@
       <option value="4">5th position</option>
       <option value="cycle">Cycle all 5</option>
     </select></div>
+    <div id="advDiv">Advanced</div>
     <div class="ctl adv"><label>Tap note</label><select id="selTap">
       <option value="none" selected>Off</option>
       <option value="octave">Tap octave</option>
@@ -1399,12 +1414,16 @@ function spellWritten(midi, useSharps, up8va){
 const clefSVG = (ch, x, dLine, SP, yOf) =>
   `<text x="${x}" y="${yOf(dLine)}" font-size="${SP*4}" fill="#cdd3e0"`
   + ` font-family="Bravura,'Segoe UI Symbol','Noto Music',serif">${ch}</text>`;
-function renderNotationSystems(groups, rootPc, labels, nv, fingers){
+function renderNotationSystems(groups, rootPc, labels, nv, fingers, availPx){
   nv = nv || 'quarter';
   // Fingers arrive as one flat array aligned with the notes in reading order. Piano note
   // objects are freshly built per note, so a Map keyed on identity stays unambiguous.
   const fmap = fingers ? new Map(groups.flat().map((n,i)=>[n, fingers[i]])) : null;
-  const SP=8, TS=13, colW=26, gapW=14, padL=56, padR=12, maxPx=800;
+  const SP=8, TS=13, colW=26, gapW=14, padL=56, padR=12;
+  // Wrap systems to the width they will actually render in: a fixed 800px budget squeezed
+  // through max-width:100% put tab numbers at ~4px on phones. Callers pass their container
+  // width; no measurement here so the engine stays runnable outside the DOM.
+  const maxPx = availPx > 180 ? Math.max(160, availPx - padL - padR) : 800;
   const useSharps = SHARP_KEYS.has(rootPc);
   // wrap groups into systems by pixel width
   const systems=[]; let cur=[], w=0;
@@ -2782,7 +2801,8 @@ function generate(){
       const fingers = (instrument === 'piano' && hand !== 'off' && pat === 'straight'
                        && variation === 'none' && fing === 'pos')
         ? pianoFingers(qual, pc, oct, dir, hand) : null;
-      nd.innerHTML = renderNotationSystems(ex.groups, pc, null, selNV.value, fingers).map(s=>`<div class="nsys">${s}</div>`).join('');
+      // 34 = the keyblock's 16px side padding + 1px borders; nd isn't attached yet, so measure #out
+      nd.innerHTML = renderNotationSystems(ex.groups, pc, null, selNV.value, fingers, $('out').clientWidth - 34).map(s=>`<div class="nsys">${s}</div>`).join('');
       div.appendChild(nd);
     } else {
       const pre=document.createElement('pre'); pre.className='tab';
@@ -3068,9 +3088,37 @@ document.querySelectorAll('.ctl').forEach(c=>{
 });
 // mobile: exercise controls open as a bottom sheet
 const sheet = on => document.body.classList.toggle('sheet', on);
-$('custBtn').onclick = ()=> sheet(true);
+// scroll the notation into the visible top half so control changes preview live above the sheet
+$('custBtn').onclick = ()=>{ sheet(true); document.querySelector('#out .keyblock')?.scrollIntoView({behavior:'smooth',block:'start'}); };
 $('custDone').onclick = ()=> sheet(false);
 $('sheetBack').onclick = ()=> sheet(false);
+
+// ---- Mobile: slide the bottom chrome away while reading down through notation ----
+// The tab bar + metronome are ~130px of fixed chrome on a phone. Scrolling down hides them,
+// any scroll up (or nearing the top) shows them; both stay put while anything is sounding —
+// mid-practice you need the metronome controls, not more screen.
+let lastScrollY = 0;
+addEventListener('scroll', ()=>{
+  if(!matchMedia('(max-width:640px)').matches) return;
+  const y = scrollY, dy = y - lastScrollY; lastScrollY = y;
+  if(metro.playing || playState || document.body.classList.contains('sheet')){
+    document.body.classList.remove('chromehide'); return;
+  }
+  if(dy > 6 && y > 120) document.body.classList.add('chromehide');
+  else if(dy < -6 || y < 40) document.body.classList.remove('chromehide');
+}, {passive:true});
+
+// Notation wraps to the container width at render time, so a rotate (or window resize)
+// needs a re-render. Skipped during playback — regenerating would orphan the highlight.
+let notResizeT = null, notResizeW = innerWidth;
+addEventListener('resize', ()=>{
+  clearTimeout(notResizeT);
+  notResizeT = setTimeout(()=>{
+    if(Math.abs(innerWidth - notResizeW) < 60 || playState) return;
+    notResizeW = innerWidth;
+    generate();   // ponytail: exercises only — stack/prog notation re-renders on next interaction
+  }, 250);
+});
 // desktop: the five jargon-heavy fields sit behind a disclosure (mobile CSS always shows them)
 $('advBtn').onclick = ()=>{
   const open = $('exControls').classList.toggle('showadv');
@@ -3475,7 +3523,7 @@ function renderStackPractice(){
       `${spState.name} — stacked arpeggio (${spState.triName} over ${spState.baseName})`);
   }
   $('spName').textContent = ex.name;
-  $('spOut').innerHTML = renderNotationSystems(ex.groups, keyPc, null, selNV.value).map(s=>`<div class="nsys">${s}</div>`).join('');
+  $('spOut').innerHTML = renderNotationSystems(ex.groups, keyPc, null, selNV.value, null, $('spOut').clientWidth).map(s=>`<div class="nsys">${s}</div>`).join('');
 }
 ['spMat','spPat','spDir','spOct'].forEach(id=> $(id).addEventListener('change', renderStackPractice));
 
@@ -3505,7 +3553,7 @@ function renderProgChords(chords, keyPc){
   stateToHash();
   $('progBlock').style.display='';
   $('progName').textContent = chords.map(c=>c.label).join(' – ');
-  $('progOut').innerHTML = renderNotationSystems(groups, keyPc, chords.map(c=>c.label), selNV.value)
+  $('progOut').innerHTML = renderNotationSystems(groups, keyPc, chords.map(c=>c.label), selNV.value, null, $('progOut').clientWidth)
     .map(s=>`<div class="nsys">${s}</div>`).join('');
   showProgResult();
 }
@@ -4352,6 +4400,9 @@ function metroScheduler(){
 let wakeLock = null;
 async function keepAwake(){
   const want = metro.playing || !!playState;
+  // starting audio must also bring back scroll-hidden bottom chrome — the metronome bar
+  // carries the tempo/stop controls the player now needs
+  if(want) document.body.classList.remove('chromehide');
   try{
     if(want && !wakeLock && 'wakeLock' in navigator){
       wakeLock = await navigator.wakeLock.request('screen');
