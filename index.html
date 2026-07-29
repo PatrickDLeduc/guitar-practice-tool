@@ -160,6 +160,16 @@
   .tabbtn{background:none;color:var(--muted);padding:9px 18px;font-size:14px;border-radius:8px 8px 0 0;border:1px solid transparent;border-bottom:none}
   .tabbtn:hover{color:var(--text)}
   .tabbtn.active{color:var(--accent);background:var(--panel);border-color:var(--border)}
+  /* Today's Practice */
+  .tdcard{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:10px 0}
+  .tdcard.active{border-color:var(--accent)}
+  .tdhead{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .tdtype{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .tdcard.active .tdtype{color:var(--accent)}
+  .tdname{font-weight:600;margin:4px 0 2px}
+  .tdbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .tdstat{font-size:13px;color:var(--muted);font-weight:600}
+  .chip.sel{border-color:var(--accent);color:var(--accent)}
   #viewPoly{min-height:40px}
   table.stbl{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
   .stbl th{text-align:left;padding:9px 10px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
@@ -407,6 +417,7 @@
   </div>
 
   <nav class="tabbar" role="tablist" aria-label="Sections">
+    <button class="tabbtn" role="tab" aria-selected="false" data-tab="today"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="4" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="10" y1="1.5" x2="10" y2="3.5"/><line x1="10" y1="16.5" x2="10" y2="18.5"/><line x1="1.5" y1="10" x2="3.5" y2="10"/><line x1="16.5" y1="10" x2="18.5" y2="10"/><line x1="4" y1="4" x2="5.5" y2="5.5"/><line x1="14.5" y1="14.5" x2="16" y2="16"/><line x1="4" y1="16" x2="5.5" y2="14.5"/><line x1="14.5" y1="5.5" x2="16" y2="4"/></g></svg><span class="tl">Today</span><span class="ts">Today</span></button>
     <button class="tabbtn active" role="tab" aria-selected="true" data-tab="ex"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/></svg><span class="tl">Exercises</span><span class="ts">Exercises</span></button>
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="stack"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="8.5" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="14" width="16" height="3" rx="1" fill="currentColor"/></svg><span class="tl">Chord stacking</span><span class="ts">Stack</span></button>
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="prog"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="4" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="10" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/></svg><span class="tl">Progressions</span><span class="ts">Prog</span></button>
@@ -417,6 +428,25 @@
   </nav>
 
   <main>
+  <div id="viewToday" role="tabpanel" style="display:none">
+    <div class="earbox">
+      <div class="keyhead" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <span class="keyname">Today&rsquo;s Practice</span>
+        <span class="sub" id="tdDate" style="margin:0"></span>
+      </div>
+      <p class="sub" id="tdIntro"></p>
+      <div class="chips" role="group" aria-label="Session duration">
+        <button class="chip tddur" data-min="15" aria-pressed="false">15 min</button>
+        <button class="chip tddur" data-min="20" aria-pressed="false">20 min</button>
+        <button class="chip tddur" data-min="30" aria-pressed="false">30 min</button>
+      </div>
+      <p class="sub" id="tdSummary" aria-live="polite" style="color:var(--text)"></p>
+      <div id="tdDoneBox" style="display:none"></div>
+      <div id="tdBlocks"></div>
+      <div class="tdbtns" id="tdControls"></div>
+    </div>
+  </div>
+
   <div id="viewEx" role="tabpanel">
   <div class="inputrow">
     <input id="query" type="text" placeholder='e.g. "major 7 arpeggios in 3rds along the cycle of 4ths"'
@@ -3063,6 +3093,7 @@ document.querySelectorAll('.tabbtn').forEach(b=> b.onclick = ()=>{
     x.classList.toggle('active', x===b);
     x.setAttribute('aria-selected', x===b ? 'true' : 'false');
   });
+  $('viewToday').style.display = b.dataset.tab==='today' ? '' : 'none';
   $('viewEx').style.display = b.dataset.tab==='ex' ? '' : 'none';
   $('viewStack').style.display = b.dataset.tab==='stack' ? '' : 'none';
   $('viewProg').style.display = b.dataset.tab==='prog' ? '' : 'none';
@@ -3073,6 +3104,7 @@ document.querySelectorAll('.tabbtn').forEach(b=> b.onclick = ()=>{
   document.body.classList.remove('sheet');
   currentTab = b.dataset.tab;
   track('tab_open', {tab: b.dataset.tab});
+  if(b.dataset.tab==='today') renderToday();
   if(b.dataset.tab==='stack') renderStack();
   if(b.dataset.tab==='prog' && !progData) renderProg();
   if(b.dataset.tab==='voic'){ renderVoicings(); renderVoicingDrill(); }
@@ -3192,7 +3224,8 @@ function logSession(){
   const d = store.load();
   const key = $('summary').textContent;
   d.sessions = d.sessions || [];
-  d.sessions.push({k:key, bpm:metro.bpm, t:Date.now()});
+  // v = the select values, so Today's Practice can re-open logged exercises later
+  d.sessions.push({k:key, bpm:metro.bpm, t:Date.now(), v: EX_SELS.map(s=>s.value)});
   track('session_logged', {bpm: metro.bpm});
   if(d.sessions.length > 1000) d.sessions = d.sessions.slice(-1000);
   d.pb = d.pb || {};
@@ -3200,6 +3233,7 @@ function logSession(){
   store.save(d);
   $('logBtn').textContent = 'Logged ✓';
   setTimeout(()=> $('logBtn').textContent = '✓ Log @ ' + metro.bpm, 1200);
+  tdOnLogged();
 }
 // ---- Saved exercises (favorites) — live in the same gph store, so they cloud-sync ----
 function renderFavChips(){
@@ -3243,20 +3277,29 @@ function earLog(cat, firstTryCorrect){
   d.ear = d.ear || {};
   const e = d.ear[cat] = d.ear[cat] || {c:0, t:0};
   e.t++; if(firstTryCorrect) e.c++;
+  // rolling window of the last 50 attempts — Today's Practice weights recent accuracy over lifetime
+  d.earRecent = (d.earRecent || []).slice(-49);
+  d.earRecent.push({cat, ok: !!firstTryCorrect, t: Date.now()});
   store.save(d);
+  tdOnEar(cat, !!firstTryCorrect);
+}
+function calcStreak(sessions){
+  const days = new Set(sessions.map(s=> new Date(s.t).toDateString()));
+  let streak = 0;
+  for(let i=0;;i++){
+    const ds = new Date(Date.now() - i*86400000).toDateString();
+    if(days.has(ds)) streak++;
+    else if(i === 0) continue;   // an empty today doesn't break the streak
+    else break;
+  }
+  return streak;
 }
 function renderProgress(){
   const d = store.load();
   const sessions = d.sessions || [];
   const dayMs = 86400000;
   const days = new Set(sessions.map(s=> new Date(s.t).toDateString()));
-  let streak = 0;
-  for(let i=0;;i++){
-    const ds = new Date(Date.now() - i*dayMs).toDateString();
-    if(days.has(ds)) streak++;
-    else if(i === 0) continue;   // an empty today doesn't break the streak
-    else break;
-  }
+  const streak = calcStreak(sessions);
   $('pgSummary').textContent = sessions.length
     ? `${sessions.length} logged sessions · ${days.size} practice days · current streak: ${streak} day${streak===1?'':'s'}`
     : 'Nothing logged yet — hit “✓ Log” in the Exercises toolbar after a practice run.';
@@ -3297,6 +3340,417 @@ $('pgClear').onclick = async ()=>{
   $('pgClear').textContent = 'Clear all data';
   renderProgress();
 };
+
+// ---- Today's Practice: rule-based daily session generator ----
+// Pure selection logic first (unit-tested from tests/smoke.js via the console), DOM below.
+// Scoring is additive and documented inline — deterministic rules, no ML. A session is
+// generated once per local calendar day (seeded by visitor id + date + generation counter),
+// stored device-locally in gphToday, and only changes on explicit Regenerate.
+
+const TD_ALLOC = {15:[7,4,4], 20:[9,6,5], 30:[14,8,8]};   // technique / ear / exploration minutes
+const TD_BPM_MIN = 40, TD_BPM_MAX = 260;                   // speed-trainer target limits (#tTarget)
+const tdClampBpm = x => Math.min(TD_BPM_MAX, Math.max(TD_BPM_MIN, Math.round(+x || 80)));
+const TD_EAR_LABELS = {intervals:'Interval recognition', chords:'Chord recognition', scales:'Scale recognition'};
+const TD_TYPE_LABEL = {technique:'Technique progression', ear:'Ear training', explore:'Exploration'};
+
+// value arrays follow EX_SELS order: root,qual,pat,seq,dir,oct,fing,pos,var,tech,shapes,note,nv,shape,tap.
+// `n` matches the 4-part summary prefix generate() produces, so PBs and logs link up. `g` = guitar-only.
+const TD_TECH_DEFAULTS = [
+  {n:'minor pentatonic · groups of 3 · ascending · 8th notes',
+   v:['9','minpent','groups3','single','asc','2','pos','5','none','alternate','neck','on','eighth','0','none']},
+  {n:'major scale · straight · asc + desc · 8th notes',
+   v:['0','majscale','straight','single','both','2','pos','5','none','legato','neck','on','eighth','0','none']},
+  {n:'maj7 · straight · asc + desc · triplets',
+   v:['0','maj7','straight','single','both','2','pos','5','none','sweep','neck','on','triplet','0','none']},
+];
+const TD_EXPLORE_DEFAULTS = [
+  {n:'major triad · straight · ascending · quarter notes', why:'Fretboard knowledge: the five CAGED shapes', g:1,
+   v:['0','maj','straight','single','asc','2','caged','5','none','none','neck','on','quarter','cycle','none']},
+  {n:'major scale · straight · ascending · quarter notes', why:'Key knowledge: travel the cycle of 4ths',
+   v:['0','majscale','straight','cycle4','asc','1','pos','5','none','none','neck','on','quarter','0','none']},
+  {n:'major scale · in 3rds · ascending · 8th notes', why:'Melodic phrasing: a scale broken in 3rds',
+   v:['0','majscale','thirds','single','asc','2','pos','5','none','none','neck','on','eighth','0','none']},
+  {n:'blues scale · straight · asc + desc · 8th notes', why:'Blues vocabulary in G',
+   v:['7','blues','straight','single','both','2','pos','5','none','none','neck','on','eighth','0','none']},
+];
+
+// tiny seeded PRNG (FNV-1a hash -> mulberry32) so daily picks are stable but regenerate rotates
+function tdHash(str){ let h = 2166136261; for(let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function tdRng(seed){
+  let a = tdHash(String(seed));
+  return ()=>{ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+// favorites (n), logged sessions (k) and personal bests share the same 4-part summary prefix
+const exKeyPrefix = k => String(k).split(' · ').slice(0, 4).join(' · ');
+
+// one candidate per distinct exercise, carrying select values when known (only those are startable)
+function tdCandidates(d){
+  const map = new Map();
+  const get = n => map.get(n) || map.set(n, {n, fav:false, lastT:0, pb:0, lastBpm:0}).get(n);
+  (Array.isArray(d.favs) ? d.favs : []).forEach(f=>{
+    if(!f || typeof f.n !== 'string' || !Array.isArray(f.v)) return;
+    const c = get(exKeyPrefix(f.n)); c.fav = true; c.v = c.v || f.v;
+  });
+  (Array.isArray(d.sessions) ? d.sessions : []).forEach(s=>{
+    if(!s || typeof s.k !== 'string') return;
+    const c = get(exKeyPrefix(s.k));
+    if(!c.v && Array.isArray(s.v)) c.v = s.v;
+    if(+s.t > c.lastT){ c.lastT = +s.t; c.lastBpm = +s.bpm || 0; }
+  });
+  if(d.pb && typeof d.pb === 'object') Object.entries(d.pb).forEach(([k,v])=>{
+    const c = map.get(exKeyPrefix(k));
+    if(c && v && +v.bpm > c.pb) c.pb = +v.bpm;
+  });
+  return [...map.values()].filter(c=> Array.isArray(c.v));
+}
+
+// Technique: recent+PB > favorite+PB > recent > favorite > built-in default.
+// Additive weights (recent +2, PB +3, favorite +1) keep that order; "already practiced
+// today" (−4) pushes a fresh exercise ahead when one exists.
+function tdPickTechnique(d, rnd, avoid){
+  const DAY = 86400000, now = Date.now(), today = new Date(now).toDateString();
+  const cands = tdCandidates(d).filter(c=> !avoid.has(c.n));
+  cands.forEach(c=>{
+    c.score = (now - c.lastT < 14*DAY ? 2 : 0) + (c.pb ? 3 : 0) + (c.fav ? 1 : 0)
+            - (c.lastT && new Date(c.lastT).toDateString() === today ? 4 : 0);
+  });
+  cands.sort((a,b)=> b.score - a.score || b.lastT - a.lastT);
+  const c = cands[0];
+  if(c){
+    const target = c.pb ? tdClampBpm(c.pb - 10) : tdClampBpm(c.lastBpm || 80);
+    const reason = c.pb
+      ? `Continue your progression: a controlled ${target} BPM, 10 below your ${c.pb} BPM personal best.`
+      : c.lastT ? 'You’ve practiced this recently — log a tempo to start a personal best.'
+      : 'You saved this exercise but haven’t practiced it yet.';
+    return {type:'technique', n:c.n, v:c.v, target, pb:c.pb || 0, reason,
+            src: c.pb ? 'pb' : c.lastT ? 'recent' : 'fav'};
+  }
+  const defs = TD_TECH_DEFAULTS.filter(x=> !avoid.has(x.n));
+  const pool = defs.length ? defs : TD_TECH_DEFAULTS;
+  const pick = pool[Math.floor(rnd()*pool.length)];
+  return {type:'technique', n:pick.n, v:pick.v, target:80, pb:0, src:'default',
+          reason:'A solid starter drill — recommendations sharpen as you log practice.'};
+}
+
+// Ear training: the weakest recent category (last 50 attempts, ≥5 per category to count),
+// falling back to lifetime accuracy, then to a rotation over categories not yet tried.
+function tdPickEar(d, rnd, avoidCat){
+  const MIN = 5;
+  const cats = ['intervals','chords','scales'];
+  const recent = (Array.isArray(d.earRecent) ? d.earRecent : []).filter(a=> a && cats.includes(a.cat)).slice(-50);
+  const stats = cats.filter(c=> c !== avoidCat).map(cat=>{
+    const r = recent.filter(a=> a.cat === cat);
+    const rAcc = r.length >= MIN ? r.filter(a=> a.ok).length / r.length : null;
+    const life = d.ear && d.ear[cat] && +d.ear[cat].t >= MIN ? d.ear[cat].c / d.ear[cat].t : null;
+    return {cat, acc: rAcc !== null ? rAcc : life, tried: r.length > 0 || !!(d.ear && d.ear[cat] && d.ear[cat].t)};
+  });
+  const lvl = Math.min(3, Math.max(1, +d.earLvl || 1));
+  const measured = stats.filter(s=> s.acc !== null).sort((a,b)=> a.acc - b.acc);
+  if(measured.length){
+    const w = measured[0], pct = Math.round(w.acc*100);
+    // reuse the existing 3-level system: keep the user's level, drop one when accuracy is very low
+    return {type:'ear', cat:w.cat, lvl: w.acc < 0.4 ? Math.max(1, lvl-1) : lvl, acc:pct, src:'weakest',
+            reason:`${TD_EAR_LABELS[w.cat]} is your weakest recent category at ${pct}% accuracy.`};
+  }
+  const started = stats.filter(s=> s.tried);
+  if(started.length){
+    const c = started[Math.floor(rnd()*started.length)];
+    return {type:'ear', cat:c.cat, lvl, acc:null, src:'started',
+            reason:`You’ve started ${TD_EAR_LABELS[c.cat].toLowerCase()} — build up enough history to track accuracy.`};
+  }
+  const c = stats[Math.floor(rnd()*stats.length)];
+  return {type:'ear', cat:c.cat, lvl:1, acc:null, src:'rotation',
+          reason:'Not enough ear-training history yet, so today includes a general block. It adapts as you answer questions.'};
+}
+
+// Exploration: a saved exercise gone quiet > a rotating default that differs from the
+// technique block (different scale/chord type), never the technique exercise itself.
+function tdPickExplore(d, rnd, techBlock, avoid){
+  const DAY = 86400000, now = Date.now();
+  const techQual = techBlock && techBlock.v ? techBlock.v[1] : null;
+  const cands = tdCandidates(d).filter(c=> !avoid.has(c.n));
+  const stale = cands.filter(c=> c.fav && now - c.lastT > 14*DAY)
+    .sort((a,b)=> ((b.v[1] !== techQual) - (a.v[1] !== techQual)) || a.lastT - b.lastT);
+  if(stale.length){
+    const c = stale[0];
+    return {type:'explore', n:c.n, v:c.v, src:'stale_fav',
+            reason: c.lastT ? 'You saved this but haven’t practiced it in over two weeks.'
+                            : 'You saved this exercise but never practiced it.'};
+  }
+  const defs = TD_EXPLORE_DEFAULTS.filter(x=> !avoid.has(x.n) && (!x.g || d.instrument !== 'piano'));
+  const diff = defs.filter(x=> x.v[1] !== techQual);
+  const pool = diff.length ? diff : (defs.length ? defs : TD_EXPLORE_DEFAULTS);
+  const pick = pool[Math.floor(rnd()*pool.length)];
+  return {type:'explore', n:pick.n, v:pick.v, src:'default',
+          reason:`${pick.why} — something different from today’s technique work.`};
+}
+
+// data = the gph store blob (+ earLvl, instrument, optional avoid list). Pure and
+// deterministic for a given (data, mins, seed); malformed data degrades to defaults.
+function generateDailySession(data, mins, seed){
+  const d = data && typeof data === 'object' ? data : {};
+  const rnd = tdRng(seed);
+  const alloc = TD_ALLOC[mins] || TD_ALLOC[20];
+  const avoid = new Set(Array.isArray(d.avoid) ? d.avoid : []);
+  const tech = tdPickTechnique(d, rnd, avoid);
+  avoid.add(tech.n);
+  const ear = tdPickEar(d, rnd, null);
+  const exp = tdPickExplore(d, rnd, tech, avoid);
+  const blocks = [tech, ear, exp];
+  blocks.forEach((b,i)=>{ b.mins = alloc[i]; b.status = 'todo'; });
+  return {ver:1, mins: alloc[0]+alloc[1]+alloc[2], blocks};
+}
+
+// ---- daily persistence (device-local; regenerated on a new local calendar day) ----
+const tdStore = {
+  load(){ try{ return JSON.parse(localStorage.getItem('gphToday') || 'null'); }catch(e){ return null; } },
+  save(s){ try{ localStorage.setItem('gphToday', JSON.stringify(s)); }catch(e){} },
+};
+let tdSession = null;
+function tdData(){ return {...store.load(), earLvl: +$('eLvl').value, instrument}; }
+function tdHasHistory(d){
+  return !!((d.sessions && d.sessions.length) || (d.favs && d.favs.length) || (d.ear && Object.keys(d.ear).length));
+}
+function tdGenerate(mins, gen, avoid){
+  const d = tdData();
+  if(avoid && avoid.length) d.avoid = avoid;
+  const s = generateDailySession(d, mins, _vid() + '|' + new Date().toDateString() + '|' + gen);
+  s.date = new Date().toDateString();
+  s.gen = gen; s.status = 'new';
+  s.hadHistory = tdHasHistory(d);
+  return s;
+}
+function tdCurrent(){
+  const today = new Date().toDateString();
+  let s = tdSession || tdStore.load();
+  if(!s || s.date !== today || !Array.isArray(s.blocks)){
+    if(s && Array.isArray(s.blocks) && s.status === 'started')
+      track('today_abandon', {mins:s.mins, done: s.blocks.filter(b=> b.status==='done').length});
+    s = tdGenerate((s && TD_ALLOC[s.mins]) ? s.mins : 20, 1);
+    tdStore.save(s);
+    // no signed_in here: this can run from init() before `let acctUser` evaluates (TDZ),
+    // and auth restores async anyway — today_start carries it instead
+    track('today_generate', {mins:s.mins, had_history:s.hadHistory});
+  }
+  tdSession = s;
+  return s;
+}
+function tdSaveRender(){ tdStore.save(tdSession); renderToday(); }
+
+// ---- session flow ----
+function tdStartSession(){
+  const s = tdCurrent();
+  const i = s.blocks.findIndex(b=> b.status === 'active');
+  const j = i >= 0 ? i : s.blocks.findIndex(b=> b.status === 'todo');
+  if(j >= 0) tdStartBlock(j); else tdSaveRender();
+}
+function tdStartBlock(i){
+  const s = tdCurrent(), b = s.blocks[i]; if(!b) return;
+  if(s.status === 'new'){ s.status = 'started'; s.startedAt = Date.now(); track('today_start', {mins:s.mins, signed_in: !!acctUser}); }
+  s.blocks.forEach(x=>{ if(x !== b && x.status === 'active') x.status = 'todo'; });   // one active block at a time
+  if(b.status !== 'active'){ b.status = 'active'; b.startedAt = Date.now(); }
+  track('today_block_start', {type:b.type, mins:b.mins, src:b.src});
+  tdStore.save(s);
+  if(b.type === 'ear'){
+    $('eCat').value = b.cat; $('eCat').dispatchEvent(new Event('change'));
+    $('eLvl').value = b.lvl; $('eLvl').dispatchEvent(new Event('change'));
+    document.querySelector('.tabbtn[data-tab="ear"]').onclick();
+    toast(`${TD_EAR_LABELS[b.cat]} for ~${b.mins} min — press “▶ New question” to begin.`);
+  } else {
+    EX_SELS.forEach((sel,j)=>{ if(b.v && b.v[j] !== undefined) sel.value = b.v[j]; });
+    $('query').value = '';
+    generate();
+    setBpm(b.target || 80);
+    $('tTarget').value = tdClampBpm(b.target || 80);   // the speed trainer converges on today's target
+    document.querySelector('.tabbtn[data-tab="ex"]').onclick();
+    toast(`~${b.mins} min at ${b.target || 80} BPM — “✓ Log” when done completes this block.`);
+  }
+  renderToday();
+}
+function tdCompleteBlock(i){
+  const s = tdCurrent(), b = s.blocks[i];
+  if(!b || b.status === 'done' || b.status === 'skipped') return;
+  b.status = 'done'; b.doneAt = Date.now();
+  if(b.startedAt) b.actualSecs = Math.round((b.doneAt - b.startedAt)/1000);
+  track('today_block_done', {type:b.type, secs:b.actualSecs || 0});
+  tdMaybeFinish();
+  tdSaveRender();
+}
+function tdSkipBlock(i){
+  const s = tdCurrent(), b = s.blocks[i]; if(!b) return;
+  b.status = 'skipped';
+  track('today_block_skip', {type:b.type});
+  tdMaybeFinish();
+  tdSaveRender();
+}
+function tdReplaceBlock(i){
+  const s = tdCurrent(), b = s.blocks[i]; if(!b) return;
+  s.rejected = (s.rejected || []).slice(-12);
+  if(b.n) s.rejected.push(b.n);
+  if(b.cat) s.rejected.push('ear:' + b.cat);
+  const avoid = new Set([...s.rejected, ...s.blocks.map(x=> x.n).filter(Boolean)]);
+  const d = tdData();
+  const rnd = tdRng(_vid() + '|' + s.date + '|r' + s.rejected.length);
+  let nb;
+  if(b.type === 'technique') nb = tdPickTechnique(d, rnd, avoid);
+  else if(b.type === 'ear') nb = tdPickEar(d, rnd, b.cat);
+  else nb = tdPickExplore(d, rnd, s.blocks[0], avoid);
+  nb.mins = b.mins; nb.status = 'todo';
+  s.blocks[i] = nb;
+  track('today_block_replace', {type:b.type});
+  tdSaveRender();
+}
+function tdMaybeFinish(){
+  const s = tdCurrent();
+  if(s.status === 'started' && s.blocks.every(b=> b.status === 'done' || b.status === 'skipped')) tdFinish('done');
+}
+function tdFinish(status){   // 'done' | 'ended' (ended = stopped early)
+  const s = tdCurrent();
+  if(s.status === 'done' || s.status === 'ended') return;
+  s.blocks.forEach(b=>{
+    if(b.status === 'active'){
+      b.status = 'done'; b.doneAt = Date.now();
+      if(b.startedAt) b.actualSecs = Math.round((b.doneAt - b.startedAt)/1000);
+    }
+  });
+  s.status = status; s.completedAt = Date.now();
+  track(status === 'done' ? 'today_complete' : 'today_abandon', {
+    mins: s.mins,
+    done: s.blocks.filter(b=> b.status === 'done').length,
+    skipped: s.blocks.filter(b=> b.status === 'skipped').length,
+    actual_secs: s.startedAt ? Math.round((s.completedAt - s.startedAt)/1000) : 0,
+  });
+  tdSaveRender();
+}
+function tdRegenerate(){
+  const prev = tdCurrent();
+  track('today_regenerate', {mins: prev.mins});
+  tdSession = tdGenerate(prev.mins, (prev.gen || 1) + 1, prev.blocks.map(b=> b.n).filter(Boolean));
+  tdSaveRender();
+}
+function tdSetDuration(mins){
+  const s = tdCurrent();
+  if(!TD_ALLOC[mins] || s.mins === mins) return;
+  const alloc = TD_ALLOC[mins];
+  // proportional adjust: same picks, new minutes (finished blocks keep their history)
+  s.blocks.forEach((b,i)=>{ if(b.status === 'todo' || b.status === 'active') b.mins = alloc[i]; });
+  s.mins = alloc[0] + alloc[1] + alloc[2];
+  track('today_dur', {mins});
+  tdSaveRender();
+}
+// hooks from the existing log paths — the practice log stays the single source of truth
+function tdOnLogged(){   // "✓ Log" while a technique/exploration block is active completes it
+  const s = tdSession || tdStore.load();
+  if(!s || s.date !== new Date().toDateString() || !Array.isArray(s.blocks)) return;
+  tdSession = s;
+  const i = s.blocks.findIndex(b=> b.status === 'active' && b.type !== 'ear');
+  if(i >= 0){ tdCompleteBlock(i); toast('Practice block complete ✓'); }
+}
+function tdOnEar(cat, ok){   // count answers during an active ear block (completed via its Done button)
+  const s = tdSession || tdStore.load();
+  if(!s || s.date !== new Date().toDateString() || !Array.isArray(s.blocks)) return;
+  tdSession = s;
+  const b = s.blocks.find(x=> x.status === 'active' && x.type === 'ear');
+  if(b){ b.answers = (b.answers || 0) + 1; if(ok) b.correct = (b.correct || 0) + 1; tdStore.save(s); }
+}
+
+// ---- rendering ----
+function tdBtn(label, fn, primary){
+  const b = document.createElement('button');
+  b.textContent = label; b.onclick = fn;
+  if(primary){ b.style.background = 'var(--accent)'; b.style.color = '#10131a'; b.style.borderColor = 'var(--accent)'; b.style.fontWeight = '600'; }
+  return b;
+}
+function tdFocus(s){
+  const t = s.blocks[0];
+  if(!t || !t.v) return 'technique';
+  const techNames = {alternate:'alternate picking', economy:'economy picking', legato:'legato', sweep:'sweep picking', hybrid:'hybrid picking'};
+  return techNames[t.v[9]] || (QUALITIES[t.v[1]] ? QUALITIES[t.v[1]].label : 'technique');
+}
+function renderToday(){
+  const s = tdCurrent();
+  $('tdDate').textContent = new Date().toLocaleDateString(undefined, {weekday:'long', month:'long', day:'numeric'});
+  document.querySelectorAll('.tddur').forEach(b=>{
+    const on = TD_ALLOC[+b.dataset.min] && TD_ALLOC[+b.dataset.min].reduce((a,x)=>a+x,0) === s.mins;
+    b.classList.toggle('sel', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  $('tdIntro').textContent = s.hadHistory
+    ? `A balanced ${s.mins}-minute session based on your recent practice.`
+    : 'A balanced starter session. Complete a few sessions and Today’s Practice will begin adapting to your progress.';
+  const doneN = s.blocks.filter(b=> b.status === 'done').length;
+  const skipN = s.blocks.filter(b=> b.status === 'skipped').length;
+  const remaining = s.blocks.filter(b=> b.status === 'todo' || b.status === 'active').reduce((a,b)=> a + b.mins, 0);
+  const streak = calcStreak(store.load().sessions || []);
+  const eta = new Date(Date.now() + remaining*60000).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+  $('tdSummary').textContent =
+    (s.status === 'done' || s.status === 'ended')
+      ? `${doneN} of ${s.blocks.length} blocks completed` + (skipN ? ` · ${skipN} skipped` : '') + (streak ? ` · ${streak}-day streak` : '')
+      : `${s.mins} min · ${s.blocks.length} blocks · focus: ${tdFocus(s)} · done by ~${eta}` +
+        (streak ? ` · ${streak}-day streak` : '') +
+        (s.status === 'started' ? ` · ${doneN + skipN} of ${s.blocks.length} finished` : '');
+  // completion summary
+  const box = $('tdDoneBox');
+  if(s.status === 'done' || s.status === 'ended'){
+    const d = store.load();
+    const pbs = Object.entries(d.pb || {}).filter(([,v])=> s.startedAt && v.t >= s.startedAt);
+    const ans = s.blocks.filter(b=> b.type === 'ear').reduce((a,b)=> a + (b.answers || 0), 0);
+    const cor = s.blocks.filter(b=> b.type === 'ear').reduce((a,b)=> a + (b.correct || 0), 0);
+    const actual = s.blocks.reduce((a,b)=> a + (b.actualSecs || 0), 0);
+    box.style.display = '';
+    box.innerHTML =
+      `<p style="margin:6px 0;font-weight:600">${s.status === 'done' ? 'Session complete — nice work! 🎸' : 'Session ended early — everything you did still counts.'}</p>` +
+      `<p class="sub" style="margin:4px 0">Planned ${s.mins} min` + (actual ? ` · practiced ~${Math.max(1, Math.round(actual/60))} min` : '') +
+      ` · ${doneN} completed` + (skipN ? ` · ${skipN} skipped` : '') +
+      (pbs.length ? ` · new personal best${pbs.length > 1 ? 's' : ''}: ${pbs.map(([k,v])=> `${v.bpm} BPM`).join(', ')}` : '') +
+      (ans ? ` · ear training ${cor}/${ans} first-try` : '') +
+      (streak ? ` · streak: ${streak} day${streak === 1 ? '' : 's'}` : '') + '</p>';
+  } else box.style.display = 'none';
+  // block cards
+  const wrap = $('tdBlocks'); wrap.innerHTML = '';
+  s.blocks.forEach((b, i)=>{
+    const card = document.createElement('div');
+    card.className = 'tdcard' + (b.status === 'active' ? ' active' : '');
+    const head = document.createElement('div'); head.className = 'tdhead';
+    const stat = b.status === 'done' ? ' — ✓ done' : b.status === 'skipped' ? ' — skipped' : b.status === 'active' ? ' — in progress' : '';
+    head.innerHTML = `<span class="tdtype">${TD_TYPE_LABEL[b.type]}${stat}</span><span class="tdstat">${b.mins} min</span>`;
+    card.appendChild(head);
+    const name = document.createElement('div'); name.className = 'tdname';
+    name.textContent = b.type === 'ear' ? `${TD_EAR_LABELS[b.cat]} · level ${b.lvl}` : b.n;
+    card.appendChild(name);
+    const det = document.createElement('p'); det.className = 'sub'; det.style.margin = '2px 0';
+    det.textContent = b.type === 'ear'
+      ? (b.acc !== null && b.acc !== undefined ? `Recent accuracy: ${b.acc}%` : 'Building your accuracy history') +
+        (b.answers ? ` · ${b.correct || 0}/${b.answers} this session` : '')
+      : `Target: ${b.target || 80} BPM` + (b.pb ? ` · personal best: ${b.pb} BPM` : '');
+    card.appendChild(det);
+    const why = document.createElement('p'); why.className = 'sub'; why.style.margin = '4px 0 0';
+    why.textContent = b.reason;
+    card.appendChild(why);
+    const btns = document.createElement('div'); btns.className = 'tdbtns';
+    if(b.status === 'todo' || b.status === 'active'){
+      btns.appendChild(tdBtn(b.status === 'active' ? 'Reopen' : 'Start', ()=> tdStartBlock(i), b.status !== 'active'));
+      if(b.status === 'active') btns.appendChild(tdBtn('Mark done ✓', ()=> tdCompleteBlock(i), true));
+      btns.appendChild(tdBtn('Replace', ()=> tdReplaceBlock(i)));
+      btns.appendChild(tdBtn('Skip', ()=> tdSkipBlock(i)));
+    }
+    if(btns.children.length) card.appendChild(btns);
+    wrap.appendChild(card);
+  });
+  // session controls
+  const ctl = $('tdControls'); ctl.innerHTML = '';
+  if(s.status === 'new'){
+    ctl.appendChild(tdBtn('Start Session', tdStartSession, true));
+    ctl.appendChild(tdBtn('Regenerate Session', tdRegenerate));
+  } else if(s.status === 'started'){
+    ctl.appendChild(tdBtn('Complete Session', ()=> tdFinish('done'), true));
+    ctl.appendChild(tdBtn('End Session Early', ()=> tdFinish('ended')));
+  } else {
+    ctl.appendChild(tdBtn('Generate a fresh session', tdRegenerate));
+  }
+}
+document.querySelectorAll('.tddur').forEach(b=> b.onclick = ()=> tdSetDuration(+b.dataset.min));
 
 // ---- Stack playback (ear training) & practice exercises ----
 function midiFreq(m){ return 440 * Math.pow(2, (m-69)/12); }
@@ -4674,6 +5128,10 @@ function mergeProgress(a, b){
     const e = out.ear[k];
     out.ear[k] = e ? {c: Math.max(e.c, v.c), t: Math.max(e.t, v.t)} : v;
   }
+  const eseen = new Set();
+  out.earRecent = [...(a.earRecent||[]), ...(b.earRecent||[])]
+    .filter(x=>{ if(!x) return false; const k = x.t + '|' + x.cat; if(eseen.has(k)) return false; eseen.add(k); return true; })
+    .sort((x,y)=> x.t - y.t).slice(-50);
   const fseen = new Set();
   out.favs = [...(a.favs||[]), ...(b.favs||[])]
     .filter(f=>{ const k = f.v.join('.'); if(fseen.has(k)) return false; fseen.add(k); return true; })

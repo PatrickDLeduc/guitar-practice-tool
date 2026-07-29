@@ -1006,6 +1006,181 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
     roll.homeEnd / roll.N < 0.5);
   await p.context().close();
 
+  // ---------- Today's Practice ----------
+  // Seeded history: a recently-practiced technique exercise with a 120 BPM PB, a stale
+  // favorite (exploration candidate), and ear history where chords are clearly weakest.
+  {
+    const DAY = 86400000, NOW = Date.now();
+    const pentV = ['9', 'minpent', 'groups3', 'single', 'asc', '2', 'pos', '5', 'none', 'alternate', 'neck', 'on', 'eighth', '0', 'none'];
+    const bluesV = ['7', 'blues', 'straight', 'single', 'both', '2', 'pos', '5', 'none', 'none', 'neck', 'on', 'eighth', '0', 'none'];
+    const pentK = 'minor pentatonic · groups of 3 · ascending · 8th notes · 2 octaves · 4 bars/key in 4/4';
+    const seed = {
+      sessions: [{ k: pentK, bpm: 115, t: NOW - 2 * DAY, v: pentV }],
+      pb: { [pentK]: { bpm: 120, t: NOW - 2 * DAY } },
+      favs: [{ n: 'blues scale · straight · asc + desc · 8th notes', v: bluesV, t: NOW - 20 * DAY }],
+      ear: { intervals: { c: 18, t: 20 }, chords: { c: 4, t: 10 } },
+      earRecent: [
+        ...Array.from({ length: 20 }, (_, i) => ({ cat: 'intervals', ok: i < 18, t: NOW - 3 * DAY + i })),
+        ...Array.from({ length: 10 }, (_, i) => ({ cat: 'chords', ok: i < 4, t: NOW - 2 * DAY + i })),
+      ],
+    };
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    await ctx.addInitScript(s => localStorage.setItem('gph', JSON.stringify(s)), seed);
+    p = await ctx.newPage();
+    p.on('pageerror', e => errs.push('pageerror: ' + e.message));
+    p.on('console', m => { if (m.type() === 'error' && !m.text().includes('favicon')) errs.push('console: ' + m.text()); });
+    await p.goto(URL); await p.waitForTimeout(1200);
+
+    // unit tests on the pure engine, independent of the seeded localStorage
+    const u = await p.evaluate(() => {
+      const pentV2 = ['9', 'minpent', 'groups3', 'single', 'asc', '2', 'pos', '5', 'none', 'alternate', 'neck', 'on', 'eighth', '0', 'none'];
+      const mk = (pb, extra) => ({
+        sessions: [{ k: 'minor pentatonic · groups of 3 · ascending · 8th notes · x', bpm: 100, t: Date.now() - 86400000, v: pentV2 }],
+        pb: pb ? { 'minor pentatonic · groups of 3 · ascending · 8th notes · x': { bpm: pb, t: Date.now() } } : {},
+        ...extra,
+      });
+      const sums = [15, 20, 30].map(m => generateDailySession(mk(120), m, 's').blocks.reduce((a, b) => a + b.mins, 0));
+      const t120 = generateDailySession(mk(120), 20, 's').blocks[0];
+      const t45  = generateDailySession(mk(45), 20, 's').blocks[0];
+      const t280 = generateDailySession(mk(280), 20, 's').blocks[0];
+      const weak = generateDailySession({ earRecent: [
+        ...Array.from({ length: 10 }, (_, i) => ({ cat: 'intervals', ok: true, t: i })),
+        ...Array.from({ length: 10 }, (_, i) => ({ cat: 'chords', ok: i < 4, t: i })),
+      ] }, 20, 's').blocks[1];
+      const sparse = generateDailySession({}, 20, 's').blocks[1];
+      const favOnly = generateDailySession({ favs: [{ n: 'blues scale · straight · asc + desc · 8th notes', v: pentV2, t: 1 }] }, 20, 's').blocks[0];
+      const multi = generateDailySession({ favs: [
+        { n: 'a · b · c · d', v: pentV2, t: 1 }, { n: 'e · f · g · h', v: pentV2, t: 2 },
+      ] }, 20, 's');
+      const empty = generateDailySession({}, 20, 's');
+      const stable = JSON.stringify(generateDailySession(mk(120), 20, 'seedA')) ===
+                     JSON.stringify(generateDailySession(mk(120), 20, 'seedA'));
+      const first = generateDailySession({}, 20, 'x').blocks[0];
+      const regen = generateDailySession({ avoid: [first.n] }, 20, 'x').blocks[0];
+      let malformedOk = true;
+      try {
+        const m = generateDailySession({ sessions: [{ k: 5 }, null, 'x'], pb: 'nope', favs: [{}, { n: 'a' }], ear: { intervals: 'bad' }, earRecent: 'nope' }, 20, 's');
+        malformedOk = m.blocks.length === 3 && m.blocks.every(b => b.mins > 0 && b.reason);
+      } catch (e) { malformedOk = false; }
+      return { sums, t120: { target: t120.target, pb: t120.pb }, t45: t45.target, t280: t280.target,
+               weak: { cat: weak.cat, acc: weak.acc }, sparse: { cat: sparse.cat, src: sparse.src, lvl: sparse.lvl },
+               favOnly: { src: favOnly.src, n: favOnly.n }, multiDistinct: multi.blocks[0].n !== multi.blocks[2].n,
+               empty: { n: empty.blocks.length, target: empty.blocks[0].target, reasons: empty.blocks.every(b => b.reason && b.mins > 0) },
+               stable, regenDiffers: first.n !== regen.n, malformedOk };
+    });
+    assert('today: block minutes sum to 15/20/30 exactly', JSON.stringify(u.sums) === '[15,20,30]');
+    assert('today: technique target is PB − 10 (120 → ' + u.t120.target + ')', u.t120.target === 110 && u.t120.pb === 120);
+    assert('today: target clamped to trainer limits (45→' + u.t45 + ', 280→' + u.t280 + ')', u.t45 === 40 && u.t280 === 260);
+    assert('today: weakest recent ear category selected (chords @ ' + u.weak.acc + '%)', u.weak.cat === 'chords' && u.weak.acc === 40);
+    assert('today: sparse ear history falls back to a level-1 rotation', ['intervals', 'chords', 'scales'].includes(u.sparse.cat) && u.sparse.lvl === 1 && u.sparse.src === 'rotation');
+    assert('today: favorites usable when practice history is missing', u.favOnly.src === 'fav');
+    assert('today: technique and exploration blocks pick different exercises', u.multiDistinct);
+    assert('today: new user gets a complete starter session at 80 BPM', u.empty.n === 3 && u.empty.target === 80 && u.empty.reasons);
+    assert('today: generation is deterministic for the same seed', u.stable);
+    assert('today: regeneration avoids the previous technique pick', u.regenDiffers);
+    assert('today: malformed history data does not crash generation', u.malformedOk);
+
+    // UI flow against the seeded history
+    await p.click('.tabbtn[data-tab="today"]');
+    assert('today: tab opens the panel', await p.locator('#viewToday').isVisible());
+    assert('today: renders three block cards', (await p.locator('.tdcard').count()) === 3);
+    const techCard = await p.locator('.tdcard').first().innerText();
+    assert('today: technique card shows PB-derived target (Target: 110 · PB 120)',
+      techCard.includes('Target: 110 BPM') && techCard.includes('120 BPM'));
+    assert('today: technique reason explains the selection', techCard.includes('10 below your 120 BPM'));
+    const earCard = await p.locator('.tdcard').nth(1).innerText();
+    assert('today: ear card targets the weak category with its accuracy', earCard.includes('Chord recognition') && earCard.includes('40%'));
+    const noHoles = await p.evaluate(() => !/undefined|NaN|null/.test($('viewToday').innerText));
+    assert('today: no undefined/NaN leaks into the page', noHoles);
+
+    await p.click('.tddur[data-min="15"]');
+    const m15 = await p.evaluate(() => ({ mins: tdSession.mins, sum: tdSession.blocks.reduce((a, b) => a + b.mins, 0), pressed: $('viewToday').querySelector('.tddur[data-min="15"]').getAttribute('aria-pressed') }));
+    assert('today: 15-min selector reallocates to 15 total', m15.mins === 15 && m15.sum === 15 && m15.pressed === 'true');
+    await p.click('.tddur[data-min="20"]');
+
+    // same-day stability: a reload restores the identical session
+    const before = await p.evaluate(() => tdSession.blocks.map(b => b.n || b.cat).join('|') + '|' + tdSession.gen);
+    await p.reload(); await p.waitForTimeout(1200);
+    await p.click('.tabbtn[data-tab="today"]');
+    const after = await p.evaluate(() => tdSession.blocks.map(b => b.n || b.cat).join('|') + '|' + tdSession.gen);
+    assert('today: session survives a reload unchanged', before === after);
+
+    // start → configures the exercise tab, metronome and speed-trainer target
+    await p.evaluate(() => { [...$('tdControls').children].find(b => b.textContent === 'Start Session').click(); });
+    await p.waitForTimeout(300);
+    const started = await p.evaluate(() => ({
+      exVisible: $('viewEx').style.display !== 'none', bpm: metro.bpm, tTarget: $('tTarget').value,
+      qual: selQual.value, tech: selTech.value, status: tdSession.status, b0: tdSession.blocks[0].status,
+    }));
+    assert('today: Start Session opens the exercise at 110 BPM with the trainer target set',
+      started.exVisible && started.bpm === 110 && started.tTarget === '110' && started.qual === 'minpent' && started.tech === 'alternate');
+    assert('today: session and first block marked in progress', started.status === 'started' && started.b0 === 'active');
+
+    // "✓ Log" flows into the practice log AND completes the active block — no duplicates
+    const logsBefore = await p.evaluate(() => JSON.parse(localStorage.getItem('gph')).sessions.length);
+    await p.click('#logBtn'); await p.waitForTimeout(200);
+    const afterLog = await p.evaluate(() => ({
+      logs: JSON.parse(localStorage.getItem('gph')).sessions.length,
+      b0: tdSession.blocks[0].status, hasV: Array.isArray(JSON.parse(localStorage.getItem('gph')).sessions.at(-1).v),
+    }));
+    assert('today: logging the exercise completes the technique block', afterLog.b0 === 'done');
+    assert('today: exactly one practice-log entry added, carrying select values', afterLog.logs === logsBefore + 1 && afterLog.hasV);
+
+    // ear block start configures the existing ear trainer
+    await p.click('.tabbtn[data-tab="today"]');
+    await p.evaluate(() => { const i = tdSession.blocks.findIndex(b => b.type === 'ear'); tdStartBlock(i); });
+    await p.waitForTimeout(200);
+    const earStart = await p.evaluate(() => ({ vis: $('viewEar').style.display !== 'none', cat: $('eCat').value }));
+    assert('today: ear block opens Ear training preset to the weak category', earStart.vis && earStart.cat === 'chords');
+
+    // return to an in-progress session, mark ear done, replace + skip exploration
+    await p.click('.tabbtn[data-tab="today"]');
+    await p.evaluate(() => { const i = tdSession.blocks.findIndex(b => b.type === 'ear'); tdCompleteBlock(i); });
+    const expBefore = await p.evaluate(() => tdSession.blocks[2].n);
+    await p.evaluate(() => tdReplaceBlock(2));
+    const expAfter = await p.evaluate(() => tdSession.blocks[2].n);
+    assert('today: replace picks a different exploration exercise', !!expAfter && expAfter !== expBefore);
+    await p.evaluate(() => tdSkipBlock(2));
+    const finished = await p.evaluate(() => ({ status: tdSession.status, boxShown: $('tdDoneBox').style.display !== 'none', text: $('tdDoneBox').innerText }));
+    assert('today: skipping the last block completes the session', finished.status === 'done' && finished.boxShown);
+    assert('today: completion summary shows completed and skipped counts', /2 completed/.test(finished.text) && /1 skipped/.test(finished.text));
+
+    // completed state also persists across a reload (anonymous localStorage persistence)
+    await p.reload(); await p.waitForTimeout(1200);
+    await p.click('.tabbtn[data-tab="today"]');
+    const persisted = await p.evaluate(() => ({ status: tdSession.status, boxShown: $('tdDoneBox').style.display !== 'none' }));
+    assert('today: completed session persists for the rest of the day', persisted.status === 'done' && persisted.boxShown);
+
+    // regenerate produces a fresh, valid session and fires the analytics event
+    const regen = await p.evaluate(() => {
+      evOff = false; window.__ev.length = 0;
+      tdRegenerate();
+      const ev = window.__ev.map(e => e.name);
+      window.__ev.length = 0; evOff = true;
+      return { status: tdSession.status, n: tdSession.blocks.length, sum: tdSession.blocks.reduce((a, b) => a + b.mins, 0), ev };
+    });
+    assert('today: regenerate yields a fresh valid session', regen.status === 'new' && regen.n === 3 && regen.sum === 20);
+    assert('today: regenerate tracked', regen.ev.includes('today_regenerate'));
+    await p.context().close();
+  }
+
+  // ---------- Today's Practice: brand-new user + mobile ----------
+  {
+    p = await newPage({ width: 390, height: 844 });
+    await p.click('.tabbtn[data-tab="today"]');
+    const fresh = await p.evaluate(() => ({
+      cards: document.querySelectorAll('.tdcard').length,
+      intro: $('tdIntro').textContent,
+      target: tdSession.blocks[0].target,
+      clean: !/undefined|NaN|null/.test($('viewToday').innerText),
+      fits: document.documentElement.scrollWidth <= innerWidth + 1,
+    }));
+    assert('today: new user gets a full starter session on mobile', fresh.cards === 3 && fresh.target === 80);
+    assert('today: new-user message explains adaptation', /adapt/i.test(fresh.intro));
+    assert('today: no data holes and no horizontal overflow on mobile', fresh.clean && fresh.fits);
+    await p.context().close();
+  }
+
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'no page errors');
   if (errs.length) failed = 1;
   await browser.close();
