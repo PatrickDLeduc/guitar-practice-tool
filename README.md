@@ -49,6 +49,9 @@ Drop 2 (three string sets), drop 3, and shell voicings for nine chord qualities,
 ### Ear training
 Interval, chord, and scale identification at three difficulty levels, with random roots, replay, streaks, and scoring. Intervals can be ascending, descending, or harmonic.
 
+### Today's Practice
+A **Today** tab assembles a personalized 15/20/30-minute daily session from your own history: a technique block targeted 10 BPM below your personal best, an ear-training block aimed at your weakest recent category, and an exploration block for variety. Every pick explains why it was chosen; blocks can be started, replaced, or skipped, and the session stays stable for the calendar day. Works for brand-new and signed-out users too (stored locally).
+
 ### Metronome
 Always available at the bottom: tap tempo, accent patterns for straight and odd meters (5/4, 7/8 in both groupings, 9/8, 11/8), visual beat dots, and a **speed trainer** that steps the tempo automatically every N bars toward a target.
 
