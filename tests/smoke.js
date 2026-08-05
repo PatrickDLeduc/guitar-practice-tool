@@ -597,6 +597,51 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('analytics: a real Generate click is not flagged demo', !!analytics.user && analytics.user.demo === false);
   assert('analytics: the first-visit demo query is flagged demo', !!analytics.demo && analytics.demo.demo === true);
 
+  // ---------- exercise spec ----------
+  // The 15-slot positional array is the wire format for shared links, saved favourites
+  // and logged sessions, so encode/decode/apply/read must round-trip exactly. A drift
+  // here silently orphans every link and favourite already in the wild.
+  {
+    const rt = await p.evaluate(() => {
+      const before = exSpec.read(), hash = location.hash;
+      const cases = [
+        exSpec.decode([]),                                            // all defaults
+        exSpec.decode(['9','minpent','groups3','single','both','3','3nps','5','zigzag','legato','on','off','eighth','0','octave']),
+        exSpec.decode(['7','maj7','thirds','cycle4','desc','1','caged','9','pedal','sweep','neck','on','triplet','cycle','fifth']),
+      ];
+      const out = { encodeDecode: [], applyRead: [] };
+      cases.forEach(spec => {
+        out.encodeDecode.push(JSON.stringify(exSpec.decode(exSpec.encode(spec))) === JSON.stringify(spec));
+        exSpec.apply(spec);
+        const got = exSpec.read();
+        delete got.instrument;   // not a slot: it rides the hash as i=p, not the array
+        out.applyRead.push(JSON.stringify(got) === JSON.stringify(spec));
+      });
+      // the write side: trailing defaults are trimmed, so a shared link stays short
+      exSpec.apply(exSpec.decode(['9', 'minpent', 'groups3']));
+      generate();
+      out.writtenEx = (location.hash.match(/ex=([^&]*)/) || [])[1] ?? null;
+      // a short link fills the missing slots from defaults rather than blanking them
+      history.replaceState(null, '', '#ex=7.minpent.groups3');
+      out.shortLink = exSpec.decode(parseHash().ex);
+      // legacy JSON links carried ex as a '|'-joined string
+      history.replaceState(null, '', '#' + encodeURIComponent(JSON.stringify({ ex: '0|maj7' })));
+      out.legacyJson = exSpec.decode(parseHash().ex);
+      history.replaceState(null, '', hash || location.pathname);
+      exSpec.apply(before);
+      generate();
+      return out;
+    });
+    assert('exSpec: decode(encode(spec)) round-trips', rt.encodeDecode.every(Boolean));
+    assert('exSpec: apply(spec) then read() round-trips', rt.applyRead.every(Boolean));
+    assert('exSpec: short #ex= link fills defaults (got ' + rt.shortLink.dir + '/' + rt.shortLink.nv + ')',
+      rt.shortLink.root === '7' && rt.shortLink.pat === 'groups3' && rt.shortLink.dir === 'asc' && rt.shortLink.nv === 'quarter');
+    assert('exSpec: shared link trims trailing defaults (got ' + rt.writtenEx + ')',
+      rt.writtenEx === '9.minpent.groups3');
+    assert('exSpec: legacy JSON link still decodes',
+      rt.legacyJson.qual === 'maj7' && rt.legacyJson.root === '0' && rt.legacyJson.pat === 'straight');
+  }
+
   // ---------- guitar regression guard ----------
   // Baseline captured from the pre-piano-support engine. Guitar note placement and tab
   // output must not shift when instrument-aware code paths change. If a deliberate
