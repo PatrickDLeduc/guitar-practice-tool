@@ -849,11 +849,15 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
         runFromText();
         const svg = document.querySelector('#out .shapes svg');
         const rects = [...svg.querySelectorAll('rect')];
+        // derive the two key widths rather than pinning them: the naturals are the wide rects,
+        // the accidentals the narrow ones, whatever the diagram is currently scaled to
+        const ws = [...new Set(rects.map(r => +r.getAttribute('width')))].sort((a, b) => b - a);
+        const [wideW, narrowW] = ws;
         return {
-          whites: rects.filter(r => +r.getAttribute('width') === 19).length,
-          blacks: rects.filter(r => +r.getAttribute('width') === 11.5).length,
-          litW: rects.filter(r => +r.getAttribute('width') === 19 && r.getAttribute('fill') !== '#e8eaf0').length,
-          litB: rects.filter(r => +r.getAttribute('width') === 11.5 && r.getAttribute('fill') !== '#14161c').length,
+          whites: rects.filter(r => +r.getAttribute('width') === wideW).length,
+          blacks: rects.filter(r => +r.getAttribute('width') === narrowW).length,
+          litW: rects.filter(r => +r.getAttribute('width') === wideW && r.getAttribute('fill') !== '#e8eaf0').length,
+          litB: rects.filter(r => +r.getAttribute('width') === narrowW && r.getAttribute('fill') !== '#14161c').length,
           octaveMarks: [...svg.querySelectorAll('text')].map(t => t.textContent).filter(t => /^C\d$/.test(t)),
         };
       };
@@ -1007,11 +1011,185 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.click('#diceChip');
   await p.waitForTimeout(200);
   assert('mobile: exercise dice works', (await p.locator('.keyblock').count()) > 0);
+  // the bar carries five slots; the other four sections live behind More
+  const barSlots = await p.locator('.tabbar .tabbtn:visible').count();
+  assert('mobile: bottom bar holds 5 slots, not 8 (was 46px wide each)', barSlots === 5);
+  assert('mobile: overflow sections hidden until More', !(await p.locator('.tabbtn[data-tab="poly"]').isVisible()));
+  await p.click('#tabMore');
+  assert('mobile: More expands every section', await p.locator('.tabbtn[data-tab="poly"]').isVisible());
+  assert('mobile: More shows full labels', await p.locator('.tabbtn[data-tab="stack"] .tl').isVisible());
   await p.click('.tabbtn[data-tab="poly"]');
   assert('mobile: poly tab opens and shows ratio controls', await p.locator('#polyA').isVisible());
+  assert('mobile: picking a section closes the More grid', !(await p.locator('#tabsBack').isVisible()));
+  assert('mobile: the section you are in stays visible in the bar',
+    await p.locator('.tabbtn[data-tab="poly"]').isVisible());
 
   // piano keyboard must fit the width rather than hide keys behind a scrollbar
   await p.click('.tabbtn[data-tab="ex"]');
+  // exercise tools: only Save/Log/⋯ ride above the notation, the rest fold away
+  const toolCount = async () => (await p.locator('.toolrow > *:visible').count());
+  assert('mobile: toolrow collapsed to 3 (was 8 across 3 rows)', (await toolCount()) === 3);
+  await p.click('#toolMore');
+  assert('mobile: ⋯ reveals the rest of the tools', (await toolCount()) === 9);
+  assert('mobile: ⋯ reveals the hint that explains them', await p.locator('.toolhint').isVisible());
+  await p.click('#toolMore');
+  assert('mobile: ⋯ folds them away again', (await toolCount()) === 3);
+
+  // Notation is justified to the container. Greedy wrapping used to stop at the last group
+  // that fit and leave the slack empty — 238px of engraving in a 322px column on a phone.
+  const just = await p.evaluate(() => {
+    // a fixed exercise, not whatever the dice rolled: this needs several full systems to measure
+    document.getElementById('query').value = 'A minor pentatonic in groups of 3';
+    runFromText();
+    const sys = [...document.querySelectorAll('#out .nsys')];
+    if (sys.length < 2) return null;
+    const full = sys.slice(0, -1);   // the last system is short by design, as in engraving
+    return {
+      n: full.length,
+      minFill: Math.min(...full.map(d => d.querySelector('svg').getBoundingClientRect().width
+                                        / d.getBoundingClientRect().width)),
+      tabFs: Math.min(...[...document.querySelectorAll('#out svg text.nn')]
+                        .map(t => parseFloat(t.getAttribute('font-size')))),
+    };
+  });
+  assert('mobile: notation fills its column (was 74%)', just && just.n > 0 && just.minFill > 0.97);
+  // groups of 3 leave the most slack for the justifier to spend, so this is where the fret
+  // numbers grow most; a system that was already full stays at the old 11px, which is the floor
+  assert('mobile: fret numbers grew with it, 14px (was 11)', just && just.tabFs >= 13);
+  const noTiny = await p.evaluate(() =>
+    [...document.querySelectorAll('#out svg text')]
+      .every(t => parseFloat(t.getAttribute('font-size')) >= 10));
+  assert('mobile: no sub-10px text in the exercise (was 7.5px fret dots)', noTiny);
+
+  // the metronome rests small and only takes its full height while something is sounding
+  const mh = await p.evaluate(() => {
+    const m = document.getElementById('metro');
+    const idle = m.getBoundingClientRect().height;
+    m.classList.add('playing');
+    const playing = m.getBoundingClientRect().height;
+    m.classList.remove('playing');
+    return { idle, playing, play: document.getElementById('mPlay').getBoundingClientRect().height };
+  });
+  assert('mobile: metronome idles smaller than it plays', mh.idle < mh.playing && mh.idle <= 58);
+  assert('mobile: idle metronome keeps a 44px play target', mh.play >= 44);
+
+  // the tempo is the number you read mid-exercise; it was 17px, under the body text
+  const bpm = await p.evaluate(() => {
+    const el = document.getElementById('mBpmVal');
+    return { fs: parseFloat(getComputedStyle(el).fontSize),
+             cap: parseFloat(getComputedStyle(document.querySelector('.bpmbox small')).fontSize),
+             fits: el.scrollWidth <= el.clientWidth + 1 };
+  });
+  assert('mobile: BPM reads at 30px (was 17)', bpm.fs >= 28);
+  assert('mobile: its caption is smaller than the value', bpm.cap < bpm.fs / 2);
+  assert('mobile: a 3-digit tempo still fits the field', bpm.fits);
+
+  // key picker: 12 taps visible at once instead of a dropdown
+  await p.click('#custBtn');            // the grid lives in the controls sheet — open it to measure
+  const keys = await p.evaluate(() => {
+    const grid = document.getElementById('rootGrid');
+    const btns = [...grid.querySelectorAll('.rootkey')];
+    const before = document.getElementById('selRoot').value;
+    btns.find(b => b.dataset.pc === '3').click();
+    return {
+      gridShown: getComputedStyle(grid).display === 'grid',
+      selectHidden: getComputedStyle(document.querySelector('#rootCtl select')).display === 'none',
+      n: btns.length, minH: Math.min(...btns.map(b => b.getBoundingClientRect().height)),
+      before, after: document.getElementById('selRoot').value,
+      marked: grid.querySelector('.rootkey.sel').dataset.pc,
+      aria: grid.querySelector('.rootkey[data-pc="3"]').getAttribute('aria-pressed'),
+    };
+  });
+  assert('mobile: root is a 12-key grid, not a dropdown', keys.gridShown && keys.selectHidden && keys.n === 12);
+  assert('mobile: every key is a 44px target', keys.minH >= 44);
+  assert('mobile: tapping a key drives the select (' + keys.before + ' -> ' + keys.after + ')', keys.after === '3');
+  assert('mobile: the chosen key is marked', keys.marked === '3' && keys.aria === 'true');
+  await p.click('#custDone');
+
+  // Type: 38 options split into scannable sections rather than two long ones
+  const qual = await p.evaluate(() => {
+    const gs = [...document.querySelectorAll('#selQual optgroup')];
+    return { groups: gs.length, biggest: Math.max(...gs.map(g => g.children.length)),
+             total: document.querySelectorAll('#selQual option').length };
+  });
+  assert('mobile: Type split into ' + qual.groups + ' sections (was 2)', qual.groups >= 6);
+  assert('mobile: no section longer than 9 (was 23)', qual.biggest <= 9);
+  assert('mobile: still all 38 types', qual.total === 38);
+
+  // a 12-key cycle arrives folded instead of 13,000px of scrolling
+  const fold = await p.evaluate(() => {
+    document.getElementById('query').value = 'major arpeggios in 3rds along the cycle of 4ths';
+    runFromText();
+    const b = [...document.querySelectorAll('#out .keyblock')];
+    const foldedH = document.documentElement.scrollHeight;
+    const openH0 = b[1].getBoundingClientRect().height;
+    b[1].querySelector('.keyhead').click();          // heading opens it
+    const opened = !b[1].classList.contains('folded');
+    const openH1 = b[1].getBoundingClientRect().height;
+    b[1].querySelector('.kfold').click();            // chevron closes it
+    const reclosed = b[1].classList.contains('folded');
+    const beforePlay = b[2].classList.contains('folded');
+    b[2].querySelector('.pbtn').click();             // ▶ must not fold/unfold
+    const playSafe = b[2].classList.contains('folded') === beforePlay;
+    stopPlayback();
+    b.forEach(x => foldKey(x, true));
+    return { n: b.length, folded: b.length - 1, foldedH, allOpenH: document.documentElement.scrollHeight,
+             foldedBlock: openH0, openBlock: openH1, opened, reclosed, playSafe,
+             tapH: Math.min(...[...document.querySelectorAll('.kfold')].map(t => t.getBoundingClientRect().height)) };
+  });
+  assert('mobile: 12-key cycle folds all but the first', fold.n === 12 && fold.folded === 11);
+  assert('mobile: folding cuts the page from ' + Math.round(fold.allOpenH) + 'px to ' + Math.round(fold.foldedH) + 'px',
+    fold.foldedH < fold.allOpenH * 0.55);
+  assert('mobile: a folded key is just its heading', fold.foldedBlock < 90 && fold.openBlock > 300);
+  assert('mobile: heading opens, chevron closes', fold.opened && fold.reclosed);
+  assert('mobile: ▶ inside a heading does not fold it', fold.playSafe);
+  assert('mobile: fold toggles are 44px', fold.tapH >= 44);
+
+  // auto-advance has to open the key it moves you to
+  const ak = await p.evaluate(() => {
+    document.getElementById('akBtn').click();
+    const b = [...document.querySelectorAll('#out .keyblock')];
+    const first = !b[0].classList.contains('folded') && b[0].classList.contains('activekey');
+    akAdvance();
+    const moved = !b[1].classList.contains('folded') && b[1].classList.contains('activekey')
+                  && b[0].classList.contains('folded');
+    document.getElementById('akBtn').click(); metroStop();
+    return { first, moved };
+  });
+  assert('mobile: auto-advance opens the first key', ak.first);
+  assert('mobile: advancing opens the next and refolds the last', ak.moved);
+
+  // neck map: Fit scales the board into the column instead of forcing sideways panning
+  const neck = await p.evaluate(() => {
+    document.getElementById('query').value = 'A minor pentatonic in groups of 3';
+    runFromText();
+    const read = () => {
+      const w = document.querySelector('.neckwrap'), s = w.querySelector('svg');
+      return { wrap: w.getBoundingClientRect().width, svg: s.getBoundingClientRect().width,
+               pans: w.scrollWidth > w.clientWidth + 4 };
+    };
+    const btn = document.querySelector('.neckfit');
+    const off = read();
+    const masked = !!btn.closest('.neckwrap');   // must sit outside the faded scroller
+    btn.click();
+    const on = read();
+    const label = btn.textContent;
+    const pageW = document.body.getBoundingClientRect().width;
+    btn.click();
+    return { off, on, back: read(), masked, label, name: btn.textContent, pageW,
+             stored: localStorage.getItem('gphNeckFit') };
+  });
+  assert('mobile: neck map pans by default, at full label size', neck.off.pans && neck.off.svg > neck.off.wrap);
+  // the column width must not move: a shared class name once made <body> position:absolute,
+  // which widened the page to 982px and let svg==wrap pass while nothing had actually scaled
+  assert('mobile: Fit scales it into the column (' + Math.round(neck.off.svg) + ' -> ' + Math.round(neck.on.svg) + 'px)',
+    !neck.on.pans && Math.abs(neck.on.svg - neck.on.wrap) < 2
+    && Math.abs(neck.on.wrap - neck.off.wrap) < 2 && neck.on.svg < neck.off.svg);
+  assert('mobile: fitting does not resize the page', neck.pageW === 390);
+  assert('mobile: Fit button sits outside the faded scroller', !neck.masked);
+  assert('mobile: it reads Full size while fitted, Fit when not', neck.label === 'Full size' && neck.name === 'Fit');
+  assert('mobile: toggling back restores panning', neck.back.pans);
+  assert('mobile: the choice is remembered', neck.stored === '0');
   const kbFit = await p.evaluate(() => {
     const sel = document.getElementById('selInst');
     sel.value = 'piano'; sel.dispatchEvent(new Event('change'));
