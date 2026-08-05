@@ -2724,13 +2724,24 @@ const exSpec = {
     const a = Array.isArray(arr) ? arr : [];
     return Object.fromEntries(EX_FIELDS.map(([k,,d], i)=> [k, a[i] !== undefined && a[i] !== '' ? a[i] : d]));
   },
-  // The exercise in words. #summary shows it; favourites, logged sessions and
-  // personal bests key off its first four parts — see exKeyPrefix.
+  // What an exercise is stored under: personal bests, favourites and Today's Practice
+  // all identify material by this. Deliberately excludes range, fingering, position,
+  // variation and meter — the same material in 5th position is the same personal best.
+  //
+  // FROZEN. label() below may be reworded freely; this may not. Every word change
+  // orphans personal bests already on disk and in the cloud, so it is a migration,
+  // not an edit. tests/smoke.js pins the wording.
+  key(s){
+    const patName = {straight:'straight',thirds:'in 3rds',fourths:'in 4ths',sixths:'in 6ths',groups3:'groups of 3',groups4:'groups of 4'}[s.pat];
+    const dirName = {asc:'ascending',desc:'descending',both:'asc + desc'}[s.dir];
+    const nvName = {half:'half notes', quarter:'quarter notes', eighth:'8th notes', triplet:'triplets', sixteenth:'16th notes'}[s.nv];
+    return `${QUALITIES[s.qual].label} · ${patName} · ${dirName} · ${nvName}`;
+  },
+  // The exercise in words, for #summary. Extends key() so the two can never disagree
+  // about the first four parts, which is what exKeyPrefix relies on.
   label(s){
     const oct = +s.oct, posFret = +s.pos;
-    const patName = {straight:'straight',thirds:'in 3rds',fourths:'in 4ths',sixths:'in 6ths',groups3:'groups of 3',groups4:'groups of 4'}[s.pat];
     const seqName = {single:'',cycle4:' → cycle of 4ths',cycle5:' → cycle of 5ths',chromatic:' → chromatic',whole:' → whole steps'}[s.seq];
-    const dirName = {asc:'ascending',desc:'descending',both:'asc + desc'}[s.dir];
     const varName = {none:'',rev:' · reversed groups',zigzag:' · zigzag',pedal:' · pedal root'}[s.variation];
     const fingName = s.fing==='3nps' ? ' · 3 notes/string'
       : s.fing==='fixed' ? ` · position ${posFret} (frets ${posFret}–${posFret+4})`
@@ -2739,8 +2750,7 @@ const exSpec = {
       : s.fing==='shift' ? ' · position-shift connector' : '';
     const tapName = s.tap!=='none' ? ` · tap ${s.tap}` : '';
     const rangeName = (s.fing==='fixed'||s.fing==='caged'||s.fing==='shift') ? 'full position' : `${oct} octave${oct>1?'s':''}`;
-    const nvName = {half:'half notes', quarter:'quarter notes', eighth:'8th notes', triplet:'triplets', sixteenth:'16th notes'}[s.nv];
-    return `${QUALITIES[s.qual].label} · ${patName} · ${dirName} · ${nvName} · ${rangeName}${fingName}${tapName}${varName}${seqName}`;
+    return `${this.key(s)} · ${rangeName}${fingName}${tapName}${varName}${seqName}`;
   },
   musicalDefaults(){ return Object.fromEntries(this.MUSICAL.map(k=> [k, this.DEFAULTS[k]])); },
 };
@@ -3217,7 +3227,10 @@ function syncAdvVisibility(){
 }
 // ---- Progress tracking (localStorage) ----
 const store = {
-  load(){ try{ return JSON.parse(localStorage.getItem('gph') || '{}'); }catch(e){ return {}; } },
+  // Re-keying old personal bests on read covers every path — local data, and data merged
+  // down from a device still on an older build — without a one-shot migration to remember
+  // to run. It persists on the next save; until then reads are already consistent.
+  load(){ try{ const d = JSON.parse(localStorage.getItem('gph') || '{}'); if(d.pb) d.pb = migratePbKeys(d.pb); return d; }catch(e){ return {}; } },
   save(d){ try{ localStorage.setItem('gph', JSON.stringify(d)); }catch(e){} },
 };
 
@@ -3273,10 +3286,13 @@ addEventListener('pagehide', endSession);
 
 function logSession(){
   const d = store.load();
-  const key = $('summary').textContent;
+  const spec = exSpec.read();
+  // Keyed on the identity, not on #summary: the rendered sentence carries the meter and
+  // bar count, which split one exercise into a personal best per meter.
+  const key = exSpec.key(spec);
   d.sessions = d.sessions || [];
   // v = the select values, so Today's Practice can re-open logged exercises later
-  d.sessions.push({k:key, bpm:metro.bpm, t:Date.now(), v: exSpec.encode(exSpec.read())});
+  d.sessions.push({k: exSpec.label(spec), bpm:metro.bpm, t:Date.now(), v: exSpec.encode(spec)});
   track('session_logged', {bpm: metro.bpm});
   if(d.sessions.length > 1000) d.sessions = d.sessions.slice(-1000);
   d.pb = d.pb || {};
@@ -3434,6 +3450,21 @@ function tdRng(seed){
 }
 // favorites (n), logged sessions (k) and personal bests share the same 4-part summary prefix
 const exKeyPrefix = k => String(k).split(' · ').slice(0, 4).join(' · ');
+
+// Personal bests written before exSpec.key() were keyed on the whole rendered summary,
+// which carries the range and " · N bars/key in METER" — so the same exercise practised
+// in 4/4 and 3/4 became two bests. Re-key onto the 4-part identity, keeping the faster
+// tempo where entries collapse together. Idempotent: already-migrated keys are their own
+// prefix, so this is safe to run on every load and on data merged down from the cloud.
+function migratePbKeys(pb){
+  const out = {};
+  Object.entries(pb || {}).forEach(([k, v])=>{
+    if(!v || typeof v !== 'object') return;
+    const nk = exKeyPrefix(k);
+    if(!out[nk] || (+v.bpm || 0) > (+out[nk].bpm || 0)) out[nk] = v;
+  });
+  return out;
+}
 
 // one candidate per distinct exercise, carrying select values when known (only those are startable)
 function tdCandidates(d){
