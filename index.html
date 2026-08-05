@@ -2669,6 +2669,82 @@ const TECH_TIPS = {
 FLAT_NAMES.forEach((n,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=n; selRoot.appendChild(o); });
 const selPos = $('selPos');
 for(let p=1;p<=12;p++){ const o=document.createElement('option'); o.value=p; o.textContent=`${p} (frets ${p}–${p+4})`; if(p===5) o.selected=true; selPos.appendChild(o); }
+
+// ---- Exercise spec: the complete description of one exercise ----
+// Everything that names an exercise crosses this interface — the controls, the
+// shareable #ex= link, saved favourites, logged sessions and Today's Practice
+// blocks. The 15-slot positional array stays the wire format, so old links,
+// existing favourites and a device still running the service worker's cached
+// build all keep round-tripping. Slot order is therefore append-only: adding a
+// field means appending to EX_FIELDS, never reordering it.
+const EX_FIELDS = [
+  ['root',      selRoot,   '0'       ],
+  ['qual',      selQual,   'maj'     ],
+  ['pat',       selPat,    'straight'],
+  ['seq',       selSeq,    'single'  ],
+  ['dir',       selDir,    'asc'     ],
+  ['oct',       selOct,    '2'       ],
+  ['fing',      selFing,   'pos'     ],
+  ['pos',       selPos,    '5'       ],
+  ['variation', selVar,    'none'    ],
+  ['tech',      selTech,   'none'    ],
+  ['shapes',    selShapes, 'neck'    ],
+  ['note',      selNote,   'on'      ],
+  ['nv',        selNV,     'quarter' ],
+  ['shape',     selShape,  '0'       ],
+  ['tap',       selTap,    'none'    ],
+];
+const exSpec = {
+  DEFAULTS: Object.fromEntries(EX_FIELDS.map(([k,,d])=> [k, d])),
+  // The musical fields — what a player asks for. The rest (CAGED map, notation,
+  // tap note) are view settings, which is why apply() writes only what it's given:
+  // "C major scale" must reset the musical fields without touching how they're drawn.
+  MUSICAL: ['root','qual','pat','seq','dir','oct','fing','pos','variation','tech','nv'],
+  read(){
+    const s = {instrument};
+    EX_FIELDS.forEach(([k, sel])=>{ s[k] = sel.value; });
+    return s;
+  },
+  apply(partial){
+    // Instrument first: applyInstrument() parks and restores the guitar-only
+    // fingering choice, so it has to run before a fingering value is written.
+    if(partial.instrument && partial.instrument !== instrument){
+      instrument = partial.instrument === 'piano' ? 'piano' : 'guitar';
+      $('selInst').value = instrument;
+      applyInstrument(false);
+    }
+    EX_FIELDS.forEach(([k, sel])=>{
+      if(partial[k] !== undefined && partial[k] !== '') sel.value = String(partial[k]);
+    });
+  },
+  // Instrument is deliberately not a slot: it rides the hash as i=p and the store
+  // as d.instr, and the 15-slot arrays already in people's favourites predate it.
+  encode(spec){ return EX_FIELDS.map(([k,,d])=> spec[k] !== undefined ? String(spec[k]) : d); },
+  decode(arr){
+    const a = Array.isArray(arr) ? arr : [];
+    return Object.fromEntries(EX_FIELDS.map(([k,,d], i)=> [k, a[i] !== undefined && a[i] !== '' ? a[i] : d]));
+  },
+  // The exercise in words. #summary shows it; favourites, logged sessions and
+  // personal bests key off its first four parts — see exKeyPrefix.
+  label(s){
+    const oct = +s.oct, posFret = +s.pos;
+    const patName = {straight:'straight',thirds:'in 3rds',fourths:'in 4ths',sixths:'in 6ths',groups3:'groups of 3',groups4:'groups of 4'}[s.pat];
+    const seqName = {single:'',cycle4:' → cycle of 4ths',cycle5:' → cycle of 5ths',chromatic:' → chromatic',whole:' → whole steps'}[s.seq];
+    const dirName = {asc:'ascending',desc:'descending',both:'asc + desc'}[s.dir];
+    const varName = {none:'',rev:' · reversed groups',zigzag:' · zigzag',pedal:' · pedal root'}[s.variation];
+    const fingName = s.fing==='3nps' ? ' · 3 notes/string'
+      : s.fing==='fixed' ? ` · position ${posFret} (frets ${posFret}–${posFret+4})`
+      : s.fing==='caged' ? (s.shape==='cycle' ? ' · CAGED shapes (all 5)' : ' · CAGED shape')
+      : s.fing==='2str' ? ' · 2-string pairs (all 5)'
+      : s.fing==='shift' ? ' · position-shift connector' : '';
+    const tapName = s.tap!=='none' ? ` · tap ${s.tap}` : '';
+    const rangeName = (s.fing==='fixed'||s.fing==='caged'||s.fing==='shift') ? 'full position' : `${oct} octave${oct>1?'s':''}`;
+    const nvName = {half:'half notes', quarter:'quarter notes', eighth:'8th notes', triplet:'triplets', sixteenth:'16th notes'}[s.nv];
+    return `${QUALITIES[s.qual].label} · ${patName} · ${dirName} · ${nvName} · ${rangeName}${fingName}${tapName}${varName}${seqName}`;
+  },
+  musicalDefaults(){ return Object.fromEntries(this.MUSICAL.map(k=> [k, this.DEFAULTS[k]])); },
+};
+
 const QUAL_GROUPS = {
   'Arpeggios': ['maj','min','dim','aug','sus2','sus4',
     'maj7','dom7','min7','m7b5','dim7','minmaj7','7sus4',
@@ -2700,13 +2776,14 @@ const EXAMPLES = [
 const dice=document.createElement('button'); dice.className='chip dicechip'; dice.id='diceChip'; dice.textContent='🎲 Surprise me';
 dice.onclick=()=>{
   const pick=a=>a[Math.floor(Math.random()*a.length)];
-  selRoot.value=Math.floor(Math.random()*12);
-  selQual.value=pick(Object.values(QUAL_GROUPS).flat());
-  selPat.value=pick(['straight','thirds','fourths','sixths','groups3','groups4']);
-  selSeq.value=pick(['single','cycle4','cycle5','chromatic','whole']);
-  selDir.value=pick(['asc','desc','both']);
-  selOct.value='2'; selNV.value='quarter'; selFing.value='pos'; selVar.value='none'; selTech.value='none';
-  selShape.value='0'; selTap.value='none';
+  exSpec.apply({
+    ...exSpec.musicalDefaults(), shape:'0', tap:'none',
+    root: Math.floor(Math.random()*12),
+    qual: pick(Object.values(QUAL_GROUPS).flat()),
+    pat:  pick(['straight','thirds','fourths','sixths','groups3','groups4']),
+    seq:  pick(['single','cycle4','cycle5','chromatic','whole']),
+    dir:  pick(['asc','desc','both']),
+  });
   $('query').value='';
   generate();
 };
@@ -2741,10 +2818,12 @@ function markBarLines(groups, nv){
 }
 
 function generate(){
-  const rootPc=+selRoot.value, qual=selQual.value, pat=selPat.value,
-        seq=selSeq.value, dir=selDir.value, oct=+selOct.value,
-        fing=selFing.value, variation=selVar.value, tech=selTech.value, posFret=+selPos.value,
-        shapeSel=selShape.value, tapIv=selTap.value;
+  const spec = exSpec.read();
+  const rootPc=+spec.root, qual=spec.qual, pat=spec.pat,
+        seq=spec.seq, dir=spec.dir, oct=+spec.oct,
+        fing=spec.fing, variation=spec.variation, tech=spec.tech, posFret=+spec.pos,
+        shapeSel=spec.shape, tapIv=spec.tap, nv=spec.nv,
+        shapesView=spec.shapes, noteView=spec.note;
   $('posWrap').style.display = fing==='fixed' ? '' : 'none';
   $('shapeWrap').style.display = fing==='caged' ? '' : 'none';
   syncAdvVisibility();
@@ -2757,19 +2836,7 @@ function generate(){
   roots.forEach(pc => shapeIdxs.forEach(si => jobs.push({pc, si})));
   stopPlayback();
   const out = $('out'); out.innerHTML='';
-  const patName = {straight:'straight',thirds:'in 3rds',fourths:'in 4ths',sixths:'in 6ths',groups3:'groups of 3',groups4:'groups of 4'}[pat];
-  const seqName = {single:'',cycle4:' → cycle of 4ths',cycle5:' → cycle of 5ths',chromatic:' → chromatic',whole:' → whole steps'}[seq];
-  const dirName = {asc:'ascending',desc:'descending',both:'asc + desc'}[dir];
-  const varName = {none:'',rev:' · reversed groups',zigzag:' · zigzag',pedal:' · pedal root'}[variation];
-  const fingName = fing==='3nps' ? ' · 3 notes/string'
-    : fing==='fixed' ? ` · position ${posFret} (frets ${posFret}–${posFret+4})`
-    : fing==='caged' ? (shapeSel==='cycle' ? ' · CAGED shapes (all 5)' : ' · CAGED shape')
-    : fing==='2str' ? ' · 2-string pairs (all 5)'
-    : fing==='shift' ? ' · position-shift connector' : '';
-  const tapName = tapIv!=='none' ? ` · tap ${tapIv}` : '';
-  const rangeName = (fing==='fixed'||fing==='caged'||fing==='shift') ? 'full position' : `${oct} octave${oct>1?'s':''}`;
-  const nvName = {half:'half notes', quarter:'quarter notes', eighth:'8th notes', triplet:'triplets', sixteenth:'16th notes'}[selNV.value];
-  $('summary').textContent = `${QUALITIES[qual].label} · ${patName} · ${dirName} · ${nvName} · ${rangeName}${fingName}${tapName}${varName}${seqName}`;
+  $('summary').textContent = exSpec.label(spec);
   $('droneBtn').textContent = 'Drone: ' + FLAT_NAMES[rootPc];
   akIdx = 0; akCount = 0;
   stateToHash();
@@ -2779,10 +2846,10 @@ function generate(){
   copyText = $('summary').textContent + (tech!=='none' ? '\n' + tip.textContent : '');
   jobs.forEach(({pc, si}, ji)=>{
     const ex = buildKeyExercise(pc, qual, pat, dir, oct, null, null, fing, variation, posFret, si, tapIv);
-    markBarLines(ex.groups, selNV.value);
+    markBarLines(ex.groups, nv);
     if(ji === 0){
       // auto-fit auto-advance: bars this exercise takes in the current meter
-      const ticks = ex.groups.flat().length * noteTicks(selNV.value);
+      const ticks = ex.groups.flat().length * noteTicks(nv);
       let bars;
       if($('mBeats').value === 'none') bars = Math.max(1, Math.min(99, Math.ceil(ticks - 1e-6)));
       else {   // walk the bar cycle so mixed-length bars count correctly
@@ -2809,10 +2876,10 @@ function generate(){
     head.appendChild(pb);
     div.appendChild(head);
     if(instrument === 'piano'){
-      if(selShapes.value !== 'off') div.appendChild(keyboardRow(ex.groups.flat().map(n=>n.p), pc));
+      if(shapesView !== 'off') div.appendChild(keyboardRow(ex.groups.flat().map(n=>n.p), pc));
     }
-    else if(selShapes.value === 'on') div.appendChild(shapesRow(pc, qual));
-    else if(selShapes.value === 'neck'){
+    else if(shapesView === 'on') div.appendChild(shapesRow(pc, qual));
+    else if(shapesView === 'neck'){
       let win = null;
       if(fing==='fixed') win = {lo:posFret, hi:posFret+4};
       else if(fing==='caged'){ const sh = cagedShapes(pc, qual)[Math.max(0, Math.min(si, 4))]; win = {lo:sh.lo, hi:sh.hi}; }
@@ -2823,7 +2890,7 @@ function generate(){
       div.appendChild(neckRow(pc, qual, win));
     }
     // "Tab only (text)" has nothing to show for a keyboard — piano always gets the staff.
-    if(selNote.value === 'on' || instrument === 'piano'){
+    if(noteView === 'on' || instrument === 'piano'){
       const nd=document.createElement('div'); nd.className='notation';
       // Standard fingerings describe a plain scale run. Patterns, variations and odd
       // directions have no conventional fingering, so none is shown rather than invented.
@@ -2832,7 +2899,7 @@ function generate(){
                        && variation === 'none' && fing === 'pos')
         ? pianoFingers(qual, pc, oct, dir, hand) : null;
       // 34 = the keyblock's 16px side padding + 1px borders; nd isn't attached yet, so measure #out
-      nd.innerHTML = renderNotationSystems(ex.groups, pc, null, selNV.value, fingers, $('out').clientWidth - 34).map(s=>`<div class="nsys">${s}</div>`).join('');
+      nd.innerHTML = renderNotationSystems(ex.groups, pc, null, nv, fingers, $('out').clientWidth - 34).map(sys=>`<div class="nsys">${sys}</div>`).join('');
       div.appendChild(nd);
     } else {
       const pre=document.createElement('pre'); pre.className='tab';
@@ -2843,24 +2910,6 @@ function generate(){
   });
 }
 
-// Every musical field a plain-English query can set, with the value it falls back to.
-// Anything the query does NOT mention resets — otherwise "C major scale" silently
-// inherits "groups of 3, legato" from whatever was typed before it.
-// Display preferences (CAGED map, notation vs text, tap note) are deliberately NOT in
-// here: they are the user's view settings, not part of what they asked for.
-const NL_FIELDS = [
-  ['root',      ()=>selRoot, '0'       ],
-  ['qual',      ()=>selQual, 'maj'     ],
-  ['pat',       ()=>selPat,  'straight'],
-  ['seq',       ()=>selSeq,  'single'  ],
-  ['dir',       ()=>selDir,  'asc'     ],
-  ['oct',       ()=>selOct,  '2'       ],
-  ['fing',      ()=>selFing, 'pos'     ],
-  ['pos',       ()=>selPos,  '5'       ],
-  ['variation', ()=>selVar,  'none'    ],
-  ['tech',      ()=>selTech, 'none'    ],
-  ['nv',        ()=>selNV,   'quarter' ],
-];
 // `demo` = the canned first-visit query below, not something a human asked for. Without the
 // flag it was 34 of the first 57 nl_query events, reading as 100% adoption of the plain-English
 // box — the app counting its own demo as a user.
@@ -2880,7 +2929,10 @@ function runFromText(demo){
     return;   // leave the current exercise up rather than rendering something unrelated
   }
   msg.style.display = 'none';
-  NL_FIELDS.forEach(([k, sel, dflt])=>{ sel().value = p[k] !== undefined ? p[k] : dflt; });
+  // Anything the query does NOT mention resets — otherwise "C major scale" silently
+  // inherits "groups of 3, legato" from whatever was typed before it. Only the musical
+  // fields are in that reset: the view settings are the user's, not part of the ask.
+  exSpec.apply({...exSpec.musicalDefaults(), ...p});
   generate();   // #summary spells out the resulting exercise in words
 }
 
@@ -2966,15 +3018,13 @@ $('akBtn').onclick = ()=>{
 // ---- Shareable URL state (compact: only non-default settings) ----
 let currentTab = 'ex';
 let hashReady = false;
-const EX_DEFAULTS = ['0','maj','straight','single','asc','2','pos','5','none','none','neck','on','quarter','0','none'];
-const EX_SELS = [selRoot,selQual,selPat,selSeq,selDir,selOct,selFing,selPos,selVar,selTech,selShapes,selNote,selNV,selShape,selTap];
 function stateToHash(){
   if(!hashReady) return;
   try{
-    const ex = EX_SELS.map(s=>s.value);
+    const ex = exSpec.encode(exSpec.read()), dflt = exSpec.encode({});
     // trim trailing fields that match the defaults
     let end = ex.length;
-    while(end > 0 && ex[end-1] === EX_DEFAULTS[end-1]) end--;
+    while(end > 0 && ex[end-1] === dflt[end-1]) end--;
     const parts = [];
     if(currentTab !== 'ex') parts.push('t=' + currentTab);
     if(instrument === 'piano') parts.push('i=p');   // absent = guitar, so old links are untouched
@@ -2989,9 +3039,13 @@ function stateToHash(){
 function parseHash(){
   const h = location.hash.slice(1);
   if(!h) return null;
-  // legacy JSON links still work
+  // legacy JSON links still work — they carried ex as a '|'-joined string
   if(h.startsWith('%7B') || h.startsWith('{')){
-    try{ return JSON.parse(decodeURIComponent(h)); }catch(e){ return null; }
+    try{
+      const st = JSON.parse(decodeURIComponent(h));
+      if(typeof st.ex === 'string') st.ex = st.ex.split('|');
+      return st;
+    }catch(e){ return null; }
   }
   const st = {};
   h.split('&').forEach(kv=>{
@@ -2999,10 +3053,7 @@ function parseHash(){
     const k = kv.slice(0, i), v = kv.slice(i+1);
     if(k === 't') st.t = v;
     else if(k === 'i') st.i = v === 'p' ? 'piano' : 'guitar';
-    else if(k === 'ex'){
-      const vals = v.split('.');
-      st.ex = EX_DEFAULTS.map((d, j)=> vals[j] !== undefined ? vals[j] : d).join('|');
-    }
+    else if(k === 'ex') st.ex = v.split('.');   // short arrays fill from defaults in decode()
     else if(k === 'pi') st.pi = decodeURIComponent(v);
     else if(k === 'pn') st.pn = v;
     else if(k === 'pl') st.pl = v;
@@ -3225,7 +3276,7 @@ function logSession(){
   const key = $('summary').textContent;
   d.sessions = d.sessions || [];
   // v = the select values, so Today's Practice can re-open logged exercises later
-  d.sessions.push({k:key, bpm:metro.bpm, t:Date.now(), v: EX_SELS.map(s=>s.value)});
+  d.sessions.push({k:key, bpm:metro.bpm, t:Date.now(), v: exSpec.encode(exSpec.read())});
   track('session_logged', {bpm: metro.bpm});
   if(d.sessions.length > 1000) d.sessions = d.sessions.slice(-1000);
   d.pb = d.pb || {};
@@ -3254,7 +3305,7 @@ function renderFavChips(){
     };
     b.appendChild(x);
     b.onclick = ()=>{
-      EX_SELS.forEach((s,i)=>{ if(f.v[i] !== undefined) s.value = f.v[i]; });
+      exSpec.apply(exSpec.decode(f.v));
       $('query').value = '';
       generate();
     };
@@ -3263,9 +3314,9 @@ function renderFavChips(){
 }
 $('favBtn').onclick = ()=>{
   const d = store.load();
-  const v = EX_SELS.map(s=>s.value);
+  const s = exSpec.read(), v = exSpec.encode(s);
   d.favs = (d.favs||[]).filter(o=> o.v.join('.') !== v.join('.'));   // re-saving moves it to the front
-  d.favs.push({n: $('summary').textContent.split(' · ').slice(0,4).join(' · '), v, t: Date.now()});
+  d.favs.push({n: exKeyPrefix(exSpec.label(s)), v, t: Date.now()});
   d.favs = d.favs.slice(-50);
   store.save(d);
   renderFavChips();
@@ -3353,7 +3404,7 @@ const tdClampBpm = x => Math.min(TD_BPM_MAX, Math.max(TD_BPM_MIN, Math.round(+x 
 const TD_EAR_LABELS = {intervals:'Interval recognition', chords:'Chord recognition', scales:'Scale recognition'};
 const TD_TYPE_LABEL = {technique:'Technique progression', ear:'Ear training', explore:'Exploration'};
 
-// value arrays follow EX_SELS order: root,qual,pat,seq,dir,oct,fing,pos,var,tech,shapes,note,nv,shape,tap.
+// value arrays follow EX_FIELDS order: root,qual,pat,seq,dir,oct,fing,pos,variation,tech,shapes,note,nv,shape,tap.
 // `n` matches the 4-part summary prefix generate() produces, so PBs and logs link up. `g` = guitar-only.
 const TD_TECH_DEFAULTS = [
   {n:'minor pentatonic · groups of 3 · ascending · 8th notes',
@@ -3558,7 +3609,7 @@ function tdStartBlock(i){
     document.querySelector('.tabbtn[data-tab="ear"]').onclick();
     toast(`${TD_EAR_LABELS[b.cat]} for ~${b.mins} min — press “▶ New question” to begin.`);
   } else {
-    EX_SELS.forEach((sel,j)=>{ if(b.v && b.v[j] !== undefined) sel.value = b.v[j]; });
+    if(b.v) exSpec.apply(exSpec.decode(b.v));
     $('query').value = '';
     generate();
     setBpm(b.target || 80);
@@ -5057,11 +5108,7 @@ metro.onBar = akOnBar;
   $('selInst').value = instrument;
   applyInstrument(false);
   if(st){
-    if(st.ex){
-      const v = st.ex.split('|');
-      [selRoot,selQual,selPat,selSeq,selDir,selOct,selFing,selPos,selVar,selTech,selShapes,selNote,selNV,selShape,selTap]
-        .forEach((s,i)=>{ if(v[i] !== undefined && v[i] !== '') s.value = v[i]; });
-    }
+    if(st.ex) exSpec.apply(exSpec.decode(st.ex));
     if(st.q)  $('query').value = st.q;
     if(st.pi) $('progIn').value = st.pi;
     if(st.pn) $('progN').value = st.pn;
