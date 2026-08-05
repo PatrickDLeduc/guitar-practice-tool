@@ -642,6 +642,91 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
       rt.legacyJson.qual === 'maj7' && rt.legacyJson.root === '0' && rt.legacyJson.pat === 'straight');
   }
 
+  // ---------- exercise identity ----------
+  // key(spec) is what personal bests, favourites and Today's Practice are stored under.
+  // Its wording is frozen: label(spec) may be reworded freely, key(spec) may not, because
+  // every change orphans data already on disk and in the cloud. These literals are the
+  // pin — if one fails, the wording changed and a migration is owed.
+  {
+    const k = await p.evaluate(() => {
+      const spec = a => exSpec.decode(a);
+      try {
+        return {
+          pent: exSpec.key(spec(['9', 'minpent', 'groups3', 'single', 'asc', '2'])),
+          maj:  exSpec.key(spec(['0', 'majscale', 'straight', 'cycle4', 'both', '1', 'pos', '5', 'none', 'none', 'neck', 'on', 'eighth'])),
+          // range, fingering, position and variation are not identity — the same material
+          // practised in 5th position for 3 octaves is the same personal best
+          wide: exSpec.key(spec(['9', 'minpent', 'groups3', 'single', 'asc', '3', 'fixed', '9', 'zigzag'])),
+          label: exSpec.label(spec(['9', 'minpent', 'groups3', 'single', 'asc', '2'])),
+        };
+      } catch (e) { return { threw: e.message }; }
+    });
+    assert('exSpec: key is the frozen 4-part identity' + (k.threw ? ' — threw: ' + k.threw : ' (got ' + k.pent + ')'),
+      k.pent === 'minor pentatonic · groups of 3 · ascending · quarter notes');
+    assert('exSpec: key spells out qual, pattern, direction, note value (got ' + k.maj + ')',
+      k.maj === 'major scale · straight · asc + desc · 8th notes');
+    assert('exSpec: range, position and variation are not identity',
+      typeof k.pent === 'string' && k.pent === k.wide);
+    assert('exSpec: label extends key rather than diverging from it',
+      typeof k.label === 'string' && k.label.startsWith(k.pent + ' · '));
+  }
+
+  // Personal bests were keyed on the whole rendered summary, which carries the meter and
+  // bar count, so one exercise split into a separate best per meter. Re-keying is a pure
+  // string transform — no spec needed — so it reaches even the oldest entries, which
+  // predate sessions carrying select values and could not be recovered any other way.
+  {
+    const mig = await p.evaluate(() => {
+      const legacy = {
+        'minor pentatonic · groups of 3 · ascending · quarter notes · 2 octaves · 7 bars/key in 4/4': { bpm: 100, t: 1000 },
+        'minor pentatonic · groups of 3 · ascending · quarter notes · 2 octaves · 9 bars/key in 3/4': { bpm: 120, t: 2000 },
+        'major scale · straight · asc + desc · 8th notes · 2 octaves': { bpm: 90, t: 3000 },
+      };
+      try {
+        const once = migratePbKeys(legacy);
+        return { once, twice: migratePbKeys(once) };
+      } catch (e) { return { threw: e.message }; }
+    });
+    const pent = 'minor pentatonic · groups of 3 · ascending · quarter notes';
+    assert('pb migration: meter-split bests merge into one' + (mig.threw ? ' — threw: ' + mig.threw : ''),
+      !!mig.once && Object.keys(mig.once).length === 2);
+    assert('pb migration: the merged entry keeps the faster tempo and its date',
+      !!mig.once && !!mig.once[pent] && mig.once[pent].bpm === 120 && mig.once[pent].t === 2000);
+    assert('pb migration: an entry with nothing to merge survives unchanged',
+      !!mig.once && !!mig.once['major scale · straight · asc + desc · 8th notes']
+      && mig.once['major scale · straight · asc + desc · 8th notes'].bpm === 90);
+    assert('pb migration: running it again changes nothing',
+      !!mig.once && JSON.stringify(mig.once) === JSON.stringify(mig.twice));
+  }
+
+  // The whole point, end to end: the meter is a practice setting, not part of what you
+  // played, so logging the same exercise in 4/4 and in 3/4 is one personal best.
+  {
+    const logged = await p.evaluate(() => {
+      const saved = { gph: localStorage.getItem('gph'), today: localStorage.getItem('gphToday') };
+      try {
+        localStorage.removeItem('gph');
+        exSpec.apply(exSpec.decode(['9', 'minpent', 'groups3']));
+        // the change listener re-runs generate(), so #summary is realistic at log time
+        $('mBeats').value = '4/4'; $('mBeats').dispatchEvent(new Event('change'));
+        setBpm(100); logSession();
+        $('mBeats').value = '3/4'; $('mBeats').dispatchEvent(new Event('change'));
+        setBpm(120); logSession();
+        const d = store.load();
+        return { keys: Object.keys(d.pb || {}), key: exSpec.key(exSpec.read()), pb: d.pb || {} };
+      } finally {
+        if (saved.gph === null) localStorage.removeItem('gph'); else localStorage.setItem('gph', saved.gph);
+        if (saved.today === null) localStorage.removeItem('gphToday'); else localStorage.setItem('gphToday', saved.today);
+      }
+    });
+    assert('progress: one personal best per exercise, whatever the meter (got ' + logged.keys.length + ': '
+      + logged.keys.join(' | ') + ')', logged.keys.length === 1);
+    assert('progress: the best is stored under the exercise identity',
+      logged.keys.length === 1 && logged.keys[0] === logged.key);
+    assert('progress: the best keeps the faster of the two tempos',
+      !!logged.pb[logged.key] && logged.pb[logged.key].bpm === 120);
+  }
+
   // ---------- guitar regression guard ----------
   // Baseline captured from the pre-piano-support engine. Guitar note placement and tab
   // output must not shift when instrument-aware code paths change. If a deliberate
