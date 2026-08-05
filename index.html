@@ -114,6 +114,16 @@
   #droneBtn.playing,#loopBtn.playing,#akBtn.playing{color:var(--accent);border-color:var(--accent)}
   #akBars{width:48px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 6px;font-size:13px;margin-right:8px}
   .keyblock.activekey{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  /* folded keys: heading only, so a 12-key cycle is a scannable list instead of 13,000px */
+  .keyblock.folded{padding-bottom:8px}
+  .keyblock.folded > *:not(.keyhead){display:none}
+  .keyblock.folded .keyhead{margin-bottom:0}
+  .kfold{background:none;border:none;color:var(--muted);font-size:15px;line-height:1;
+    min-width:44px;min-height:44px;margin-left:auto}
+  .kfold::after{content:'\25BE'}                      /* ▾ open */
+  .keyblock.folded .kfold::after{content:'\25B8'}     /* ▸ folded */
+  .kfold:hover{color:var(--accent)}
+  .keyblock.folded .keyhead{cursor:pointer}
   .vgrip{cursor:pointer}
   .vgrip:hover{border-color:var(--accent)}
   .vcap{font-size:11px;color:var(--muted);text-align:center;margin-top:2px}
@@ -229,7 +239,20 @@
   .err{color:#f08080;font-size:14px;margin-bottom:14px}
   .shapes{display:flex;gap:8px;overflow-x:auto;padding:6px 0 10px;border-bottom:1px dashed var(--border);margin-bottom:10px}
   .shape{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:4px 6px;flex:0 0 auto}
+  .neckbox{position:relative}
   .neckwrap{overflow-x:auto;padding:4px 0 10px;border-bottom:1px dashed var(--border);margin-bottom:10px}
+  /* NB: the button is .neckfit, the body state is .neckfitted — sharing one name put these
+     absolute-position rules on <body>, which shrink-wrapped the whole page to 982px. */
+  .neckfit{position:absolute;top:4px;right:0;z-index:1;background:var(--panel2);border:1px solid var(--border);
+    color:var(--muted);border-radius:8px;font-size:11px;font-weight:600;padding:0 10px;min-height:28px}
+  .neckfit:hover{border-color:var(--accent);color:var(--text)}
+  body.neckfitted .neckfit{background:var(--accent);border-color:var(--accent);color:#1a1408}
+  /* the fitted board fills the column, so the "more to scroll" fade would be a lie */
+  body.neckfitted .neckwrap{-webkit-mask-image:none;mask-image:none}
+  /* Shrink the board itself and leave the scroller's overflow alone. Flipping overflow to
+     hidden here made the wrapper resolve to the desktop width (336 -> 926) and the board
+     never scaled; sizing only the svg keeps the column where it is. */
+  body.neckfitted .neckwrap svg{width:100%;height:auto}
   /* pure-CSS scroll shadow — the edge fade appears only while there is more neck to scroll to.
      The two "cover" layers scroll with the content (local) and mask the shadow at each end. */
   .shapes,.neckwrap{
@@ -292,12 +315,12 @@
   .acctlegal a{color:var(--muted)}
   #acctPlan{display:inline-block;padding:1px 8px;border-radius:9px;border:1px solid var(--accent);color:var(--accent);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-left:6px}
   #acctSync{color:var(--muted);font-size:12px;margin:6px 0 14px}
-  .ticon,.ts,#custBtn,#custDone,#sheetBack,#advDiv{display:none}
+  .ticon,.ts,#custBtn,#custDone,#sheetBack,#advDiv,#tabMore,#tabsBack,#toolMore,#rootGrid{display:none}
   @media(max-width:640px){
     body{padding:14px calc(10px + env(safe-area-inset-right)) calc(162px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left))}
     h1{font-size:20px}
     .sub{font-size:12px;margin-bottom:14px}
-    #acctBtn{padding:6px 10px;font-size:12px;max-width:120px}
+    #acctBtn{min-height:44px;padding:0 12px;font-size:13px;max-width:120px}
     .inputrow{flex-direction:row}
     #query{font-size:16px;min-width:0}
     #go{flex:0 0 auto;width:46px;border-radius:12px;font-size:0}
@@ -312,12 +335,30 @@
     .tabbar{position:fixed;bottom:0;left:0;right:0;z-index:12;margin:0;gap:0;
       background:var(--panel);border-bottom:none;border-top:1px solid var(--border);
       padding:7px 4px calc(9px + env(safe-area-inset-bottom))}
-    .tabbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    .tabbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
       padding:0;border:none;white-space:nowrap;min-height:44px}
     .tabbtn.active{background:none;border:none}
-    .ticon{display:block;width:19px;height:19px}
-    .ts{display:block;font-size:9.5px;font-weight:600}
+    .ticon{display:block;width:20px;height:20px}
+    .ts{display:block;font-size:11px;font-weight:600}
     .tl{display:none}
+    /* Five slots, not eight. Eight destinations left each tab 46px wide with 9.5px labels
+       ("Poly", "Prog"); iOS and Material both cap a bottom bar at five. The other four live
+       one tap away in a 3x3 grid that expands from the bar itself — same buttons, so every
+       existing tab handler and deep link keeps working untouched. */
+    .tabbtn[data-tab="stack"],.tabbtn[data-tab="voic"],
+    .tabbtn[data-tab="ear"],.tabbtn[data-tab="poly"]{display:none}
+    .tabbtn.active{display:flex}     /* an overflow section still shows while it's the one you're in */
+    #tabMore{display:flex}
+    body.tabsmore #tabsBack{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:11}
+    body.tabsmore .tabbar{flex-wrap:wrap;row-gap:4px;padding-top:12px}
+    body.tabsmore .tabbtn{display:flex;flex:0 0 33.333%;min-height:60px}
+    body.tabsmore .ts{display:none}
+    body.tabsmore .tl{display:block;font-size:12px;font-weight:600}
+    body.tabsmore #tabMore{color:var(--accent)}
+    body.tabsmore #tabMore .tl{font-size:0}
+    body.tabsmore #tabMore .tl::after{content:'Close';font-size:12px}
+    /* the grid grows up over where the metronome docks — let it have the space */
+    body.tabsmore #metro{display:none}
     /* exercise controls live in a bottom sheet */
     #exControls{display:none}
     #custBtn{display:block;width:100%;padding:13px;border-radius:12px;background:var(--panel2);
@@ -336,18 +377,38 @@
     #custDone{display:block;grid-column:1/-1;background:var(--accent);color:#1a1408;padding:13px;border-radius:12px;margin-top:6px}
     .controls{display:grid;grid-template-columns:1fr 1fr}
     .controls .ctl{min-width:0}
+    /* key picker: 12 keys, one tap, no dropdown */
+    #rootCtl{grid-column:1/-1}
+    #rootCtl select{display:none}
+    #rootGrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+    .rootkey{background:var(--panel2);border:1px solid var(--border);color:var(--text);
+      min-height:44px;border-radius:8px;font-size:14px;font-weight:600}
+    .rootkey.sel{background:var(--accent);border-color:var(--accent);color:#1a1408}
     select,#akBars,#trainerGrp input{width:100%;min-height:44px;font-size:16px}
     #akBars{width:56px}
     #trainerGrp input{width:60px}
-    .chip{padding:9px 13px;font-size:13px}
+    .chip{min-height:44px;padding:0 14px;font-size:13px;display:inline-flex;align-items:center}
     .choice{padding:12px 16px;min-height:44px}
-    .pbtn{width:44px;height:40px;font-size:14px}
+    .pbtn{width:44px;height:44px;font-size:14px}
     .mbtn{width:44px;height:44px}
-    .rowbtns button{padding:8px 12px}
-    #droneBtn,#loopBtn,#akBtn,#logBtn,#favBtn,#copyall,#shareBtn{padding:11px 14px;margin-right:0}
+    .rowbtns button{min-height:44px;padding:0 12px}
+    /* one height, one padding — these used to land on 44/41/39px in the same wrapped row */
+    #droneBtn,#loopBtn,#akBtn,#logBtn,#favBtn,#copyall,#shareBtn,#toolMore{
+      min-height:44px;padding:0 14px;margin-right:0;display:inline-flex;align-items:center}
     #mCustom{flex:1 1 110px;width:auto;min-height:40px;font-size:16px}
-    .toolrow{flex-wrap:wrap;justify-content:flex-start;gap:6px}
-    .toolhint{text-align:left}
+    .toolrow{flex-wrap:wrap;justify-content:flex-start;gap:8px}
+    .toolhint{text-align:left;font-size:12px}
+    /* Eight equal-weight buttons wrapped into three rows plus a hint paragraph — ~190px of
+       secondary UI sitting between the input and the notation you came here to read. Save and
+       Log stay out; the rest are one tap away. */
+    #akBtn,#akBars,#loopBtn,#droneBtn,#shareBtn,#copyall,.toolhint{display:none}
+    #toolMore{display:inline-flex;background:var(--panel2);color:var(--muted);
+      border:1px solid var(--border);font-size:15px}
+    body.toolsopen #akBtn,body.toolsopen #loopBtn,body.toolsopen #droneBtn,
+    body.toolsopen #shareBtn,body.toolsopen #copyall{display:inline-flex}
+    body.toolsopen #akBars{display:block}
+    body.toolsopen .toolhint{display:block}
+    body.toolsopen #toolMore{color:var(--accent);border-color:var(--accent)}
     /* the sheet is already behind a tap — show every control inside it */
     #exControls .ctl.adv{display:flex}
     #advBtn{display:none}
@@ -368,13 +429,21 @@
   @media (max-width:640px), (max-height:560px){
     /* viewport-fit=cover lets the page run under the notch, so the first and last controls
        (play, ⋯) were clipped by it in landscape. Only `bottom` was inset-aware before. */
-    #metro{gap:8px;padding:8px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left))}
+    /* Idle, the bar is a 52px resting strip; it only grows to the roomy 64px version while
+       something is sounding, which is when you actually reach for it. Controls stay 44px
+       either way — the height comes out of padding and the play button, never tap targets. */
+    #metro{gap:8px;padding:4px calc(12px + env(safe-area-inset-right)) 4px calc(12px + env(safe-area-inset-left))}
+    #metro.playing{padding:8px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left))}
     /* Expanded, the bar grew unbounded as its controls wrapped — 273px in portrait, past the
        162px body reserves, so it covered the page. Cap it and scroll inside instead; touch
        targets stay 44px rather than being shrunk to fit. */
     #metro.open{max-height:210px;overflow-y:auto;align-content:flex-start}
-    #mPlay{width:48px;height:48px;font-size:17px}
-    #mBpmVal{font-size:17px;width:46px;min-height:0}
+    #mPlay{width:44px;height:44px;font-size:16px}
+    #metro.playing #mPlay{width:48px;height:48px;font-size:17px}
+    /* The tempo is the one number you glance at mid-exercise, and it was 17px — smaller than
+       the body text. Values over labels: the number grows, the "BPM" caption shrinks. */
+    #mBpmVal{font-size:30px;line-height:1.05;width:64px;min-height:34px}
+    .bpmbox small{font-size:9px;letter-spacing:.5px}
     #mTap,#mSwing,#tunBtn,#beatsGrp,#trainerGrp{display:none}
     #metro.open #mTap,#metro.open #mSwing,#metro.open #tunBtn{display:inline-block}
     #metro.open #beatsGrp,#metro.open #trainerGrp{display:flex}
@@ -386,7 +455,7 @@
   @media (max-height:420px){
     #metro{padding:5px 12px;gap:6px}
     #mPlay{width:38px;height:38px;font-size:15px}
-    #mBpmVal{font-size:15px}
+    #mBpmVal{font-size:22px;min-height:26px}
     .bpmbox small{display:none}
     #mDots .dot{width:10px;height:10px}
   }
@@ -417,15 +486,17 @@
   </div>
 
   <nav class="tabbar" role="tablist" aria-label="Sections">
-    <button class="tabbtn" role="tab" aria-selected="false" data-tab="today"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="4" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="10" y1="1.5" x2="10" y2="3.5"/><line x1="10" y1="16.5" x2="10" y2="18.5"/><line x1="1.5" y1="10" x2="3.5" y2="10"/><line x1="16.5" y1="10" x2="18.5" y2="10"/><line x1="4" y1="4" x2="5.5" y2="5.5"/><line x1="14.5" y1="14.5" x2="16" y2="16"/><line x1="4" y1="16" x2="5.5" y2="14.5"/><line x1="14.5" y1="5.5" x2="16" y2="4"/></g></svg><span class="tl">Today</span><span class="ts">Today</span></button>
     <button class="tabbtn active" role="tab" aria-selected="true" data-tab="ex"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/></svg><span class="tl">Exercises</span><span class="ts">Exercises</span></button>
+    <button class="tabbtn" role="tab" aria-selected="false" data-tab="today"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="4" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="10" y1="1.5" x2="10" y2="3.5"/><line x1="10" y1="16.5" x2="10" y2="18.5"/><line x1="1.5" y1="10" x2="3.5" y2="10"/><line x1="16.5" y1="10" x2="18.5" y2="10"/><line x1="4" y1="4" x2="5.5" y2="5.5"/><line x1="14.5" y1="14.5" x2="16" y2="16"/><line x1="4" y1="16" x2="5.5" y2="14.5"/><line x1="14.5" y1="5.5" x2="16" y2="4"/></g></svg><span class="tl">Today</span><span class="ts">Today</span></button>
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="stack"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="8.5" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="14" width="16" height="3" rx="1" fill="currentColor"/></svg><span class="tl">Chord stacking</span><span class="ts">Stack</span></button>
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="prog"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="4" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="10" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/></svg><span class="tl">Progressions</span><span class="ts">Prog</span></button>
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="voic"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="3" y="11" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="11" width="6" height="6" rx="1" fill="currentColor"/></svg><span class="tl">Voicings</span><span class="ts">Voicings</span></button>
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="ear"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="currentColor"/></svg><span class="tl">Ear training</span><span class="ts">Ear</span></button>
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="pg"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="3" y="11" width="4" height="7" fill="currentColor"/><rect x="8" y="7" width="4" height="11" fill="currentColor"/><rect x="13" y="2" width="4" height="16" fill="currentColor"/></svg><span class="tl">Progress</span><span class="ts">Progress</span></button>
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="poly"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="6" cy="10" r="3" fill="currentColor"/><circle cx="14" cy="6" r="2" fill="currentColor"/><circle cx="14" cy="14" r="2" fill="currentColor"/></svg><span class="tl">Polyrhythm</span><span class="ts">Poly</span></button>
+    <button class="tabbtn" id="tabMore" aria-expanded="false" aria-label="More sections"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="4" cy="10" r="1.8" fill="currentColor"/><circle cx="10" cy="10" r="1.8" fill="currentColor"/><circle cx="16" cy="10" r="1.8" fill="currentColor"/></svg><span class="tl">More</span><span class="ts">More</span></button>
   </nav>
+  <div id="tabsBack"></div>
 
   <main>
   <div id="viewToday" role="tabpanel" style="display:none">
@@ -460,7 +531,8 @@
 
   <div id="sheetBack"></div>
   <div class="controls" id="exControls">
-    <div class="ctl"><label>Root / start key</label><select id="selRoot"></select></div>
+    <div class="ctl" id="rootCtl"><label>Root / start key</label><select id="selRoot"></select>
+      <div id="rootGrid" role="group" aria-label="Root / start key"></div></div>
     <div class="ctl"><label>Type</label><select id="selQual"></select></div>
     <div class="ctl"><label>Pattern</label><select id="selPat">
       <option value="straight">Straight</option>
@@ -502,7 +574,7 @@
       <option value="2str">2 strings, up the neck</option>
       <option value="shift">Position-shift connector</option>
     </select></div>
-    <div class="ctl" id="handWrap" style="display:none"><label>Fingering</label><select id="selHand" aria-label="Fingering hand">
+    <div class="ctl" id="handWrap" style="display:none"><label>Fingering hand</label><select id="selHand" aria-label="Fingering hand">
       <option value="rh" selected>Right hand</option>
       <option value="lh">Left hand</option>
       <option value="off">Hide</option>
@@ -561,6 +633,7 @@
     <button id="logBtn" title="Save this exercise + current tempo to your practice log">✓ Log @ 80</button>
     <button id="shareBtn" title="Copy a link that reopens this exact exercise">Share link</button>
     <button id="copyall">Copy all tabs</button>
+    <button id="toolMore" aria-expanded="false" aria-label="More exercise tools">&#8943;</button>
   </div>
   <p class="toolhint">Auto-advance moves to the next key as the metronome runs · Drone holds the root under you ·
     ★ Save pins this to your chips · ✓ Log records today at the current tempo</p>
@@ -1464,13 +1537,20 @@ function renderNotationSystems(groups, rootPc, labels, nv, fingers, availPx){
   });
   if(cur.length) systems.push(cur);
   return systems.map(sysGroups=>{
+    // Justify the system to fill its width, the way engraved music does. Greedy wrapping
+    // stops at the last group that fits, so up to a group's worth of slack was left over —
+    // 26% of the container on a phone. Spending it on wider columns makes every notehead and
+    // tab number bigger for free. Capped so a short final system doesn't sprawl.
+    const rawW = sysGroups.reduce((a,g)=> a + g.notes.length*colW + gapW, 0) - gapW;
+    const k = Math.min(1.6, Math.max(1, maxPx / rawW));
+    const cW = colW*k, gW = gapW*k;
     const cols=[]; const marks=[]; let x=padL;
     sysGroups.forEach(({notes,label})=>{
       if(label) marks.push({x, label});
-      notes.forEach(n=>{ cols.push({x: x+colW/2, n}); x+=colW; });
-      x+=gapW;
+      notes.forEach(n=>{ cols.push({x: x+cW/2, n}); x+=cW; });
+      x+=gW;
     });
-    const W = x - gapW + padR;
+    const W = x - gW + padR;
     // Piano reads at concert pitch on a grand staff; guitar is written 8va and gets tab.
     const piano = instrument === 'piano';
     cols.forEach(c=>{ c.sp = spellWritten(piano ? c.n.p : STRINGS[c.n.s]+c.n.f, useSharps, !piano); });
@@ -1489,11 +1569,11 @@ function renderNotationSystems(groups, rootPc, labels, nv, fingers, availPx){
     });
     // staff (5 lines, E4..F5 = dval 30..38); piano adds the bass staff and a brace
     for(let d=30; d<=38; d+=2)
-      s += `<line x1="12" y1="${yOf(d)}" x2="${W-6}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
+      s += `<line x1="12" y1="${yOf(d)}" x2="${W-6}" y2="${yOf(d)}" stroke="#646b7d" stroke-width="1"/>`;
     if(piano){
       for(let d=BASS_BOT; d<=BASS_TOP; d+=2)
-        s += `<line x1="12" y1="${yOf(d)}" x2="${W-6}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
-      s += `<line x1="12" y1="${yOf(38)}" x2="12" y2="${yOf(BASS_BOT)}" stroke="#4a5061" stroke-width="2.5"/>`;
+        s += `<line x1="12" y1="${yOf(d)}" x2="${W-6}" y2="${yOf(d)}" stroke="#646b7d" stroke-width="1"/>`;
+      s += `<line x1="12" y1="${yOf(38)}" x2="12" y2="${yOf(BASS_BOT)}" stroke="#646b7d" stroke-width="2.5"/>`;
     }
     // clefs sit on their own line: G4 (dval 32) on the treble staff, F3 (dval 24) on the bass
     s += clefSVG('\u{1D11E}', 14, 32, SP, yOf);
@@ -1506,12 +1586,12 @@ function renderNotationSystems(groups, rootPc, labels, nv, fingers, availPx){
         // below the bass staff only — a bass-staff note is by definition under middle C,
         // so it never needs a ledger above its own top line (A3, dval 26).
         for(let d=BASS_BOT-2; d>=d0; d-=2)
-          s += `<line x1="${c.x-8}" y1="${yOf(d)}" x2="${c.x+8}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
+          s += `<line x1="${c.x-8}" y1="${yOf(d)}" x2="${c.x+8}" y2="${yOf(d)}" stroke="#646b7d" stroke-width="1"/>`;
       } else {
         for(let d=28; d>=d0; d-=2)
-          s += `<line x1="${c.x-8}" y1="${yOf(d)}" x2="${c.x+8}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
+          s += `<line x1="${c.x-8}" y1="${yOf(d)}" x2="${c.x+8}" y2="${yOf(d)}" stroke="#646b7d" stroke-width="1"/>`;
         for(let d=40; d<=d0; d+=2)
-          s += `<line x1="${c.x-8}" y1="${yOf(d)}" x2="${c.x+8}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
+          s += `<line x1="${c.x-8}" y1="${yOf(d)}" x2="${c.x+8}" y2="${yOf(d)}" stroke="#646b7d" stroke-width="1"/>`;
       }
       if(c.sp.acc !== 0)
         s += `<text x="${c.x-14}" y="${y+4}" font-size="13" fill="#cdd3e0" font-family="'Segoe UI Symbol',serif">${c.sp.acc<0?'♭':'♯'}</text>`;
@@ -1529,36 +1609,39 @@ function renderNotationSystems(groups, rootPc, labels, nv, fingers, availPx){
       // finger numbers in one consistent row per staff (above treble, below bass) rather
       // than hugging each notehead — a scale's numbers are far easier to read in a line.
       const fg = fmap && fmap.get(c.n);
-      if(fg) s += `<text class="fng" x="${c.x}" y="${bass ? yOf(BASS_BOT)+13 : yOf(maxD)-7}" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--accent)">${fg}</text>`;
+      if(fg) s += `<text class="fng" x="${c.x}" y="${bass ? yOf(BASS_BOT)+13 : yOf(maxD)-7}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--accent)">${fg}</text>`;
     });
     // bar lines: one continuous stroke through the grand staff, or staff + tab on guitar
     cols.forEach(c=>{
       if(!c.n.bar) return;
-      const bx = c.x + colW/2;
+      const bx = c.x + cW/2;
       if(piano){
-        s += `<line x1="${bx}" y1="${yOf(38)}" x2="${bx}" y2="${yOf(BASS_BOT)}" stroke="#6a7186" stroke-width="1.5"/>`;
+        s += `<line x1="${bx}" y1="${yOf(38)}" x2="${bx}" y2="${yOf(BASS_BOT)}" stroke="#9aa0b0" stroke-width="1.5"/>`;
         return;
       }
-      s += `<line x1="${bx}" y1="${yOf(38)}" x2="${bx}" y2="${yOf(30)}" stroke="#6a7186" stroke-width="1.5"/>`;
-      s += `<line x1="${bx}" y1="${tabTop}" x2="${bx}" y2="${tabTop+5*TS}" stroke="#6a7186" stroke-width="1.5"/>`;
+      s += `<line x1="${bx}" y1="${yOf(38)}" x2="${bx}" y2="${yOf(30)}" stroke="#9aa0b0" stroke-width="1.5"/>`;
+      s += `<line x1="${bx}" y1="${tabTop}" x2="${bx}" y2="${tabTop+5*TS}" stroke="#9aa0b0" stroke-width="1.5"/>`;
     });
     // triplet numerals over each set of three
     if(nv === 'triplet')
       for(let i=0; i+2 < cols.length || i+2 === cols.length; i+=3){
         if(i+1 >= cols.length) break;
         const mid = cols[Math.min(i+1, cols.length-1)];
-        s += `<text x="${mid.x}" y="${staffTop-3}" text-anchor="middle" font-size="9" font-style="italic" fill="var(--muted)">3</text>`;
+        s += `<text x="${mid.x}" y="${staffTop-3}" text-anchor="middle" font-size="10" font-style="italic" fill="var(--muted)">3</text>`;
       }
     // tab (top line = high e) — guitar only; a keyboard has no strings to number
     if(!piano){
       for(let i=0;i<6;i++){
         const y = tabTop + i*TS;
-        s += `<line x1="12" y1="${y}" x2="${W-6}" y2="${y}" stroke="#4a5061" stroke-width="1"/>`;
-        s += `<text x="4" y="${y+3.5}" font-size="9" fill="var(--muted)" font-family="monospace">${STRING_LABELS[i]}</text>`;
+        s += `<line x1="12" y1="${y}" x2="${W-6}" y2="${y}" stroke="#646b7d" stroke-width="1"/>`;
+        s += `<text x="4" y="${y+3.5}" font-size="10" fill="var(--muted)" font-family="monospace">${STRING_LABELS[i]}</text>`;
       }
+      // the justified column width buys headroom for bigger fret numbers — the one glyph
+      // you actually read off the screen mid-exercise
+      const fsTab = Math.min(14, 11*k).toFixed(1);
       cols.forEach(c=>{
         const y = tabTop + (5 - c.n.s)*TS;
-        s += `<text class="nn" x="${c.x}" y="${y+3.5}" text-anchor="middle" font-size="11" font-weight="600" font-family="Consolas,monospace" fill="#cdd3e0" paint-order="stroke" stroke="#1c1f28" stroke-width="5">${c.n.f}</text>`;
+        s += `<text class="nn" x="${c.x}" y="${y+3.5}" text-anchor="middle" font-size="${fsTab}" font-weight="600" font-family="Consolas,monospace" fill="#cdd3e0" paint-order="stroke" stroke="#1c1f28" stroke-width="5">${c.n.f}</text>`;
       });
     }
     return s + '</svg>';
@@ -2468,7 +2551,9 @@ function polyTabLeave(){
 // ---- CAGED SVG rendering ----
 const IV_COLORS = {0:'#e8a33d', 3:'#5ab0f0', 4:'#5ab0f0', 10:'#d97fb8', 11:'#d97fb8'};
 function shapeSVG(shape){
-  const FW = 24, SH = 15, PADL = 16, PADT = 14, PADB = 16;
+  // string spacing and dot radius sized so the interval label inside a dot reads at 10px;
+  // below that the ♭7/♭3 glyphs turn to mush on a phone
+  const FW = 26, SH = 18, PADL = 16, PADT = 16, PADB = 18;
   const dispLo = Math.max(shape.lo, 1);          // first fretted column
   const nCols = shape.hi - dispLo + 1;
   const w = PADL + nCols*FW + 8, h = PADT + 5*SH + PADB;
@@ -2477,21 +2562,21 @@ function shapeSVG(shape){
   // strings (horizontal): top line = high e (s=5), bottom = low E (s=0)
   for(let i=0;i<6;i++){
     const y = PADT + i*SH;
-    s += `<line x1="${PADL}" y1="${y}" x2="${PADL+nCols*FW}" y2="${y}" stroke="#4a5061" stroke-width="1"/>`;
+    s += `<line x1="${PADL}" y1="${y}" x2="${PADL+nCols*FW}" y2="${y}" stroke="#646b7d" stroke-width="1"/>`;
   }
   // fret lines: line k sits at the left edge of column k; leftmost is the nut when lo=0
   for(let k=0; k<=nCols; k++){
     const x = PADL + k*FW;
     const nut = (shape.lo === 0 && k === 0);
-    s += `<line x1="${x}" y1="${PADT}" x2="${x}" y2="${PADT+5*SH}" stroke="${nut?'#cdd3e0':'#4a5061'}" stroke-width="${nut?3:1}"/>`;
+    s += `<line x1="${x}" y1="${PADT}" x2="${x}" y2="${PADT+5*SH}" stroke="${nut?'#cdd3e0':'#646b7d'}" stroke-width="${nut?3:1}"/>`;
   }
-  s += `<text x="${PADL + FW/2}" y="${h-3}" text-anchor="middle" font-size="9" fill="var(--muted)">fr ${dispLo}</text>`;
+  s += `<text x="${PADL + FW/2}" y="${h-4}" text-anchor="middle" font-size="10" fill="var(--muted)">fr ${dispLo}</text>`;
   shape.notes.forEach(n => {
     const cx = n.f === 0 ? PADL - 8 : PADL + (n.f - dispLo)*FW + FW/2;
     const cy = PADT + (5 - n.s)*SH;
     const fill = IV_COLORS[n.iv] || '#8a93a8';
-    s += `<circle cx="${cx}" cy="${cy}" r="6.5" fill="${fill}" ${n.iv===0?'stroke="#fff" stroke-width="1.3"':''}/>`;
-    s += `<text x="${cx}" y="${cy+2.8}" text-anchor="middle" font-size="7.5" font-weight="700" fill="#14161c">${INTERVAL_NAMES[n.iv]}</text>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="8" fill="${fill}" ${n.iv===0?'stroke="#fff" stroke-width="1.3"':''}/>`;
+    s += `<text x="${cx}" y="${cy+3.5}" text-anchor="middle" font-size="10" font-weight="700" fill="#14161c">${INTERVAL_NAMES[n.iv]}</text>`;
   });
   return s + '</svg>';
 }
@@ -2506,7 +2591,9 @@ function keyboardSVG(pitches, rootPc){
   const loC = Math.floor(Math.min(...pitches)/12)*12;
   const hiB = Math.floor(Math.max(...pitches)/12)*12 + 11;
   const octs = (hiB + 1 - loC)/12;
-  const WW = 19, WH = 76, BW = 11.5, BH = 47, PADL = 8, PADT = 6, PADB = 14;
+  // wider keys so the interval labels clear 10px (white) and 8.5px (black); the board is
+  // scaled to fit by .kbd, so relative label size is what actually decides legibility
+  const WW = 21, WH = 78, BW = 13, BH = 48, PADL = 8, PADT = 6, PADB = 16;
   const W = PADL*2 + octs*7*WW, H = PADT + WH + PADB;
   const ivOf = m => ((m - rootPc) % 12 + 12) % 12;
   // class="kbd" lets narrow screens scale the whole board down to fit rather than clipping it
@@ -2518,17 +2605,17 @@ function keyboardSVG(pitches, rootPc){
       const m = loC + o*12 + WHITE_PC[wi];
       const x = PADL + (o*7 + wi)*WW;
       const on = lit.has(m), iv = ivOf(m);
-      s += `<rect x="${x}" y="${PADT}" width="${WW}" height="${WH}" fill="${on ? (IV_COLORS[iv] || '#8a93a8') : '#e8eaf0'}" stroke="#4a5061" stroke-width="1"/>`;
-      if(on) s += `<text x="${x+WW/2}" y="${PADT+WH-7}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#14161c">${INTERVAL_NAMES[iv]}</text>`;
+      s += `<rect x="${x}" y="${PADT}" width="${WW}" height="${WH}" fill="${on ? (IV_COLORS[iv] || '#8a93a8') : '#e8eaf0'}" stroke="#646b7d" stroke-width="1"/>`;
+      if(on) s += `<text x="${x+WW/2}" y="${PADT+WH-8}" text-anchor="middle" font-size="10" font-weight="700" fill="#14161c">${INTERVAL_NAMES[iv]}</text>`;
       // octave marker under every C so the range is readable at a glance
       if(WHITE_PC[wi] === 0)
-        s += `<text x="${x+WW/2}" y="${H-3}" text-anchor="middle" font-size="8" fill="var(--muted)">C${Math.floor(m/12)-1}</text>`;
+        s += `<text x="${x+WW/2}" y="${H-4}" text-anchor="middle" font-size="10" fill="var(--muted)">C${Math.floor(m/12)-1}</text>`;
       const bpc = BLACK_AFTER[wi];
       if(bpc === undefined) continue;
       const bm = loC + o*12 + bpc, bx = x + WW - BW/2;
       const bon = lit.has(bm), biv = ivOf(bm);
-      blacks += `<rect x="${bx}" y="${PADT}" width="${BW}" height="${BH}" fill="${bon ? (IV_COLORS[biv] || '#8a93a8') : '#14161c'}" stroke="#4a5061" stroke-width="1"/>`;
-      if(bon) blacks += `<text x="${bx+BW/2}" y="${PADT+BH-5}" text-anchor="middle" font-size="7" font-weight="700" fill="#14161c">${INTERVAL_NAMES[biv]}</text>`;
+      blacks += `<rect x="${bx}" y="${PADT}" width="${BW}" height="${BH}" fill="${bon ? (IV_COLORS[biv] || '#8a93a8') : '#14161c'}" stroke="#646b7d" stroke-width="1"/>`;
+      if(bon) blacks += `<text x="${bx+BW/2}" y="${PADT+BH-6}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#14161c">${INTERVAL_NAMES[biv]}</text>`;
     }
   }
   return s + blacks + '</svg>';   // blacks last so they sit above the white keys
@@ -2547,10 +2634,10 @@ function chordStaffSVG(pitches, rootPc){
   const H = yOf(minD) + 12;
   let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
   for(let d=TREB_BOT; d<=TREB_TOP; d+=2)
-    s += `<line x1="10" y1="${yOf(d)}" x2="${W-4}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
+    s += `<line x1="10" y1="${yOf(d)}" x2="${W-4}" y2="${yOf(d)}" stroke="#646b7d" stroke-width="1"/>`;
   for(let d=BASS_BOT; d<=BASS_TOP; d+=2)
-    s += `<line x1="10" y1="${yOf(d)}" x2="${W-4}" y2="${yOf(d)}" stroke="#4a5061" stroke-width="1"/>`;
-  s += `<line x1="10" y1="${yOf(TREB_TOP)}" x2="10" y2="${yOf(BASS_BOT)}" stroke="#4a5061" stroke-width="2.5"/>`;
+    s += `<line x1="10" y1="${yOf(d)}" x2="${W-4}" y2="${yOf(d)}" stroke="#646b7d" stroke-width="1"/>`;
+  s += `<line x1="10" y1="${yOf(TREB_TOP)}" x2="10" y2="${yOf(BASS_BOT)}" stroke="#646b7d" stroke-width="2.5"/>`;
   s += clefSVG('\u{1D11E}', 12, 32, SP, yOf);
   s += clefSVG('\u{1D122}', 14, 24, SP, yOf);
   let accSlot = 0;
@@ -2559,12 +2646,12 @@ function chordStaffSVG(pitches, rootPc){
     // seconds can't share a column — nudge the upper note right, as engraving does
     const x = (i > 0 && d - sps[i-1].dval === 1) ? X + 9 : X;
     if(bass) for(let k=BASS_BOT-2; k>=d; k-=2)
-      s += `<line x1="${x-8}" y1="${yOf(k)}" x2="${x+8}" y2="${yOf(k)}" stroke="#4a5061" stroke-width="1"/>`;
+      s += `<line x1="${x-8}" y1="${yOf(k)}" x2="${x+8}" y2="${yOf(k)}" stroke="#646b7d" stroke-width="1"/>`;
     else {
       for(let k=MID_C; k>=d; k-=2)
-        s += `<line x1="${x-8}" y1="${yOf(k)}" x2="${x+8}" y2="${yOf(k)}" stroke="#4a5061" stroke-width="1"/>`;
+        s += `<line x1="${x-8}" y1="${yOf(k)}" x2="${x+8}" y2="${yOf(k)}" stroke="#646b7d" stroke-width="1"/>`;
       for(let k=TREB_TOP+2; k<=d; k+=2)
-        s += `<line x1="${x-8}" y1="${yOf(k)}" x2="${x+8}" y2="${yOf(k)}" stroke="#4a5061" stroke-width="1"/>`;
+        s += `<line x1="${x-8}" y1="${yOf(k)}" x2="${x+8}" y2="${yOf(k)}" stroke="#646b7d" stroke-width="1"/>`;
     }
     if(sp.acc !== 0){   // stagger stacked accidentals so they don't overprint
       s += `<text x="${x - 13 - (accSlot%2)*9}" y="${y+4}" font-size="12" fill="#cdd3e0" font-family="'Segoe UI Symbol',serif">${sp.acc<0?'♭':'♯'}</text>`;
@@ -2588,7 +2675,9 @@ function keyboardRow(pitches, rootPc){
 function fullNeckSVG(rootPc, qualKey, win){
   const shapes = cagedShapes(rootPc, qualKey);
   const maxF = Math.max(15, ...shapes.map(s=>s.hi), win ? win.hi : 0);
-  const FW = 36, SH = 16, PADL = 34, PADT = 46, PADB = 24;
+  // SH carries the dot radius (8.5) that lets the interval label read at 10px. FW stays put:
+  // this board already scrolls sideways, and widening it would only mean more panning.
+  const FW = 36, SH = 20, PADL = 34, PADT = 48, PADB = 26;
   const W = PADL + maxF*FW + 12, H = PADT + 5*SH + PADB;
   const ivSet = new Set(QUALITIES[qualKey].intervals.map(x=>x%12));
   let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
@@ -2609,13 +2698,13 @@ function fullNeckSVG(rootPc, qualKey, win){
   // strings (top = high e)
   for(let i=0;i<6;i++){
     const y = PADT + i*SH;
-    s += `<line x1="${PADL}" y1="${y}" x2="${PADL+maxF*FW}" y2="${y}" stroke="#4a5061" stroke-width="1"/>`;
-    s += `<text x="${PADL-26}" y="${y+3.5}" font-size="9" fill="var(--muted)" font-family="monospace">${STRING_LABELS[i]}</text>`;
+    s += `<line x1="${PADL}" y1="${y}" x2="${PADL+maxF*FW}" y2="${y}" stroke="#646b7d" stroke-width="1"/>`;
+    s += `<text x="${PADL-26}" y="${y+3.5}" font-size="10" fill="var(--muted)" font-family="monospace">${STRING_LABELS[i]}</text>`;
   }
   // nut + frets
   s += `<line x1="${PADL}" y1="${PADT}" x2="${PADL}" y2="${PADT+5*SH}" stroke="#cdd3e0" stroke-width="3"/>`;
   for(let f=1; f<=maxF; f++)
-    s += `<line x1="${PADL+f*FW}" y1="${PADT}" x2="${PADL+f*FW}" y2="${PADT+5*SH}" stroke="#4a5061" stroke-width="1"/>`;
+    s += `<line x1="${PADL+f*FW}" y1="${PADT}" x2="${PADL+f*FW}" y2="${PADT+5*SH}" stroke="#646b7d" stroke-width="1"/>`;
   // fret numbers at the classic inlay positions
   [3,5,7,9,12,15,17,19,21].filter(f=>f<=maxF).forEach(f=>{
     s += `<text x="${PADL+(f-1)*FW+FW/2}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--muted)">${f}</text>`;
@@ -2628,17 +2717,44 @@ function fullNeckSVG(rootPc, qualKey, win){
       const cx = f===0 ? PADL-10 : PADL+(f-1)*FW+FW/2;
       const cy = PADT + (5-str)*SH;
       const fill = IV_COLORS[iv] || '#8a93a8';
-      s += `<circle cx="${cx}" cy="${cy}" r="6.5" fill="${fill}" ${iv===0?'stroke="#fff" stroke-width="1.3"':''}/>`;
-      s += `<text x="${cx}" y="${cy+2.8}" text-anchor="middle" font-size="7.5" font-weight="700" fill="#14161c">${INTERVAL_NAMES[iv]}</text>`;
+      s += `<circle cx="${cx}" cy="${cy}" r="8.5" fill="${fill}" ${iv===0?'stroke="#fff" stroke-width="1.3"':''}/>`;
+      s += `<text x="${cx}" y="${cy+3.5}" text-anchor="middle" font-size="10" font-weight="700" fill="#14161c">${INTERVAL_NAMES[iv]}</text>`;
     }
   return s + '</svg>';
 }
 function neckRow(rootPc, qualKey, win){
+  // The box exists so the Fit button is a sibling of the scroller, not a child: .neckwrap
+  // carries a right-edge fade mask on mobile, and a button inside it would fade out too.
+  const box = document.createElement('div');
+  box.className = 'neckbox';
   const div = document.createElement('div');
   div.className = 'neckwrap';
   div.innerHTML = fullNeckSVG(rootPc, qualKey, win);
-  return div;
+  box.appendChild(div);
+  // 586px of neck in a 322px column means you can never see the shape whole, only pan across
+  // it. Fit scales the board to the width — frets get small, but the map is the point. Off by
+  // default: at full size the interval labels stay readable, and that's the commoner need.
+  const fit = document.createElement('button');
+  fit.type = 'button'; fit.className = 'neckfit';
+  // real text, not a CSS ::after — generated content is not an accessible name
+  const label = on => {
+    fit.textContent = on ? 'Full size' : 'Fit';
+    fit.setAttribute('aria-pressed', on ? 'true' : 'false');
+    fit.title = on ? 'Show the neck at full size and scroll it' : 'Scale the whole neck to fit the screen';
+  };
+  label(document.body.classList.contains('neckfitted'));
+  fit.onclick = ()=>{
+    const on = document.body.classList.toggle('neckfitted');
+    try{ localStorage.setItem('gphNeckFit', on ? '1' : '0'); }catch(e){}
+    document.querySelectorAll('.neckbox .neckfit').forEach(b=>{
+      b.textContent = on ? 'Full size' : 'Fit';
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  };
+  box.appendChild(fit);
+  return box;
 }
+try{ if(localStorage.getItem('gphNeckFit') === '1') document.body.classList.add('neckfitted'); }catch(e){}
 function shapesRow(rootPc, qualKey){
   const div = document.createElement('div');
   div.className = 'shapes';
@@ -2667,6 +2783,20 @@ const TECH_TIPS = {
 };
 
 FLAT_NAMES.forEach((n,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=n; selRoot.appendChild(o); });
+// Key is the control people change most, and a 12-item dropdown costs tap-scroll-tap. On a
+// phone the select is swapped for a 12-key grid — one tap, every key visible. The select stays
+// the source of truth so exSpec, the URL hash and the query parser need no special case.
+const rootGrid = $('rootGrid');
+FLAT_NAMES.forEach((n,i)=>{
+  const b=document.createElement('button'); b.type='button'; b.className='rootkey';
+  b.textContent=n; b.dataset.pc=i; b.setAttribute('aria-pressed','false');
+  b.onclick=()=>{ selRoot.value=i; selRoot.dispatchEvent(new Event('change')); };
+  rootGrid.appendChild(b);
+});
+const syncRootGrid = ()=> rootGrid.querySelectorAll('.rootkey').forEach(b=>{
+  const on = b.dataset.pc === selRoot.value;
+  b.classList.toggle('sel', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+});
 const selPos = $('selPos');
 for(let p=1;p<=12;p++){ const o=document.createElement('option'); o.value=p; o.textContent=`${p} (frets ${p}–${p+4})`; if(p===5) o.selected=true; selPos.appendChild(o); }
 
@@ -2755,12 +2885,17 @@ const exSpec = {
   musicalDefaults(){ return Object.fromEntries(this.MUSICAL.map(k=> [k, this.DEFAULTS[k]])); },
 };
 
+// Seven short sections rather than two long ones. 38 options behind "Arpeggios / Scales &
+// modes" meant scrolling 23 items to find "lydian dominant"; a native picker renders these
+// as sticky headers, so the list is scannable without a search field.
 const QUAL_GROUPS = {
-  'Arpeggios': ['maj','min','dim','aug','sus2','sus4',
-    'maj7','dom7','min7','m7b5','dim7','minmaj7','7sus4',
-    'maj6','min6'],
-  'Scales & modes': ['majscale','natmin','harmmin','melmin','harmmaj','dorian','phrygian','lydian','mixo','locrian',
-    'majpent','minpent','blues','wholetone','dimWH','dimHW','altered','phrygdom','lyddom','bebopdom','bebopmaj','hungmin','dblharm'],
+  'Triads': ['maj','min','dim','aug','sus2','sus4'],
+  'Sevenths & sixths': ['maj7','dom7','min7','m7b5','dim7','minmaj7','7sus4','maj6','min6'],
+  'Major & minor scales': ['majscale','natmin','harmmin','melmin','harmmaj'],
+  'Modes': ['dorian','phrygian','lydian','mixo','locrian'],
+  'Pentatonic & blues': ['majpent','minpent','blues'],
+  'Symmetric & altered': ['wholetone','dimWH','dimHW','altered'],
+  'Jazz & exotic': ['phrygdom','lyddom','bebopdom','bebopmaj','hungmin','dblharm'],
 };
 for(const [gname, keys] of Object.entries(QUAL_GROUPS)){
   const og = document.createElement('optgroup'); og.label = gname;
@@ -2827,6 +2962,17 @@ function markBarLines(groups, nv){
   });
 }
 
+// Fold/unfold one key block, keeping its heading toggle in sync. `open` true = show it.
+function foldKey(block, open){
+  block.classList.toggle('folded', !open);
+  const tg = block.querySelector('.kfold');
+  if(tg){
+    tg.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const name = block.querySelector('.keyname')?.textContent || 'key';
+    tg.setAttribute('aria-label', (open ? 'Hide ' : 'Show ') + name);
+  }
+}
+
 function generate(){
   const spec = exSpec.read();
   const rootPc=+spec.root, qual=spec.qual, pat=spec.pat,
@@ -2837,6 +2983,7 @@ function generate(){
   $('posWrap').style.display = fing==='fixed' ? '' : 'none';
   $('shapeWrap').style.display = fing==='caged' ? '' : 'none';
   syncAdvVisibility();
+  syncRootGrid();   // the key can also change from a typed query, a hash restore or Today
   const roots = rootSequence(rootPc, seq);
   trackExercise(qual, pat, seq, dir, fing);   // debounced — what material people actually practice
   const shapeIdxs = fing==='caged' ? (shapeSel==='cycle' ? [0,1,2,3,4] : [+shapeSel])
@@ -2884,6 +3031,20 @@ function generate(){
     pb.setAttribute('aria-label', 'Play ' + ex.name);
     pb.onclick = ()=>{ if(playState && playState.btn===pb) stopPlayback(); else playNotes(ex.groups.flat(), pb); };
     head.appendChild(pb);
+    // A cycle of 4ths is 12 of these blocks — ~13,000px of scrolling on a phone to reach the
+    // last key. Every key past the first arrives folded to its heading; auto-advance opens
+    // whichever one is current, so playing through never leaves you scrolling for it.
+    if(jobs.length > 1){
+      if(ji > 0) div.classList.add('folded');
+      const tg = document.createElement('button');
+      tg.type = 'button'; tg.className = 'kfold';
+      tg.setAttribute('aria-expanded', ji > 0 ? 'false' : 'true');
+      tg.setAttribute('aria-label', (ji > 0 ? 'Show ' : 'Hide ') + ex.name);
+      tg.onclick = ()=> foldKey(div, div.classList.contains('folded'));
+      head.appendChild(tg);
+      head.onclick = e=>{ if(!e.target.closest('.pbtn') && !e.target.closest('.kfold'))
+        foldKey(div, div.classList.contains('folded')); };
+    }
     div.appendChild(head);
     if(instrument === 'piano'){
       if(shapesView !== 'off') div.appendChild(keyboardRow(ex.groups.flat().map(n=>n.p), pc));
@@ -3007,9 +3168,10 @@ function akOnBar(delayMs){
 function akAdvance(){
   const blocks = [...$('out').children];
   if(!blocks.length) return;
-  blocks.forEach(b=>b.classList.remove('activekey'));
+  blocks.forEach(b=>{ b.classList.remove('activekey'); foldKey(b, false); });
   akIdx = (akIdx + 1) % blocks.length;
   blocks[akIdx].classList.add('activekey');
+  foldKey(blocks[akIdx], true);   // the key you're being moved to has to be readable
   blocks[akIdx].scrollIntoView({behavior:'smooth', block:'center'});
 }
 $('akBtn').onclick = ()=>{
@@ -3020,6 +3182,7 @@ $('akBtn').onclick = ()=>{
   const blocks = [...$('out').children];
   blocks.forEach(b=>b.classList.remove('activekey'));
   if(akOn && blocks.length){
+    blocks.forEach((b,i)=> foldKey(b, i === 0));
     blocks[0].classList.add('activekey');
     blocks[0].scrollIntoView({behavior:'smooth', block:'center'});
     if(!metro.playing) metroStart();
@@ -3149,8 +3312,9 @@ function renderStack(){
 }
 ['sBaseRoot','sBaseQual','sTriSet','sSort'].forEach(id=> $(id).addEventListener('change', renderStack));
 // tab switching
-document.querySelectorAll('.tabbtn').forEach(b=> b.onclick = ()=>{
-  document.querySelectorAll('.tabbtn').forEach(x=>{
+// [data-tab] excludes #tabMore, which shares the class for styling but switches no view
+document.querySelectorAll('.tabbtn[data-tab]').forEach(b=> b.onclick = ()=>{
+  document.querySelectorAll('.tabbtn[data-tab]').forEach(x=>{
     x.classList.toggle('active', x===b);
     x.setAttribute('aria-selected', x===b ? 'true' : 'false');
   });
@@ -3162,7 +3326,7 @@ document.querySelectorAll('.tabbtn').forEach(b=> b.onclick = ()=>{
   $('viewVoic').style.display = b.dataset.tab==='voic' ? '' : 'none';
   $('viewPg').style.display = b.dataset.tab==='pg' ? '' : 'none';
   $('viewPoly').style.display = b.dataset.tab==='poly' ? '' : 'none';
-  document.body.classList.remove('sheet');
+  document.body.classList.remove('sheet','tabsmore');
   currentTab = b.dataset.tab;
   track('tab_open', {tab: b.dataset.tab});
   if(b.dataset.tab==='today') renderToday();
@@ -3179,6 +3343,18 @@ document.querySelectorAll('.ctl').forEach(c=>{
   const l=c.querySelector('label'), s=c.querySelector('select,input');
   if(l && s && !s.hasAttribute('aria-label')) s.setAttribute('aria-label', l.textContent);
 });
+// mobile: the four overflow sections expand out of the bottom bar as a 3x3 grid
+const tabsMore = on => {
+  const open = document.body.classList.toggle('tabsmore', on);
+  $('tabMore').setAttribute('aria-expanded', open ? 'true' : 'false');
+};
+$('tabMore').onclick = ()=> tabsMore();
+$('tabsBack').onclick = ()=> tabsMore(false);
+
+// mobile: everything past Save/Log folds behind ⋯ so the notation starts higher up the page
+$('toolMore').onclick = ()=>
+  $('toolMore').setAttribute('aria-expanded', document.body.classList.toggle('toolsopen') ? 'true' : 'false');
+
 // mobile: exercise controls open as a bottom sheet
 const sheet = on => document.body.classList.toggle('sheet', on);
 // scroll the notation into the visible top half so control changes preview live above the sheet
@@ -4960,11 +5136,13 @@ function metroStart(){
   metro.timer = setInterval(metroScheduler, metro.LOOKAHEAD_MS);
   metro.playing = true;
   $('mPlay').classList.add('on'); $('mPlay').innerHTML = '&#9632;';
+  $('metro').classList.add('playing');    // mobile: the bar expands from its resting height
   keepAwake();
 }
 function metroStop(){
   clearInterval(metro.timer); metro.timer = null; metro.playing = false;
   $('mPlay').classList.remove('on'); $('mPlay').innerHTML = '&#9654;';
+  $('metro').classList.remove('playing');
   document.querySelectorAll('#mDots .dot').forEach(d=>d.classList.remove('hit','acc'));
   keepAwake();
 }
