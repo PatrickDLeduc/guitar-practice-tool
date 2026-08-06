@@ -1358,6 +1358,28 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('mobile: auto-advance opens the first key', ak.first);
   assert('mobile: advancing opens the next and refolds the last', ak.moved);
 
+  // every key is preceded by one free bar of count-in, and that bar is not one of your N
+  const ci = await p.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    document.getElementById('akBars').value = '2';
+    document.getElementById('akBtn').click();          // on → first key armed with a count-in
+    const armed = metro.countIn;
+    akOnBar(0); await sleep(20);                       // count-in bar ends
+    const cleared = !metro.countIn;
+    const idx0 = akIdx;
+    akOnBar(0); akOnBar(0); await sleep(20);           // the 2 bars you actually play
+    const advanced = akIdx === idx0 + 1 && metro.countIn
+                     && document.getElementById('metro').classList.contains('countin');
+    akOnBar(0); await sleep(20);                       // the count-in bar must not count as a played bar
+    const notCounted = akIdx === idx0 + 1 && !metro.countIn;
+    document.getElementById('akBtn').click(); metroStop();
+    return { armed, cleared, advanced, notCounted, off: !metro.countIn };
+  });
+  assert('mobile: auto-advance arms a count-in bar on start', ci.armed && ci.cleared);
+  assert('mobile: the new key arrives on a count-in bar', ci.advanced);
+  assert('mobile: the count-in bar is free — it does not count toward the next key', ci.notCounted);
+  assert('mobile: stopping clears the count-in', ci.off);
+
   // neck map: Fit scales the board into the column instead of forcing sideways panning
   const neck = await p.evaluate(() => {
     document.getElementById('query').value = 'A minor pentatonic in groups of 3';

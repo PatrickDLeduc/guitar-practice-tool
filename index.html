@@ -289,6 +289,13 @@
   #mDots .dot.hit.sec{background:#58c98f}
   #mDots .dot.g2{border-color:var(--accent)}
   #mDots .dot.g1{border-color:#58c98f}
+  /* the count-in bar before an auto-advance — the dots hide on mobile, so this rides in the bar
+     itself. Absolute: it comes and goes every few bars and must never reflow the controls. */
+  #mCountIn{display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:6px;
+    padding:3px 10px;border-radius:999px;background:var(--panel);border:1px solid #e0a35c;
+    font-size:12px;font-weight:600;letter-spacing:.5px;color:#e0a35c;white-space:nowrap;pointer-events:none}
+  #metro.countin #mCountIn{display:block}
+  #metro.countin #mDots .dot.hit{background:#e0a35c}
   #trainerGrp input{width:52px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:13px}
   .tlbl{color:var(--muted);font-size:12px}
   #mMore{display:none}
@@ -633,7 +640,7 @@
   <p id="summary" aria-live="polite"></p>
   <p id="techTip" style="display:none"></p>
   <div class="toolrow">
-    <button id="akBtn" title="Advance to the next key automatically as the metronome plays">Auto-advance: off</button>
+    <button id="akBtn" title="Advance to the next key automatically as the metronome plays, after a bar of count-in clicks">Auto-advance: off</button>
     <input id="akBars" type="number" min="1" max="99" value="4" aria-label="Bars per key" title="Bars per key (auto-set from the exercise length; edit to override)">
     <button id="loopBtn" title="Loop playback">Loop: off</button>
     <button id="droneBtn" title="Sustain the root note as a drone">Drone: C</button>
@@ -643,7 +650,7 @@
     <button id="copyall">Copy all tabs</button>
     <button id="toolMore" aria-expanded="false" aria-label="More exercise tools">&#8943;</button>
   </div>
-  <p class="toolhint">Auto-advance moves to the next key as the metronome runs · Drone holds the root under you ·
+  <p class="toolhint">Auto-advance moves to the next key as the metronome runs, one bar of count-in first · Drone holds the root under you ·
     ★ Save pins this to your chips · ✓ Log records today at the current tempo</p>
   <div id="out"></div>
   </div><!-- /viewEx -->
@@ -1068,6 +1075,7 @@
   <button class="mbtn" id="mSwing" style="width:auto;padding:0 10px" title="Swing pairs of 8th notes in playback and jam grooves">Swing: off</button>
   <button class="mbtn" id="tunBtn" style="width:auto;padding:0 10px" title="Chromatic tuner (uses the microphone)">Tuner</button>
   <button class="mbtn" id="mMore" title="More metronome controls" aria-label="More metronome controls">&#8943;</button>
+  <span id="mCountIn">Count in&hellip;</span>
   <div class="mgrp" id="beatsGrp">
     <select id="mBeats" aria-label="Time signature">
       <option value="4/4" selected>4/4</option>
@@ -3374,12 +3382,20 @@ $('droneBtn').onclick = toggleDrone;
 $('loopBtn').onclick = ()=> setLoop(!playLoop);
 // ---- Auto-advance keys with the metronome ----
 let akOn = false, akCount = 0, akIdx = 0;
+// Landing on a new key mid-flow is too abrupt to play, so every key gets a free bar of
+// count-in clicks first: the block opens, you get your hands back, the exercise starts next bar.
+function setCountIn(on, delayMs){
+  metro.countIn = on;   // the scheduler reads this while it schedules the bar — must be set now
+  setTimeout(()=> $('metro').classList.toggle('countin', on), Math.max(delayMs, 0));
+}
 function akOnBar(delayMs){
   if(!akOn) return;
+  if(metro.countIn){ setCountIn(false, delayMs); return; }   // count-in over — this bar you play
   akCount++;
   const need = Math.max(1, +$('akBars').value || 4);
   if(akCount >= need){
     akCount = 0;
+    setCountIn(true, delayMs);
     setTimeout(akAdvance, Math.max(delayMs, 0));
   }
 }
@@ -3403,8 +3419,8 @@ $('akBtn').onclick = ()=>{
     blocks.forEach((b,i)=> foldKey(b, i === 0));
     blocks[0].classList.add('activekey');
     blocks[0].scrollIntoView({behavior:'smooth', block:'center'});
-    if(!metro.playing) metroStart();
-  }
+    if(!metro.playing){ setCountIn(true, 0); metroStart(); }   // first key gets the same free bar
+  } else setCountIn(false, 0);
 };
 // ---- Shareable URL state (compact: only non-default settings) ----
 let currentTab = 'ex';
@@ -5240,7 +5256,7 @@ const METERS = {
 const metro = {
   ctx:null, playing:false, bpm:80, beats:4, beat:0, beatInBar:0, nextTime:0, timer:null,
   LOOKAHEAD_MS:25, AHEAD:0.1,
-  trainer:false, barCount:0, accents:[2,0,0,0], sub:1,
+  trainer:false, barCount:0, accents:[2,0,0,0], sub:1, countIn:false,
   bars:null, barIdx:0,   // custom meter sequence: [{acc:[...], label:'5/8'}, ...]
 };
 // "3x5/8 + 7/8(2+2+3)" → [{acc,label} x3, {acc,label}] — or null if nothing parses.
@@ -5283,9 +5299,10 @@ function applyMeterBar(){
 function metroClick(time, level){
   const osc = metro.ctx.createOscillator(), g = metro.ctx.createGain();
   osc.type = 'square';
-  osc.frequency.value = level===2 ? 1568 : level===1 ? 1319 : level===-1 ? 880 : 1047;   // G6 / E6 / A5(sub) / C6
+  // 3 = count-in: a full octave under the normal click so "get ready" never reads as "play"
+  osc.frequency.value = level===3 ? 784 : level===2 ? 1568 : level===1 ? 1319 : level===-1 ? 880 : 1047;   // G5 / G6 / E6 / A5(sub) / C6
   g.gain.setValueAtTime(0.0001, time);
-  g.gain.exponentialRampToValueAtTime(level===2 ? 0.5 : level===1 ? 0.42 : level===-1 ? 0.16 : 0.3, time + 0.002);
+  g.gain.exponentialRampToValueAtTime(level===3 ? 0.4 : level===2 ? 0.5 : level===1 ? 0.42 : level===-1 ? 0.16 : 0.3, time + 0.002);
   g.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
   osc.connect(g); g.connect(metro.ctx.destination);
   osc.start(time); osc.stop(time + 0.07);
@@ -5324,7 +5341,7 @@ function metroScheduler(){
       if(metro.onBar) metro.onBar((metro.nextTime - metro.ctx.currentTime) * 1000);
     }
     const idx = metro.beatInBar;
-    const level = metro.accents[idx] ?? 0;
+    const level = metro.countIn ? 3 : (metro.accents[idx] ?? 0);
     metroClick(metro.nextTime, level);
     metroFlash(idx, level, (metro.nextTime - metro.ctx.currentTime) * 1000);
     const beatDur = 60 / metro.bpm;
@@ -5372,6 +5389,7 @@ function metroStop(){
   $('mPlay').classList.remove('on'); $('mPlay').innerHTML = '&#9654;';
   $('metro').classList.remove('playing');
   document.querySelectorAll('#mDots .dot').forEach(d=>d.classList.remove('hit','acc'));
+  setCountIn(false, 0);
   keepAwake();
 }
 function setBpm(v){
