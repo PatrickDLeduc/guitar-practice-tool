@@ -33,7 +33,7 @@ Fingering coverage is deliberately partial: all 12 major right hands, left hands
 - **Variations & technique focus**: reversed/zigzag groups, pedal root; coaching tips for alternate, economy, legato, sweep, and hybrid picking
 - **CAGED visualization**: the five shapes as separate diagrams, or one full-neck map with labeled shape brackets and interval-colored dots
 - **Playback**: hear any exercise as plucked-string synthesis (Karplus-Strong) at the metronome tempo, with count-in and looping; sustain a root drone for mode practice
-- **Hands-free cycle drill**: auto-advance and auto-scroll to the next key every N bars while the metronome runs
+- **Hands-free cycle drill**: auto-advance and auto-scroll to the next key every N bars while the metronome runs, with a bar of count-in clicks before each key
 
 ### Chord stacking (upper-structure triads)
 Pick a base chord and see what every triad superimposed on it produces — added tensions, the resulting chord name (D/Cmaj7 → Cmaj13♯11), slash-chord spelling, and a consonance rating. Hear any stack (pad + arpeggiated triad) or generate a practice exercise from the composite arpeggio.
