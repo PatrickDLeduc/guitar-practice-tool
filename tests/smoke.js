@@ -1,7 +1,8 @@
 // Smoke test: drives the real app in headless Chrome. Run from repo root:
 //   npm i --no-save playwright-core && python -m http.server 8741 & node tests/smoke.js
 const { chromium } = require('playwright-core');
-const URL = 'http://localhost:8741/index.html';
+// GPH_URL lets a worktree point at its own server when 8741 is already taken.
+const URL = process.env.GPH_URL || 'http://localhost:8741/index.html';
 
 let failed = 0;
 const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name); if (!cond) failed = 1; };
@@ -756,6 +757,82 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
     const drift = Object.keys(base).filter(k => JSON.stringify(base[k]) !== JSON.stringify(got[k]));
     assert('guitar: engine output unchanged vs baseline' + (drift.length ? ' — drifted: ' + drift.join(', ') : ''),
            drift.length === 0);
+  }
+
+  // ---------- double stops ----------
+  // Two notes in one time slot: different strings, one tab column, one notation x.
+  {
+    const ds = await p.evaluate(() => {
+      const ex = buildKeyExercise(7, 'majscale', 'dstop5', 'asc', 2, null, null, 'pos', 'none', 5, null, 'none');
+      const pairs = ex.groups;
+      const tab = renderTab(ex.groups).join('\n');
+      const svg = renderNotationSystems(ex.groups, 7, null, 'quarter', null, 800).join('');
+      const cx = [...svg.matchAll(/class="nh" cx="([\d.]+)"/g)].map(m => m[1]);
+      // slot count drives playback length and the bar count in generate()
+      const slots = ex.groups.flat().filter(n => !n.stack).length;
+      return {
+        n: pairs.length,
+        allPairs: pairs.every(g => g.length === 2 && !g[0].stack && g[1].stack === true),
+        diffStrings: pairs.every(g => g[0].s !== g[1].s),
+        inReach: pairs.every(g => Math.abs(g[0].f - g[1].f) <= 4 && g.every(n => n.f >= 0 && n.f <= 22)),
+        // a diatonic 5th in a major scale is 7 semitones, or 6 on the leading tone
+        intervals: [...new Set(pairs.map(g => g[1].p - g[0].p))].sort((a, b) => a - b),
+        // each pair is one column, so the tab has as many columns as pairs, not 2x
+        tabCols: (tab.split('\n')[0].match(/\d+/g) || []).length,
+        sharedX: cx.length === pairs.length * 2 && cx.every((x, i) => i % 2 === 0 || x === cx[i - 1]),
+        slots,
+      };
+    });
+    assert('double stops: pairs built, second note flagged as stacked (' + ds.n + ' pairs)', ds.n > 6 && ds.allPairs);
+    assert('double stops: both notes on different strings, within a 4-fret span',
+      ds.diffStrings && ds.inReach);
+    assert('double stops: diatonic 5ths — 7 semitones, tritone on the leading tone (got '
+      + ds.intervals.join('/') + ')', ds.intervals.join('/') === '6/7');
+    assert('double stops: one time slot per pair (' + ds.slots + ' slots for ' + ds.n + ' pairs)', ds.slots === ds.n);
+    assert('double stops: notation stacks both noteheads at one x', ds.sharedX);
+
+    // the plain-English box reaches it, and the key sequence is stripped first
+    const dq = await p.evaluate(() => [
+      parseQuery('G major scale in double stops, 5ths, up and down').pat,
+      parseQuery('C major scale in 3rds double stops').pat,
+      parseQuery('minor pentatonic dyads in 6ths').pat,
+      parseQuery('double stops').pat,
+      // the cycle's "5ths" are stripped as a key sequence, not read as the interval
+      parseQuery('major scale double stops around the cycle of 5ths').pat,
+      // "5th position" is a place on the neck, not an interval
+      parseQuery('double stops in 5th position').pat,
+      // plain patterns must still parse as before
+      parseQuery('C major scale in 3rds').pat,
+    ]);
+    assert('double stops: parsed from plain English (got ' + dq.join(', ') + ')',
+      dq.join(',') === 'dstop5,dstop3,dstop6,dstop4,dstop4,dstop4,thirds');
+
+    // follow-along has to light both notes of a slot, and step one pair at a time
+    await p.evaluate(() => {
+      document.querySelector('.tabbtn[data-tab="ex"]').click();
+      document.getElementById('query').value = 'G major scale in double stops, 5ths';
+      runFromText();
+      setBpm(200);
+    });
+    await p.waitForTimeout(200);
+    await p.click('.keyblock .pbtn');
+    await p.waitForTimeout(1500);   // 4-click count-in at 200bpm = 1.2s
+    const hl = await p.evaluate(() => new Promise(done => {
+      const seen = new Set();
+      const t = setInterval(() => {
+        const on = [...document.querySelectorAll('.keyblock .nn')]
+          .map((e, i) => e.classList.contains('hl') ? i : -1).filter(i => i >= 0);
+        if (on.length) seen.add(on.join(','));
+      }, 30);
+      setTimeout(() => { clearInterval(t); done([...seen]); }, 1500);
+    }));
+    // each entry is one slot: two adjacent tab numbers lit together
+    const pairsLit = hl.every(s => { const a = s.split(',').map(Number); return a.length === 2 && a[1] === a[0] + 1; });
+    assert('double stops: playback lights both notes of a slot at once (' + hl.length
+      + ' slots: ' + hl.slice(0, 3).join(' | ') + ')', hl.length >= 2 && pairsLit);
+    await p.click('.keyblock .pbtn');
+    await p.waitForTimeout(300);
+    assert('double stops: stop clears both', (await p.locator('.hl').count()) === 0);
   }
 
   // ---------- piano mode ----------
