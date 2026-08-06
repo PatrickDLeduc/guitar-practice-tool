@@ -26,7 +26,8 @@ Fingering coverage is deliberately partial: all 12 major right hands, left hands
 
 ### Exercises
 - **Material**: all common arpeggios (triads through 7th chords) and scales (major/minor, all modes, pentatonics, blues, harmonic/melodic minor, whole tone, diminished, altered, bebop, and more)
-- **Patterns**: straight, in 3rds, in 4ths, groups of 3/4 — ascending, descending (from the top note), or both
+- **Patterns**: straight, in 3rds/4ths/6ths, groups of 3/4 — ascending, descending (from the top note), or both
+- **Played together**: double stops in 3rds, 4ths, 5ths or 6ths, and the harmonized scale as triads, 7th chords or quartal voicings — diatonic, so the quality follows the key rather than moving one shape up the neck
 - **Key sequences**: single key, cycle of 4ths/5ths, chromatic, whole steps
 - **Fingering modes**: auto position playing, 3-notes-per-string, or *one fixed neck position for all 12 keys* (the classic "play the whole cycle without moving your hand" drill)
 - **Variations & technique focus**: reversed/zigzag groups, pedal root; coaching tips for alternate, economy, legato, sweep, and hybrid picking

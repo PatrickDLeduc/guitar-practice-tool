@@ -835,6 +835,85 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
     assert('double stops: stop clears both', (await p.locator('.hl').count()) === 0);
   }
 
+  // ---------- harmonized scales: triads, 7th chords, quartal ----------
+  // The same one-slot-per-chord machinery as double stops, carrying 3 and 4 voices.
+  {
+    const hs = await p.evaluate(() => {
+      const build = (pat, size) => {
+        // C major, 2 octaves — the pool all of these are harmonized out of
+        const ex = buildKeyExercise(0, 'majscale', pat, 'asc', 2, null, null, 'pos', 'none', 5, null, 'none');
+        const svg = renderNotationSystems(ex.groups, 0, null, 'quarter', null, 800).join('');
+        const cx = [...svg.matchAll(/class="nh" cx="([\d.]+)"/g)].map(m => m[1]);
+        return {
+          n: ex.groups.length,
+          shape: ex.groups.every(g => g.length === size && !g[0].stack
+                                   && g.slice(1).every(n => n.stack === true)),
+          // one string per voice, rising, whole grip inside a hand's span and on the neck
+          grips: ex.groups.every(g => g.every((n, i) => i === 0 || n.s > g[i - 1].s)
+                                   && Math.max(...g.map(n => n.f)) - Math.min(...g.map(n => n.f)) <= 4
+                                   && g.every(n => n.f >= 0 && n.f <= 22)),
+          // interval sets above the bottom voice — what makes these diatonic, not a shape
+          chords: [...new Set(ex.groups.map(g => g.map(n => n.p - g[0].p).join('-')))].sort(),
+          slots: ex.groups.flat().filter(n => !n.stack).length,
+          // every voice of a chord shares one notation column, with one stem serving all
+          sharedX: ex.groups.every((g, gi) => {
+            const at = ex.groups.slice(0, gi).reduce((a, x) => a + x.length, 0);
+            return g.every((_, i) => cx[at + i] === cx[at]);
+          }),
+          stems: (svg.match(/stroke-width="1\.2"/g) || []).length,
+        };
+      };
+      return { triads: build('triads', 3), sevenths: build('sevenths', 4),
+               quartal3: build('quartal3', 3), quartal4: build('quartal4', 4) };
+    });
+    for (const [pat, r] of Object.entries(hs)) {
+      assert('harmonized ' + pat + ': chords built, upper voices flagged as stacked (' + r.n + ' chords)',
+        r.n > 3 && r.shape);
+      assert('harmonized ' + pat + ': one string per voice, rising, within a 4-fret span', r.grips);
+      assert('harmonized ' + pat + ': one time slot per chord (' + r.slots + ' slots for ' + r.n + ' chords)',
+        r.slots === r.n);
+      assert('harmonized ' + pat + ': whole chord at one notation x, one stem each ('
+        + r.stems + ' stems)', r.sharedX && r.stems === r.n);
+    }
+    // Diatonic, so quality follows the key rather than a moved shape
+    assert('harmonized triads: C major gives maj, min and dim only (got '
+      + hs.triads.chords.join(' ') + ')', hs.triads.chords.join(' ') === '0-3-6 0-3-7 0-4-7');
+    assert('harmonized sevenths: C major gives maj7, dom7, min7 and m7b5 only (got '
+      + hs.sevenths.chords.join(' ') + ')',
+      hs.sevenths.chords.join(' ') === '0-3-6-10 0-3-7-10 0-4-7-10 0-4-7-11');
+    // stacked 4ths, perfect except where the key's one tritone falls in the stack
+    assert('harmonized quartal3: stacked 4ths with a tritone where the key puts one (got '
+      + hs.quartal3.chords.join(' ') + ')', hs.quartal3.chords.every(c => /^0-[56]-1[01]$/.test(c)));
+
+    const hq = await p.evaluate(() => [
+      parseQuery('C major scale harmonized in triads').pat,
+      parseQuery('harmonize the major scale').pat,
+      parseQuery('G mixolydian in 7th chords').pat,
+      parseQuery('D dorian in quartal voicings').pat,
+      parseQuery('4-note quartal harmony on the melodic minor').pat,
+      // "quartal" wins over the plain "in 4ths" pattern its own name describes
+      parseQuery('quartal harmony in 4ths').pat,
+      // and the readings that already worked must not have moved
+      parseQuery('dominant 7 arpeggios up and down in all 12 keys').pat,
+      parseQuery('C major scale in 3rds').pat,
+      parseQuery('G major scale in double stops, 5ths').pat,
+    ]);
+    assert('harmonized: parsed from plain English (got ' + hq.join(', ') + ')',
+      hq.join(',') === 'triads,triads,sevenths,quartal3,quartal4,quartal3,straight,thirds,dstop5');
+
+    // The harmony words name the harmony, not the material: they must not be swallowed
+    // by the quality rules ("7th chords" as a dom7 arpeggio, "quartal" leaving no scale).
+    const hqual = await p.evaluate(() => [
+      parseQuery('C major scale harmonized in 7th chords').qual,
+      parseQuery('D dorian in quartal voicings').qual,
+      parseQuery('harmonic minor in triads').qual,
+      // and the arpeggio reading of a 7th chord must survive
+      parseQuery('dominant 7 arpeggios up and down').qual,
+    ]);
+    assert('harmonized: the scale survives the harmony words (got ' + hqual.join(', ') + ')',
+      hqual.join(',') === 'majscale,dorian,harmmin,dom7');
+  }
+
   // ---------- piano mode ----------
   {
     // octave convention pinned in both directions: guitar notation is written 8va, piano is not
