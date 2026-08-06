@@ -178,6 +178,32 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.locator('#favChips .fx').first().click();
   assert('fav: delete removes chip', (await p.locator('#favChips .chip').count()) === 1);
 
+  // 🎲 skill levels: pools are valid and cover every quality; beginner rolls stay beginner
+  const lvl = await p.evaluate(() => {
+    const all = [...new Set(Object.values(QUAL_GROUPS).flat())];   // ionian/aeolian repeat majscale/natmin
+    const union = f => DICE_LEVELS.flatMap(l => l[f]);
+    const opts = sel => [...sel.options].map(o => o.value);
+    const q = union('qual'), beg = DICE_LEVELS[0], start = diceLvl;
+    diceLvl = 0;
+    const rolls = [];
+    for (let i = 0; i < 30; i++) { diceChip.click(); rolls.push([selQual.value, selPat.value, selSeq.value, selDir.value]); }
+    diceLvl = start;
+    return {
+      covers: q.length === all.length && all.every(k => q.includes(k)),   // length too: no quality in two levels
+      valid: ['pat', 'seq', 'dir'].every(f => union(f).every(v => opts({ pat: selPat, seq: selSeq, dir: selDir }[f]).includes(v))),
+      inPool: rolls.every(r => ['qual', 'pat', 'seq', 'dir'].every((f, i) => beg[f].includes(r[i]))),
+      variety: new Set(rolls.map(r => r.join())).size > 1,
+    };
+  });
+  assert('dice: levels cover every quality exactly once', lvl.covers);
+  assert('dice: level pools are real option values', lvl.valid);
+  assert('dice: beginner rolls stay in the beginner pool', lvl.inPool);
+  assert('dice: beginner still varies', lvl.variety);
+  await p.click('#diceLvlChip');
+  assert('dice: level chip cycles', (await p.locator('#diceLvlChip').innerText()).includes('Intermediate'));
+  await p.reload(); await p.waitForTimeout(1200);
+  assert('dice: level persists across reload', (await p.locator('#diceLvlChip').innerText()).includes('Intermediate'));
+
   // fingering: 2-string exercise cycles all 5 adjacent string pairs, notes stay on the pair
   await p.selectOption('#selSeq', 'single');   // isolate from leftover random-dice state (cycle4/etc.)
   await p.selectOption('#selFing', '2str');
@@ -1278,12 +1304,16 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   // Type: 38 options split into scannable sections rather than two long ones
   const qual = await p.evaluate(() => {
     const gs = [...document.querySelectorAll('#selQual optgroup')];
+    const opts = [...document.querySelectorAll('#selQual option')];
+    const modes = [...gs.find(g => g.label === 'Modes').children].map(o => o.textContent);
     return { groups: gs.length, biggest: Math.max(...gs.map(g => g.children.length)),
-             total: document.querySelectorAll('#selQual option').length };
+             distinct: new Set(opts.map(o => o.value)).size, modes };
   });
   assert('mobile: Type split into ' + qual.groups + ' sections (was 2)', qual.groups >= 6);
   assert('mobile: no section longer than 9 (was 23)', qual.biggest <= 9);
-  assert('mobile: still all 38 types', qual.total === 38);
+  assert('mobile: still all 38 types', qual.distinct === 38);
+  assert('mobile: Modes lists all 7 (' + qual.modes.join(', ') + ')',
+    qual.modes.length === 7 && /ionian/.test(qual.modes[0]) && /aeolian/.test(qual.modes[5]));
 
   // a 12-key cycle arrives folded instead of 13,000px of scrolling
   const fold = await p.evaluate(() => {
