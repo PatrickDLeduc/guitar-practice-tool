@@ -3047,14 +3047,22 @@ const QUAL_GROUPS = {
   'Triads': ['maj','min','dim','aug','sus2','sus4'],
   'Sevenths & sixths': ['maj7','dom7','min7','m7b5','dim7','minmaj7','7sus4','maj6','min6'],
   'Major & minor scales': ['majscale','natmin','harmmin','melmin','harmmaj'],
-  'Modes': ['dorian','phrygian','lydian','mixo','locrian'],
+  // Ionian and aeolian are the major scale and natural minor, so they're the same two
+  // keys listed a second time in modal order — a "Modes" section missing 2 of the 7 is
+  // more confusing than a repeat. Duplicate option values are fine: setting selQual.value
+  // just lands on the first copy, and both spell the same exercise.
+  'Modes': ['majscale','dorian','phrygian','lydian','mixo','natmin','locrian'],
   'Pentatonic & blues': ['majpent','minpent','blues'],
   'Symmetric & altered': ['wholetone','dimWH','dimHW','altered'],
   'Jazz & exotic': ['phrygdom','lyddom','bebopdom','bebopmaj','hungmin','dblharm'],
 };
+// Picker text only. QUALITIES[k].label is the exercise's name and therefore part of the
+// personal-best / favourite / Today's Practice key, so renaming it there would orphan
+// everything anyone has already logged as "major scale".
+const QUAL_PICK_LABEL = {majscale:'major (ionian)', natmin:'natural minor (aeolian)'};
 for(const [gname, keys] of Object.entries(QUAL_GROUPS)){
   const og = document.createElement('optgroup'); og.label = gname;
-  keys.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=QUALITIES[k].label; og.appendChild(o); });
+  keys.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=QUAL_PICK_LABEL[k] || QUALITIES[k].label; og.appendChild(o); });
   selQual.appendChild(og);
 }
 
@@ -3074,23 +3082,59 @@ const EXAMPLES = [
   'E major scale 3nps, groups of 4 zigzag, alternate picking',
   'major scale in 5th position, circle of 4ths',
 ];
+// What each skill level *adds* to the 🎲 pool — a level draws from its own lists plus
+// every earlier level's, so material never disappears as you move up. Handing a
+// first-week player the altered scale through the cycle of 4ths is how a random
+// exercise stops being useful. Between them the qual lists must cover QUAL_GROUPS
+// (tests/smoke.js asserts it) or a scale silently drops out of the dice.
+const DICE_LEVELS = [
+  {id:'beginner', label:'Beginner',
+   qual:['maj','min','majscale','natmin','majpent','minpent'],
+   pat:['straight','groups3','groups4'], seq:['single'], dir:['asc','both']},
+  {id:'intermediate', label:'Intermediate',
+   qual:['dim','aug','sus2','sus4','maj7','dom7','min7','maj6','min6','blues',
+         'dorian','phrygian','lydian','mixo','locrian'],
+   pat:['thirds','fourths','sixths'], seq:['cycle4','cycle5'], dir:['desc']},
+  {id:'advanced', label:'Advanced',
+   qual:['m7b5','dim7','minmaj7','7sus4','harmmin','melmin','harmmaj','wholetone',
+         'dimWH','dimHW','altered','phrygdom','lyddom','bebopdom','bebopmaj','hungmin','dblharm'],
+   pat:[], seq:['chromatic','whole'], dir:[]},
+];
+const DICE_LVL_KEY = 'gphDiceLvl';
+let diceLvl = Math.max(0, DICE_LEVELS.findIndex(l=>{ try{ return l.id === localStorage.getItem(DICE_LVL_KEY); }catch(e){ return false; } }));
+const dicePool = f => DICE_LEVELS.slice(0, diceLvl+1).flatMap(l=> l[f]);
+
 // 🎲 random exercise for the "no idea what to practice" case: randomize the
-// musical controls, keep the advanced ones at friendly defaults
+// musical controls within the chosen level, keep the advanced ones at friendly defaults
 const dice=document.createElement('button'); dice.className='chip dicechip'; dice.id='diceChip'; dice.textContent='🎲 Surprise me';
 dice.onclick=()=>{
   const pick=a=>a[Math.floor(Math.random()*a.length)];
   exSpec.apply({
     ...exSpec.musicalDefaults(), shape:'0', tap:'none',
     root: Math.floor(Math.random()*12),
-    qual: pick(Object.values(QUAL_GROUPS).flat()),
-    pat:  pick(['straight','thirds','fourths','sixths','groups3','groups4']),
-    seq:  pick(['single','cycle4','cycle5','chromatic','whole']),
-    dir:  pick(['asc','desc','both']),
+    qual: pick(dicePool('qual')),
+    pat:  pick(dicePool('pat')),
+    seq:  pick(dicePool('seq')),
+    dir:  pick(dicePool('dir')),
   });
   $('query').value='';
   generate();
 };
 $('chips').appendChild(dice);
+// Cycling chip rather than a select: three states, and the chips row scrolls
+// horizontally on mobile where a full-width select would take the whole strip.
+const lvlChip=document.createElement('button'); lvlChip.className='chip'; lvlChip.id='diceLvlChip';
+const paintDiceLvl=()=>{
+  lvlChip.textContent = '🎓 ' + DICE_LEVELS[diceLvl].label;
+  lvlChip.title = 'What 🎲 Surprise me draws from — tap to cycle';
+};
+lvlChip.onclick=()=>{
+  diceLvl = (diceLvl+1) % DICE_LEVELS.length;
+  try{ localStorage.setItem(DICE_LVL_KEY, DICE_LEVELS[diceLvl].id); }catch(e){}
+  paintDiceLvl();
+};
+paintDiceLvl();
+$('chips').appendChild(lvlChip);
 EXAMPLES.forEach(t=>{
   const b=document.createElement('button'); b.className='chip'; b.textContent=t;
   b.onclick=()=>{ $('query').value=t; runFromText(); };
