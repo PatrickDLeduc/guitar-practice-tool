@@ -774,7 +774,7 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
         n: pairs.length,
         allPairs: pairs.every(g => g.length === 2 && !g[0].stack && g[1].stack === true),
         diffStrings: pairs.every(g => g[0].s !== g[1].s),
-        inReach: pairs.every(g => Math.abs(g[0].f - g[1].f) <= 4 && g.every(n => n.f >= 0 && n.f <= 22)),
+        inReach: pairs.every(g => Math.abs(g[0].f - g[1].f) <= 3 && g.every(n => n.f >= 0 && n.f <= 22)),
         // a diatonic 5th in a major scale is 7 semitones, or 6 on the leading tone
         intervals: [...new Set(pairs.map(g => g[1].p - g[0].p))].sort((a, b) => a - b),
         // each pair is one column, so the tab has as many columns as pairs, not 2x
@@ -784,7 +784,7 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
       };
     });
     assert('double stops: pairs built, second note flagged as stacked (' + ds.n + ' pairs)', ds.n > 6 && ds.allPairs);
-    assert('double stops: both notes on different strings, within a 4-fret span',
+    assert('double stops: both notes on different strings, within a 3-fret span',
       ds.diffStrings && ds.inReach);
     assert('double stops: diatonic 5ths — 7 semitones, tritone on the leading tone (got '
       + ds.intervals.join('/') + ')', ds.intervals.join('/') === '6/7');
@@ -839,9 +839,11 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   // The same one-slot-per-chord machinery as double stops, carrying 3 and 4 voices.
   {
     const hs = await p.evaluate(() => {
-      const build = (pat, size) => {
-        // C major, 2 octaves — the pool all of these are harmonized out of
-        const ex = buildKeyExercise(0, 'majscale', pat, 'asc', 2, null, null, 'pos', 'none', 5, null, 'none');
+      // C major — the pool all of these are harmonized out of. Two octaves, except that a
+      // 4-voice quartal chord reaches nine scale degrees up, so it needs three to get a
+      // chord onto all seven of them.
+      const build = (pat, size, oct) => {
+        const ex = buildKeyExercise(0, 'majscale', pat, 'asc', oct || 2, null, null, 'pos', 'none', 5, null, 'none');
         const svg = renderNotationSystems(ex.groups, 0, null, 'quarter', null, 800).join('');
         const cx = [...svg.matchAll(/class="nh" cx="([\d.]+)"/g)].map(m => m[1]);
         return {
@@ -850,10 +852,13 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
                                    && g.slice(1).every(n => n.stack === true)),
           // one string per voice, rising, whole grip inside a hand's span and on the neck
           grips: ex.groups.every(g => g.every((n, i) => i === 0 || n.s > g[i - 1].s)
-                                   && Math.max(...g.map(n => n.f)) - Math.min(...g.map(n => n.f)) <= 4
                                    && g.every(n => n.f >= 0 && n.f <= 22)),
-          // interval sets above the bottom voice — what makes these diatonic, not a shape
-          chords: [...new Set(ex.groups.map(g => g.map(n => n.p - g[0].p).join('-')))].sort(),
+          // the stretch a hand is actually asked for: 5th fret to 8th, never to the 9th
+          maxSpan: Math.max(...ex.groups.map(g => Math.max(...g.map(n => n.f)) - Math.min(...g.map(n => n.f)))),
+          // Pitch-class sets — the invariant a voicing may not break. Dropping a voice an
+          // octave respells the chord, so intervals above the bottom note are not the test;
+          // the harmony is. Every chord must be one of the seven diatonic to C major.
+          chords: [...new Set(ex.groups.map(g => [...new Set(g.map(n => n.p % 12))].sort((a, b) => a - b).join('-')))].sort(),
           slots: ex.groups.flat().filter(n => !n.stack).length,
           // every voice of a chord shares one notation column, with one stem serving all
           sharedX: ex.groups.every((g, gi) => {
@@ -863,27 +868,35 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
           stems: (svg.match(/stroke-width="1\.2"/g) || []).length,
         };
       };
-      return { triads: build('triads', 3), sevenths: build('sevenths', 4),
-               quartal3: build('quartal3', 3), quartal4: build('quartal4', 4) };
+      const r = { triads: build('triads', 3), sevenths: build('sevenths', 4),
+                  quartal3: build('quartal3', 3), quartal4: build('quartal4', 4, 3) };
+      // The seven chords C major actually has for this pattern, as pitch-class sets —
+      // built from the scale, so it is the harmony being asserted and not a copy of the
+      // engine's arithmetic.
+      const SC = [0, 2, 4, 5, 7, 9, 11];
+      Object.keys(r).forEach(pat => {
+        r[pat].diatonic = Array.from({ length: 7 }, (_, d) =>
+          [...new Set(STACKS[pat].map(k => SC[(d + k) % 7]))].sort((a, b) => a - b).join('-')).sort();
+      });
+      return r;
     });
     for (const [pat, r] of Object.entries(hs)) {
       assert('harmonized ' + pat + ': chords built, upper voices flagged as stacked (' + r.n + ' chords)',
         r.n > 3 && r.shape);
-      assert('harmonized ' + pat + ': one string per voice, rising, within a 4-fret span', r.grips);
+      assert('harmonized ' + pat + ': one string per voice, rising, all on the neck', r.grips);
+      assert('harmonized ' + pat + ': never more than a 3-fret stretch (widest was ' + r.maxSpan + ')',
+        r.maxSpan <= 3);
       assert('harmonized ' + pat + ': one time slot per chord (' + r.slots + ' slots for ' + r.n + ' chords)',
         r.slots === r.n);
       assert('harmonized ' + pat + ': whole chord at one notation x, one stem each ('
         + r.stems + ' stems)', r.sharedX && r.stems === r.n);
+      // Diatonic, so the quality follows the key. A voicing may drop a voice an octave to
+      // fit the hand, but it may not add, drop or alter a note: the seven chords C major
+      // has are the seven that come out, all of them.
+      assert('harmonized ' + pat + ': every chord is diatonic to C major, all 7 present (got '
+        + r.chords.join(' ') + ')',
+        r.chords.length === 7 && r.chords.join(' ') === r.diatonic.join(' '));
     }
-    // Diatonic, so quality follows the key rather than a moved shape
-    assert('harmonized triads: C major gives maj, min and dim only (got '
-      + hs.triads.chords.join(' ') + ')', hs.triads.chords.join(' ') === '0-3-6 0-3-7 0-4-7');
-    assert('harmonized sevenths: C major gives maj7, dom7, min7 and m7b5 only (got '
-      + hs.sevenths.chords.join(' ') + ')',
-      hs.sevenths.chords.join(' ') === '0-3-6-10 0-3-7-10 0-4-7-10 0-4-7-11');
-    // stacked 4ths, perfect except where the key's one tritone falls in the stack
-    assert('harmonized quartal3: stacked 4ths with a tritone where the key puts one (got '
-      + hs.quartal3.chords.join(' ') + ')', hs.quartal3.chords.every(c => /^0-[56]-1[01]$/.test(c)));
 
     const hq = await p.evaluate(() => [
       parseQuery('C major scale harmonized in triads').pat,

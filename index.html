@@ -1300,32 +1300,56 @@ function assignFingering(pitches, strs){
 // two (a skipped string is what makes a 6th, or a wide quartal voicing, grabbable) and
 // keep the cheapest grip within a hand's span. 2–4 notes over 6 strings is a few dozen
 // candidates, so the exhaustive search is cheaper than being clever about it. Takes
-// low-to-high MIDI chords, returns them as placed notes in the same order. A chord with
-// no reachable grip is dropped rather than drawn as something you can't actually play.
-const STACK_STRETCH = 4;   // frets between the outer notes a hand will span
+// low-to-high MIDI chords and returns placed notes, still low to high — but not always the
+// same notes, since a voice may have been dropped an octave to make the chord fit (see
+// stackVoicings). A chord with no reachable grip in any voicing is dropped rather than
+// drawn as something you can't actually play.
+// Frets between the outer notes of a grip. 3 means a hand anchored at the 5th reaches the
+// 8th and no further — one finger per fret, which is the shape you can actually hold while
+// every voice rings. 4 let a 7th chord ask for 5 through 9, which is a stretch, not a grip.
+const STACK_STRETCH = 3;
+// Close position, then drop-2, then drop-3 — the 2nd and 3rd voice down from the top, each
+// moved an octave lower. Same notes and the same harmony, spread over a hand's worth of
+// frets instead of a stretch. A root-position 7th chord is the case that needs it: every
+// string is 5 semitones up while every 3rd is only 3 or 4, so the grip loses a fret or two
+// per voice and close position runs past what a hand can hold. This is why guitarists play
+// drop-2 rather than stacked 3rds, so falling back to it is idiomatic, not a workaround.
+// Two-voice chords have nothing to drop — a double stop is its two voices, adjacent.
+function stackVoicings(ch){
+  const v = [ch];
+  for(const d of [2, 3])
+    if(ch.length > d) v.push(ch.map((p,i)=> i === ch.length-d ? p-12 : p).sort((a,b)=> a-b));
+  return v;
+}
 function assignStacks(chords){
   if(instrument === 'piano') return chords.map(ch => ch.map(p => ({p})));
   const out = [];
   let hand = 5, prevS = 0;   // same neutral anchor assignFingering uses
-  for(const ch of chords){
+  for(const chord of chords){
     let pick = null, best = 1e9;
-    (function walk(k, sPrev, notes, cost){
-      if(k === ch.length){
-        const fs = notes.map(n => n.f);
-        if(Math.max(...fs) - Math.min(...fs) > STACK_STRETCH) return;
-        // open strings count as fret 1 for reach, as in assignFingering
-        const c = cost + notes.reduce((a,n)=> a + Math.abs((n.f || 1) - hand), 0)*1.6
-                       + Math.abs(notes[0].s - prevS)*0.8;
-        if(c < best){ best = c; pick = notes; }
-        return;
-      }
-      const lo = k === 0 ? 0 : sPrev+1, hi = k === 0 ? 5 : Math.min(5, sPrev+2);
-      for(let s = lo; s <= hi; s++){
-        const f = ch[k] - STRINGS[s];
-        if(f < 0 || f > MAX_FRET) continue;
-        walk(k+1, s, notes.concat({s, f, p: ch[k]}), cost + (k === 0 ? 0 : (s - sPrev - 1)*1.2));
-      }
-    })(0, -1, [], 0);
+    // Close position wins whenever the neck can hold it at all, so an exercise only
+    // spreads where it has to; the search moves on to the next voicing only if this
+    // one has no grip anywhere.
+    for(const ch of stackVoicings(chord)){
+      (function walk(k, sPrev, notes, cost){
+        if(k === ch.length){
+          const fs = notes.map(n => n.f);
+          if(Math.max(...fs) - Math.min(...fs) > STACK_STRETCH) return;
+          // open strings count as fret 1 for reach, as in assignFingering
+          const c = cost + notes.reduce((a,n)=> a + Math.abs((n.f || 1) - hand), 0)*1.6
+                         + Math.abs(notes[0].s - prevS)*0.8;
+          if(c < best){ best = c; pick = notes; }
+          return;
+        }
+        const lo = k === 0 ? 0 : sPrev+1, hi = k === 0 ? 5 : Math.min(5, sPrev+2);
+        for(let s = lo; s <= hi; s++){
+          const f = ch[k] - STRINGS[s];
+          if(f < 0 || f > MAX_FRET) continue;
+          walk(k+1, s, notes.concat({s, f, p: ch[k]}), cost + (k === 0 ? 0 : (s - sPrev - 1)*1.2));
+        }
+      })(0, -1, [], 0);
+      if(pick) break;
+    }
     if(!pick) continue;
     out.push(pick);
     const top = Math.max(...pick.map(n => n.f));
