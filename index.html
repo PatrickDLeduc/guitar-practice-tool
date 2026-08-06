@@ -541,6 +541,10 @@
       <option value="sixths">In 6ths</option>
       <option value="groups3">Groups of 3</option>
       <option value="groups4">Groups of 4</option>
+      <option value="dstop3">Double stops &mdash; 3rds</option>
+      <option value="dstop4">Double stops &mdash; 4ths</option>
+      <option value="dstop5">Double stops &mdash; 5ths</option>
+      <option value="dstop6">Double stops &mdash; 6ths</option>
     </select></div>
     <div class="ctl"><label>Key sequence</label><select id="selSeq">
       <option value="single">Single key</option>
@@ -1215,6 +1219,12 @@ function buildPool(rootPc, qualKey, octaves, customIvs){
   return pool.filter(p => p <= top);
 }
 
+// Double stops: the same diatonic pairs the 3rds/4ths/6ths patterns walk, but
+// sounded together instead of one after the other. The value is how many scale
+// degrees above the lower note the upper note sits, so the interval quality
+// follows the key — in C major the B–F pair comes out a tritone, as it should.
+const DSTOP = {dstop3:2, dstop4:3, dstop5:4, dstop6:5};
+
 // Pattern generators: return array of "groups" of pool indices.
 function patternGroups(n, pat){
   const g = [];
@@ -1224,6 +1234,7 @@ function patternGroups(n, pat){
   else if(pat === 'sixths'){ for(let i=0;i<=n-6;i++) g.push([i, i+5]); }
   else if(pat === 'groups3'){ for(let i=0;i<=n-3;i++) g.push([i, i+1, i+2]); }
   else if(pat === 'groups4'){ for(let i=0;i<=n-4;i++) g.push([i, i+1, i+2, i+3]); }
+  else if(DSTOP[pat] !== undefined){ const d = DSTOP[pat]; for(let i=0;i+d<n;i++) g.push([i, i+d]); }
   return g;
 }
 
@@ -1270,6 +1281,38 @@ function assignFingering(pitches, strs){
     out.push({...pick, p: pitches[i]});
     if(pick.f > 0) hand = hand*0.6 + pick.f*0.4;
     prevS = pick.s;
+  }
+  return out;
+}
+
+// Double stops need both notes on different strings at the same instant, which the
+// greedy single-line walker above can't promise — it would happily put a 5th twice on
+// the low E. Adjacent strings cover 3rds through 5ths; a 6th wants a skipped string,
+// so (s, s+2) is allowed too. Takes [lo, hi] MIDI pairs, returns [lower, upper] placed
+// notes. A pair with no reachable placement is dropped rather than drawn as something
+// you can't actually play.
+const DSTOP_STRETCH = 4;   // frets between the two notes a hand will span
+function assignDoubleStops(pairs){
+  if(instrument === 'piano') return pairs.map(([lo,hi]) => [{p:lo}, {p:hi}]);
+  const out = [];
+  let hand = 5, prevS = 0;   // same neutral anchor assignFingering uses
+  for(const [lo, hi] of pairs){
+    let pick = null, best = 1e9;
+    for(let sLo=0; sLo<5; sLo++)
+      for(let sHi=sLo+1; sHi<=Math.min(5, sLo+2); sHi++){
+        const fLo = lo - STRINGS[sLo], fHi = hi - STRINGS[sHi];
+        if(fLo < 0 || fLo > MAX_FRET || fHi < 0 || fHi > MAX_FRET) continue;
+        if(Math.abs(fLo - fHi) > DSTOP_STRETCH) continue;
+        const eLo = fLo===0 ? 1 : fLo, eHi = fHi===0 ? 1 : fHi;
+        const cost = (Math.abs(eLo - hand) + Math.abs(eHi - hand))*1.6
+                   + (sHi - sLo - 1)*1.2 + Math.abs(sLo - prevS)*0.8;
+        if(cost < best){ best = cost; pick = [{s:sLo, f:fLo, p:lo}, {s:sHi, f:fHi, p:hi}]; }
+      }
+    if(!pick) continue;
+    out.push(pick);
+    const top = Math.max(pick[0].f, pick[1].f);
+    if(top > 0) hand = hand*0.6 + top*0.4;
+    prevS = pick[0].s;
   }
   return out;
 }
@@ -1352,7 +1395,20 @@ function buildKeyExercise(rootPc, qualKey, pat, dir, octaves, customIvs, customN
     pool = buildPool(rootPc, qualKey, octaves, customIvs);
     if(fingering === '3nps' && pool.length > 18) pool = pool.slice(0, 18);   // 6 strings × 3
   }
+  const name = customName || (FLAT_NAMES[rootPc] + ' ' + QUALITIES[qualKey].label + (shapeLabel ? ' — ' + shapeLabel : ''));
   let groups = applyDirection(patternGroups(pool.length, pat), pool.length, dir);
+  // Double stops place both notes as a unit, so they bypass posMap, 3nps, tapping and
+  // the per-group variations — none of which can promise two playable strings at once.
+  // syncPatLock() disables those controls while a double-stop pattern is selected, so
+  // nothing silently goes missing here.
+  if(DSTOP[pat] !== undefined){
+    // applyDirection mirrors indices, which flips a descending pair to [upper, lower] —
+    // sort so the placer always gets [lo, hi].
+    const fg = assignDoubleStops(groups.map(g =>
+      g[0] <= g[1] ? [pool[g[0]], pool[g[1]]] : [pool[g[1]], pool[g[0]]]));
+    fg.forEach(g => { g[1].stack = true; });
+    return { name, groups: fg };
+  }
   // variations: transform each group
   if(variation === 'rev')         groups = groups.map(g => g.slice().reverse());
   else if(variation === 'zigzag') groups = groups.map((g,i) => i%2 ? g.slice().reverse() : g);
@@ -1398,7 +1454,6 @@ function buildKeyExercise(rootPc, qualKey, pat, dir, octaves, customIvs, customN
   // entry is idempotent.
   if(instrument !== 'piano')
     fgroups.forEach(g => g.forEach(n => { if(n.p === undefined) n.p = STRINGS[n.s] + n.f; }));
-  const name = customName || (FLAT_NAMES[rootPc] + ' ' + QUALITIES[qualKey].label + (shapeLabel ? ' — ' + shapeLabel : ''));
   return { name, groups: fgroups };
 }
 
@@ -1406,7 +1461,13 @@ function buildKeyExercise(rootPc, qualKey, pat, dir, octaves, customIvs, customN
 // Spelled per key so a Bb exercise copies as "Bb C D Eb", not "A# C D D#".
 function renderNoteNames(groups, rootPc){
   const NM = SHARP_KEYS.has(rootPc) ? SHARP_NAMES : FLAT_NAMES;
-  return groups.map(g => g.map(n => NM[n.p % 12] + (Math.floor(n.p/12) - 1)).join(' ')).join('\n');
+  // Notes that sound together are joined with +, so "C+F" reads as one double stop
+  // rather than two eighth notes.
+  return groups.map(g => g.reduce((slots, n)=>{
+    const nm = NM[n.p % 12] + (Math.floor(n.p/12) - 1);
+    if(n.stack && slots.length) slots[slots.length-1] += '+' + nm; else slots.push(nm);
+    return slots;
+  }, []).join(' ')).join('\n');
 }
 
 // ---- Standard piano scale fingerings ----
@@ -1468,19 +1529,25 @@ function renderTab(groups, maxWidth){
     lines = STRING_LABELS.map(l => l + '|-');
     width = 0;
   };
+  const label = n => String(n.f) + (n.tap ? 't' : '');
   groups.forEach((grp, gi) => {
-    // column width for this group
-    let cols = grp.map(n => String(n.f) + (n.tap ? 't' : ''));
-    let gw = cols.reduce((a,c)=>a+c.length+1, 0) + 2; // + group gap
+    // One column per time slot: a double stop puts its two notes in the same column,
+    // on different string lines. Without stacked notes every slot holds one note and
+    // this lays out exactly as the per-note loop it replaced.
+    const slots = [];
+    grp.forEach(n => { if(n.stack && slots.length) slots[slots.length-1].push(n); else slots.push([n]); });
+    const colW = sl => Math.max(...sl.map(n => label(n).length)) + 1;
+    let gw = slots.reduce((a,sl)=> a + colW(sl), 0) + 2;   // + group gap
     if(width + gw > maxWidth) flush();
-    grp.forEach((n, ni) => {
-      const fs = String(n.f) + (n.tap ? 't' : ''), w = fs.length + 1;
+    slots.forEach(sl => {
+      const w = colW(sl);
       for(let li=0; li<6; li++){
         const sIdx = 5 - li;             // display line -> string index
-        lines[li] += (n.s === sIdx) ? fs + '-' : '-'.repeat(w);
+        const n = sl.find(x => x.s === sIdx);
+        lines[li] += n ? label(n) + '-'.repeat(w - label(n).length) : '-'.repeat(w);
       }
       width += w;
-      if(n.bar){
+      if(sl.some(n => n.bar)){
         for(let li=0; li<6; li++) lines[li] += '|-';
         width += 2;
       }
@@ -1528,10 +1595,13 @@ function renderNotationSystems(groups, rootPc, labels, nv, fingers, availPx){
   // width; no measurement here so the engine stays runnable outside the DOM.
   const maxPx = availPx > 180 ? Math.max(160, availPx - padL - padR) : 800;
   const useSharps = SHARP_KEYS.has(rootPc);
+  // A stacked note shares its predecessor's column, so width is counted in time slots
+  // rather than notes. With no stacked notes this is just g.length.
+  const slotsOf = g => Math.max(1, g.filter(n => !n.stack).length);
   // wrap groups into systems by pixel width
   const systems=[]; let cur=[], w=0;
   groups.forEach((g,gi)=>{
-    const gw = g.length*colW + gapW;
+    const gw = slotsOf(g)*colW + gapW;
     if(w+gw > maxPx && cur.length){ systems.push(cur); cur=[]; w=0; }
     cur.push({notes:g, label: labels ? labels[gi] : null}); w += gw;
   });
@@ -1541,13 +1611,17 @@ function renderNotationSystems(groups, rootPc, labels, nv, fingers, availPx){
     // stops at the last group that fits, so up to a group's worth of slack was left over —
     // 26% of the container on a phone. Spending it on wider columns makes every notehead and
     // tab number bigger for free. Capped so a short final system doesn't sprawl.
-    const rawW = sysGroups.reduce((a,g)=> a + g.notes.length*colW + gapW, 0) - gapW;
+    const rawW = sysGroups.reduce((a,g)=> a + slotsOf(g.notes)*colW + gapW, 0) - gapW;
     const k = Math.min(1.6, Math.max(1, maxPx / rawW));
     const cW = colW*k, gW = gapW*k;
     const cols=[]; const marks=[]; let x=padL;
     sysGroups.forEach(({notes,label})=>{
       if(label) marks.push({x, label});
-      notes.forEach(n=>{ cols.push({x: x+cW/2, n}); x+=cW; });
+      notes.forEach(n=>{
+        // a double stop is drawn at its lower note's x, not in a column of its own
+        if(n.stack && cols.length){ cols.push({x: cols[cols.length-1].x, n}); return; }
+        cols.push({x: x+cW/2, n}); x+=cW;
+      });
       x+=gW;
     });
     const W = x - gW + padR;
@@ -1579,7 +1653,7 @@ function renderNotationSystems(groups, rootPc, labels, nv, fingers, availPx){
     s += clefSVG('\u{1D11E}', 14, 32, SP, yOf);
     if(piano) s += clefSVG('\u{1D122}', 16, 24, SP, yOf);
     // notes
-    cols.forEach(c=>{
+    cols.forEach((c,ci)=>{
       const d0 = c.sp.dval, bass = inBass(d0);
       const y = yOf(d0);
       if(bass){
@@ -1593,17 +1667,26 @@ function renderNotationSystems(groups, rootPc, labels, nv, fingers, availPx){
         for(let d=40; d<=d0; d+=2)
           s += `<line x1="${c.x-8}" y1="${yOf(d)}" x2="${c.x+8}" y2="${yOf(d)}" stroke="#646b7d" stroke-width="1"/>`;
       }
-      if(c.sp.acc !== 0)
-        s += `<text x="${c.x-14}" y="${y+4}" font-size="13" fill="#cdd3e0" font-family="'Segoe UI Symbol',serif">${c.sp.acc<0?'♭':'♯'}</text>`;
-      // stems flip about each staff's own middle line (B4=34 treble, D3=22 bass)
-      const up = d0 < (bass ? 22 : 34);
-      const sx = up ? c.x+4.4 : c.x-4.4;
-      const sy2 = up ? y-SP*3.1 : y+SP*3.1;
-      s += `<line x1="${sx}" y1="${up?y-1:y+1}" x2="${sx}" y2="${sy2}" stroke="#e8eaf0" stroke-width="1.2"/>`;
-      const flags = nv==='sixteenth' ? 2 : (nv==='eighth'||nv==='triplet') ? 1 : 0;
-      for(let fi=0; fi<flags; fi++){
-        const fy = sy2 + (up ? fi*5 : -fi*5);
-        s += `<path d="M ${sx} ${fy} q 7 ${up?3:-3} 4 ${up?10:-10}" stroke="#e8eaf0" stroke-width="1.3" fill="none"/>`;
+      if(c.sp.acc !== 0){
+        // two accidentals in one column would land on top of each other; the upper
+        // note's steps further out, the way engraved chords stagger them
+        const ax = c.x - (c.n.stack && ci>0 && cols[ci-1].sp.acc !== 0 ? 24 : 14);
+        s += `<text x="${ax}" y="${y+4}" font-size="13" fill="#cdd3e0" font-family="'Segoe UI Symbol',serif">${c.sp.acc<0?'♭':'♯'}</text>`;
+      }
+      // ponytail: a double stop shares the lower note's stem and flag rather than
+      // drawing a second one on top of it — fine at 4ths and wider, which is all the
+      // stacked patterns generate. Stacked 2nds would need offset noteheads.
+      if(!c.n.stack){
+        // stems flip about each staff's own middle line (B4=34 treble, D3=22 bass)
+        const up = d0 < (bass ? 22 : 34);
+        const sx = up ? c.x+4.4 : c.x-4.4;
+        const sy2 = up ? y-SP*3.1 : y+SP*3.1;
+        s += `<line x1="${sx}" y1="${up?y-1:y+1}" x2="${sx}" y2="${sy2}" stroke="#e8eaf0" stroke-width="1.2"/>`;
+        const flags = nv==='sixteenth' ? 2 : (nv==='eighth'||nv==='triplet') ? 1 : 0;
+        for(let fi=0; fi<flags; fi++){
+          const fy = sy2 + (up ? fi*5 : -fi*5);
+          s += `<path d="M ${sx} ${fy} q 7 ${up?3:-3} 4 ${up?10:-10}" stroke="#e8eaf0" stroke-width="1.3" fill="none"/>`;
+        }
       }
       s += `<ellipse class="nh" cx="${c.x}" cy="${y}" rx="4.8" ry="3.5" transform="rotate(-18 ${c.x} ${y})" ${nv==='half' ? 'fill="none" stroke="#e8eaf0" stroke-width="1.5"' : 'fill="#e8eaf0"'}/>`;
       // finger numbers in one consistent row per staff (above treble, below bass) rather
@@ -1622,8 +1705,9 @@ function renderNotationSystems(groups, rootPc, labels, nv, fingers, availPx){
       s += `<line x1="${bx}" y1="${yOf(38)}" x2="${bx}" y2="${yOf(30)}" stroke="#9aa0b0" stroke-width="1.5"/>`;
       s += `<line x1="${bx}" y1="${tabTop}" x2="${bx}" y2="${tabTop+5*TS}" stroke="#9aa0b0" stroke-width="1.5"/>`;
     });
-    // triplet numerals over each set of three
-    if(nv === 'triplet')
+    // triplet numerals over each set of three — cols are notes, so a system with
+    // double stops has more of them than time slots and the grouping would lie
+    if(nv === 'triplet' && !cols.some(c=>c.n.stack))
       for(let i=0; i+2 < cols.length || i+2 === cols.length; i+=3){
         if(i+1 >= cols.length) break;
         const mid = cols[Math.min(i+1, cols.length-1)];
@@ -1959,6 +2043,14 @@ function parseQuery(raw){
   else if(/groups? of (3|three)/.test(q)) res.pat = 'groups3';
   else if(/groups? of (4|four)/.test(q)) res.pat = 'groups4';
   else if(/straight|linear|up and down/.test(q)) res.pat = 'straight';
+  // Double stops upgrade whichever interval was just matched. Runs after the key
+  // sequence has been stripped, so "double stops round the cycle of 5ths" doesn't read
+  // those 5ths as the interval. 5ths have no sequential pattern to upgrade from, so
+  // they're matched here — plural only, to leave "in 5th position" alone. A bare
+  // "double stops" defaults to 4ths.
+  if(/double[- ]?stops?|dyads?/.test(q))
+    res.pat = /(5ths|fifths)\b/.test(q) ? 'dstop5'
+      : {thirds:'dstop3', fourths:'dstop4', sixths:'dstop6'}[res.pat] || 'dstop4';
 
   // direction
   if(/ascending and descending|up and down|both direction/.test(q)) res.dir = 'both';
@@ -2862,7 +2954,8 @@ const exSpec = {
   // orphans personal bests already on disk and in the cloud, so it is a migration,
   // not an edit. tests/smoke.js pins the wording.
   key(s){
-    const patName = {straight:'straight',thirds:'in 3rds',fourths:'in 4ths',sixths:'in 6ths',groups3:'groups of 3',groups4:'groups of 4'}[s.pat];
+    const patName = {straight:'straight',thirds:'in 3rds',fourths:'in 4ths',sixths:'in 6ths',groups3:'groups of 3',groups4:'groups of 4',
+      dstop3:'double stops in 3rds',dstop4:'double stops in 4ths',dstop5:'double stops in 5ths',dstop6:'double stops in 6ths'}[s.pat];
     const dirName = {asc:'ascending',desc:'descending',both:'asc + desc'}[s.dir];
     const nvName = {half:'half notes', quarter:'quarter notes', eighth:'8th notes', triplet:'triplets', sixteenth:'16th notes'}[s.nv];
     return `${QUALITIES[s.qual].label} · ${patName} · ${dirName} · ${nvName}`;
@@ -2909,6 +3002,7 @@ const EXAMPLES = [
   'C major scale in 3rds, ascending and descending',
   'dominant 7 arpeggios up and down in all 12 keys',
   'A minor pentatonic in groups of 3',
+  'G major scale in double stops, 5ths, up and down',
   'harmonic minor scale in 4ths in E',
   'altered scale in 3rds in G, 3 octaves',
   'phrygian dominant descending, cycle of 4ths',
@@ -2953,9 +3047,13 @@ function noteTicks(nv){
 function markBarLines(groups, nv){
   const seq = barSeqTicks(), dt = noteTicks(nv);
   const flat = groups.flat();
+  flat.forEach(n => delete n.bar);
   let t = 0, bi = 0, next = seq[0];
   flat.forEach((n,i)=>{
-    delete n.bar;
+    // A stacked note sounds with the one before it, so the pair costs one tick, not two.
+    // Skipping the first of the pair leaves the barline hanging off the last note in the
+    // slot, which is where both renderers want it.
+    if(flat[i+1] && flat[i+1].stack) return;
     t += dt;
     if(i < flat.length-1 && Math.abs(t - next) < 1e-6) n.bar = true;
     while(next - t < 1e-6){ bi++; next += seq[bi % seq.length]; }
@@ -2973,7 +3071,19 @@ function foldKey(block, open){
   }
 }
 
+// Double stops place both notes themselves, so the fingering modes, the per-group
+// variations and tapping have nothing left to say. Park them at their defaults and
+// disable them — a control that silently does nothing is worse than one that's greyed.
+function syncPatLock(){
+  const lock = DSTOP[selPat.value] !== undefined;
+  [[selFing,'pos'], [selVar,'none'], [selTap,'none']].forEach(([sel, def])=>{
+    if(lock && sel.value !== def) sel.value = def;
+    sel.disabled = lock;
+  });
+}
+
 function generate(){
+  syncPatLock();
   const spec = exSpec.read();
   const rootPc=+spec.root, qual=spec.qual, pat=spec.pat,
         seq=spec.seq, dir=spec.dir, oct=+spec.oct,
@@ -3006,7 +3116,7 @@ function generate(){
     markBarLines(ex.groups, nv);
     if(ji === 0){
       // auto-fit auto-advance: bars this exercise takes in the current meter
-      const ticks = ex.groups.flat().length * noteTicks(nv);
+      const ticks = ex.groups.flat().filter(n => !n.stack).length * noteTicks(nv);
       let bars;
       if($('mBeats').value === 'none') bars = Math.max(1, Math.min(99, Math.ceil(ticks - 1e-6)));
       else {   // walk the bar cycle so mixed-length bars count correctly
@@ -4083,27 +4193,33 @@ function setLoop(v){
 }
 let playState = null;
 // follow-along: move a gold highlight across the notation in sync with the audio clock
-function trackPlayback(ctx, start, unit, count, container, sw){
+function trackPlayback(ctx, start, unit, count, container, sw, noteSlots){
   if(!container) return;
   const nn = container.querySelectorAll('.nn'), nh = container.querySelectorAll('.nh');
   // Guitar leads on the tab number and drags its notehead along; piano has noteheads only.
   const lead = nn.length === count ? nn : nh;
   const alt  = lead === nn ? nh : null;
   if(lead.length !== count) return;   // tab-only text mode (or stale DOM) — nothing to highlight
+  // A time slot can hold more than one element once double stops are in play, so the
+  // highlight works slot -> elements. Without noteSlots that's one element per slot.
+  const slots = [];
+  (noteSlots || Array.from({length: count}, (_,j)=>j))
+    .forEach((sl, j)=>{ (slots[sl] = slots[sl] || []).push(j); });
   const st = playState;
   sw = sw || 0;
   let last = -1;
+  const clear = ()=>{ if(last>=0) slots[last].forEach(j=>{ lead[j].classList.remove('hl'); alt?.[j]?.classList.remove('hl'); }); };
   (function tick(){
-    if(playState !== st){ if(last>=0){ lead[last].classList.remove('hl'); alt?.[last]?.classList.remove('hl'); } return; }
+    if(playState !== st){ clear(); return; }
     // pairwise mapping so the highlight lands on swung 8ths at their delayed onsets
     const el = ctx.currentTime - start;
     const pair = Math.floor(el / (2*unit));
     const i = pair*2 + (el - pair*2*unit >= (1+sw)*unit ? 1 : 0);
-    if(i >= count){ if(last>=0){ lead[last].classList.remove('hl'); alt?.[last]?.classList.remove('hl'); } return; }
+    if(i >= slots.length){ clear(); return; }
     if(i !== last && i >= 0){
-      if(last >= 0){ lead[last].classList.remove('hl'); alt?.[last]?.classList.remove('hl'); }
-      lead[i].classList.add('hl'); alt?.[i]?.classList.add('hl');
-      lead[i].scrollIntoView({block:'nearest', inline:'nearest'});
+      clear();
+      slots[i].forEach(j=>{ lead[j].classList.add('hl'); alt?.[j]?.classList.add('hl'); });
+      lead[slots[i][0]].scrollIntoView({block:'nearest', inline:'nearest'});
       last = i;
     }
     requestAnimationFrame(tick);
@@ -4143,9 +4259,13 @@ function playNotes(noteList, btn, pads, skipCountIn){
   const sw = swingOn && (nvSel ? nvSel.value : 'quarter') === 'eighth' ? 1/3 : 0;
   // Karplus-Strong is a plucked string; piano borrows the existing soft pad voice.
   const voice = instrument === 'piano' ? pad : pluck;
-  noteList.forEach((n,i)=> voice(ctx, n.p, start + (i + (i%2 ? sw : 0))*eighth, eighth, 0.16, g));
+  // Onset comes from the time slot, not the array index: a stacked note shares the
+  // slot of the note before it, which is what makes a double stop one attack.
+  let slot = 0;
+  const slots = noteList.map(n => n.stack && slot ? slot - 1 : slot++);
+  noteList.forEach((n,i)=>{ const t = slots[i]; voice(ctx, n.p, start + (t + (t%2 ? sw : 0))*eighth, eighth, 0.16, g); });
   if(pads) pads.forEach(p=> p.pitches.forEach(m=> tone(ctx, m, start + p.at*eighth, p.dur*eighth, 0.06, 'sine', g)));
-  const total = (countDur + (noteList.length + sw)*eighth + (playLoop ? 0.02 : 0.3)) * 1000;
+  const total = (countDur + (slot + sw)*eighth + (playLoop ? 0.02 : 0.3)) * 1000;
   playState = {g, btn, loop: playLoop, args:[noteList, btn, pads],
     endTimer: setTimeout(()=>{
       if(playState && playState.loop){
@@ -4154,7 +4274,7 @@ function playNotes(noteList, btn, pads, skipCountIn){
         playNotes(a[0], a[1], a[2], true);
       } else stopPlayback();
     }, total)};
-  trackPlayback(ctx, start, eighth, noteList.length, btn && btn.closest('.keyblock'), sw);
+  trackPlayback(ctx, start, eighth, noteList.length, btn && btn.closest('.keyblock'), sw, slots);
   keepAwake();
   if(btn){ btn.textContent = '■'; btn.classList.add('playing'); }
 }
