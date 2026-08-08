@@ -2554,6 +2554,36 @@ const ETUDES = [
        + 'same seven notes an octave apart, landing on different beats the second time round.',
     t:'1:5 0:6 0:8 1:8 1:5 1:7 2:8 1:8 / 2:5 3:7 2:8 3:5 4:6 3:7 4:5 5:6 '
      + '/ 4:6 5:8 5:6 3:7 4:8 4:6 2:8 3:5 / 3:7 2:8 2:5 1:8 1:5 1:7 1:8 0:6' },
+  { id:'tp-lydian-dominant', n:'Lydian dominant, major pairs a whole step apart', tech:'triadpair', lvl:1,
+    key:0, qual:'mixo', ch:'C7 F7 C7 C7',
+    tp:'0:maj 2:maj / 5:maj 7:maj / 0:maj 2:maj / 0:maj 2:maj',
+    why:'The same whole-step major pair, moved to sit on whichever chord is under it: C and D over '
+       + 'the C7, F and G over the F7. The upper triad carries the 9th, the ♯11 and the 13th, and '
+       + 'the ♯11 is what makes this Lydian dominant rather than plain Mixolydian. Bar 2 is the '
+       + 'test — take the nearest note in the new pair instead of resetting to a shape.',
+    t:'2:5 1:7 2:7 3:5 3:9 3:7 4:8 4:5 / 4:8 3:7 4:6 5:7 4:8 5:5 5:10 5:7 '
+     + '/ 5:8 5:10 4:8 4:5 4:7 3:5 3:9 3:7 / 4:7 4:5 3:7 2:7 2:10 1:9 1:5 0:8' },
+  { id:'tp-half-dim', n:'Minor pairs over a half-diminished chord', tech:'triadpair', lvl:1,
+    key:11, qual:'locrian', ch:'Bm7b5 Bm7b5 Bm7b5 Bm7b5',
+    tp:'2:min 4:min / 2:min 4:min / 2:min 4:min / 2:min 4:min',
+    why:'Neither triad is built on the chord root. D minor is the chord from the third up; E minor '
+       + 'adds the 11th and the ♭13. Half-diminished sounds bleak played as an arpeggio and quite '
+       + 'different played as these two triads — the wide jumps are inversions of the same two '
+       + 'shapes, not new material, so land them without a lurch.',
+    t:'2:9 1:7 2:7 2:5 3:9 3:7 4:8 5:7 / 5:10 4:10 4:8 4:6 3:7 3:9 3:10 2:7 '
+     + '/ 2:9 1:5 2:5 0:7 1:8 2:9 1:10 2:7 / 1:8 2:9 2:7 3:7 3:9 4:6 5:5 5:7' },
+  { id:'tp-major-251', n:'Major ii–V–I, a device per chord', tech:'triadpair', lvl:1,
+    key:0, qual:'majscale', ch:'Dm7 G7 Cmaj7 Cmaj7 Dm7 G7 Cmaj7 Cmaj7',
+    tp:'2:min 4:min / 7:maj 9:maj / 0:maj 2:maj / 0:maj 2:maj '
+      +'/ 2:min 4:min / 7:maj 9:maj / 0:maj 2:maj / 0:maj 2:maj',
+    why:'Three rules in eight bars: a minor pair on the ii, a Lydian-dominant major pair on the V, '
+       + 'a Lydian major pair on the I. It runs twice round, so by the second chorus you already '
+       + 'know where the changes are — spend that half following one triad of each pair the whole '
+       + 'way through and listening to what the other one does against it.',
+    t:'1:5 1:8 1:7 2:7 3:7 2:9 3:10 4:10 / 5:9 5:5 5:7 4:5 4:10 4:8 3:9 3:6 '
+     + '/ 3:5 4:7 4:5 2:5 2:7 1:7 2:10 3:7 / 4:7 4:8 4:10 5:10 5:8 5:5 3:7 3:9 '
+     + '/ 4:8 5:7 5:10 4:5 2:9 2:7 2:5 1:7 / 2:5 3:7 2:7 2:9 4:8 5:9 5:10 5:7 '
+     + '/ 5:10 5:8 5:5 4:7 4:8 3:7 4:10 4:5 / 4:8 4:10 3:9 2:10 2:7 1:10 1:7 1:5' },
 ];
 // ===== ENGINE END =====
 
@@ -5107,16 +5137,19 @@ function etude12(et){
   ak.title = 'You play along to the metronome; it moves you to the next key every few bars, after a free bar of count-in';
   ak.onclick = akToggle;
   const akb = document.createElement('input');
-  akb.id = 'etAkBars'; akb.type = 'number'; akb.min = 1; akb.max = 99; akb.value = 4;
+  // One pass through the étude is the only default that means anything, and études are no longer
+  // all four bars long — derive it the same way the tooltip beside it already does.
+  const akBars = etudeGroups(et.t).length;
+  akb.id = 'etAkBars'; akb.type = 'number'; akb.min = 1; akb.max = 99; akb.value = akBars;
   akb.setAttribute('aria-label', 'Bars per key');
-  akb.title = `Bars in each key before it advances — the étude is ${etudeGroups(et.t).length} bars, so ${etudeGroups(et.t).length * 2} is twice through`;
+  akb.title = `Bars in each key before it advances — the étude is ${akBars} bars, so ${akBars * 2} is twice through`;
   head.append(ak, akb);
   wrap.appendChild(head);
   wrap.appendChild(etudeSub(et.why));
   wrap.appendChild(etudeSub(etudeTip(et)));
   wrap.appendChild(etudeSub('Up a fourth each time, starting from the key it is written in — '
     + 'twelve keys and you are back where you started. ▶ plays the whole circle to you; '
-    + 'Auto-advance is for playing it yourself, moving you on every 4 bars.'));
+    + `Auto-advance is for playing it yourself, moving you on every ${akBars} bars.`));
   ET_CIRCLE(et.key).forEach(pc=> wrap.appendChild(etudeCard(et, pc, keyName(pc), true)));
   return wrap;
 }
