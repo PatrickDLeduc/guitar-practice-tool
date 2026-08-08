@@ -2528,6 +2528,32 @@ const ETUDES = [
        + 'rings against the picked note below. Bars 3–4 move the pair up two strings.',
     t:'2:10 4:11 2:8 4:8 2:10 4:9 2:6 4:6 / 2:11 4:9 2:6 4:6 2:11 4:11 2:8 4:9 '
      + '/ 3:8 5:8 3:10 5:11 3:12 5:9 3:8 5:6 / 3:10 5:9 3:8 5:8 3:12 5:6 3:10 5:9' },
+
+  // ---- triad pairs ----
+  { id:'tp-dorian-vamp', n:'Dorian vamp, minor pairs a whole step apart', tech:'triadpair', lvl:0,
+    key:2, qual:'dorian', ch:'Dm7 Dm7 Dm7 Dm7',
+    tp:'2:min 4:min / 2:min 4:min / 2:min 4:min / 2:min 4:min',
+    why:'Two minor triads a whole step apart over one chord: D minor gives you the chord, E minor '
+       + 'gives you the 9th, 11th and the natural 13th that makes it Dorian rather than Aeolian. '
+       + 'The cell is three notes long and the bar is eight, so it lands somewhere new every bar.',
+    t:'2:7 3:7 3:9 3:10 4:10 5:7 5:10 4:10 / 4:8 4:6 3:7 2:9 2:7 3:10 3:9 4:6 '
+     + '/ 4:10 5:7 5:10 5:5 4:8 3:10 3:7 3:9 / 4:6 2:7 2:9 3:10 3:7 2:5 2:7 3:7' },
+  { id:'tp-lydian-maj7', n:'Lydian major 7th, major pairs a whole step apart', tech:'triadpair', lvl:0,
+    key:0, qual:'lydian', ch:'Cmaj7 Cmaj7 Cmaj7 Cmaj7',
+    tp:'0:maj 2:maj / 0:maj 2:maj / 0:maj 2:maj / 0:maj 2:maj',
+    why:'C major gives you the chord and D major gives you the 9th, the ♯11 and the 13th — three '
+       + 'extensions out of a shape your hand already knows. Every third note comes from the D '
+       + 'triad, so the colour falls on a new beat each bar — and the ♯11 has to sound meant.',
+    t:'0:8 1:10 1:9 1:7 2:10 2:7 2:5 3:9 / 3:7 3:5 4:8 4:7 4:5 5:8 5:5 4:8 '
+     + '/ 4:5 5:10 5:8 4:5 2:7 2:5 1:7 1:5 / 2:5 1:7 2:7 3:5 4:8 4:7 4:5 5:8' },
+  { id:'tp-bvii-dominant', n:'Flat-seven pair over a dominant', tech:'triadpair', lvl:0,
+    key:0, qual:'mixo', ch:'C7 C7 C7 C7',
+    tp:'10:maj 0:maj / 10:maj 0:maj / 10:maj 0:maj / 10:maj 0:maj',
+    why:'The triad on the flat seventh against the one on the root: B♭ major hands you the ♭7, the '
+       + '9th and the 11th, and C major holds the chord steady underneath. Bars 1 and 2 are the '
+       + 'same seven notes an octave apart, landing on different beats the second time round.',
+    t:'1:5 0:6 0:8 1:8 1:5 1:7 2:8 1:8 / 2:5 3:7 2:8 3:5 4:6 3:7 4:5 5:6 '
+     + '/ 4:6 5:8 5:6 3:7 4:8 4:6 2:8 3:5 / 3:7 2:8 2:5 1:8 1:5 1:7 1:8 0:6' },
 ];
 // ===== ENGINE END =====
 
