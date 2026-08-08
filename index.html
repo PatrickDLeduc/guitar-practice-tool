@@ -2226,9 +2226,12 @@ function parseQuery(raw){
 // An étude carries its own subdivision. Uniform within the étude: either all straight eighths or
 // all triplets, never both. ponytail: per-note durations would mean variable column widths,
 // beaming groups and triplet brackets over arbitrary subsets in renderNotationSystems — which four
-// tabs share. The across-the-barline effect these studies want comes instead from cell lengths that
-// do not divide the bar (three-note cells against eight eighths). Add real durations when a written
-// étude needs a rhythm that phasing cannot produce.
+// tabs share. Displacement comes instead from groupings that divide nothing evenly, and the two
+// subdivisions get there differently: in the eighth études a three-note cell against eight eighths,
+// phasing across the barline; in the triplet ones a four-note cell that *does* divide the bar and so
+// realigns every bar — what crosses there is the triad changing every two triplet-eighths, 2 against
+// a beat of 3, cutting across the very `3` brackets the notation draws. Add real durations when a
+// written étude needs a rhythm that neither kind of phasing can produce.
 const etNv  = et => et.nv ?? 'eighth';
 const etNpb = et => et.nv === 'triplet' ? 12 : 8;
 const ET_LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
@@ -2591,7 +2594,8 @@ const ETUDES = [
     key:0, qual:'dimHW', ch:'C7 C7 C7 C7', nv:'triplet',
     tp:'0:maj 6:maj / 0:maj 6:maj / 0:maj 6:maj / 0:maj 6:maj',
     why:'C major is the chord; the triad a tritone off shares its ♭7 and adds the ♭9 and ♯11. '
-       + 'Two of each per cell, cutting across the triplets — make the outside notes sound chosen.',
+       + 'The triads swap every note or two, cutting across the triplets — make the outside notes '
+       + 'sound chosen.',
     t:'0:8 1:7 0:6 0:9 1:10 2:10 1:9 2:8 3:9 4:8 4:7 5:6 '
      + '/ 5:9 4:8 5:6 5:8 4:7 3:5 3:6 3:9 2:8 1:7 1:9 0:8 '
      + '/ 0:9 1:7 2:5 1:9 2:8 3:5 4:5 3:6 4:7 4:8 5:8 5:6 '
@@ -2600,7 +2604,8 @@ const ETUDES = [
     key:7, qual:'wholetone', ch:'G7 G7 Cm7 Cm7', nv:'triplet',
     tp:'7:aug 5:aug / 7:aug 5:aug / 0:min 2:min / 0:min 2:min',
     why:'Two augmented triads a whole step apart make the whole-tone scale: the ♯5 and ♯11 over '
-       + 'the V. Symmetry means an inversion is the same shape moved — find the bar by ear, not by grip.',
+       + 'the V, then a minor pair on the i. Symmetry means an inversion is the same shape moved — '
+       + 'find the bar by ear, not by grip.',
     t:'0:7 0:5 0:9 1:6 2:5 1:8 2:7 2:9 3:8 3:6 4:6 4:8 '
      + '/ 4:10 4:6 4:8 3:8 3:6 2:7 2:9 2:5 1:8 0:9 1:6 0:7 '
      + '/ 0:8 1:8 1:6 1:5 2:5 2:7 3:5 3:7 3:8 4:10 4:8 4:6 '
@@ -5081,8 +5086,9 @@ $('etChips').appendChild(etDice);
 // because each key shares six notes with the last and the ear hears a cadence, not a shove.
 let et12 = null;
 const ET_CIRCLE = pc => Array.from({length: 12}, (_,i)=> (pc + i*5) % 12);
-// one pad per bar, matching the way the Progressions tab voices its comp
-const etudePads = (chords, bar0, npb)=> chords.map((c,i)=>{
+// one pad per bar, matching the way the Progressions tab voices its comp. npb defaults to the
+// eighth-note bar the other 45 use: a caller that forgot it would schedule at NaN and go silent.
+const etudePads = (chords, bar0, npb = 8)=> chords.map((c,i)=>{
   let rootM = 48 + c.pc; if(rootM > 55) rootM -= 12;
   return {at: (bar0+i)*npb, dur: npb,
     pitches: QUALITIES[c.qual].intervals.slice(0,4).map(iv=>rootM+iv)};

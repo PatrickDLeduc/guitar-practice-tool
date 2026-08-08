@@ -282,9 +282,10 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
       tripletNv:  etNv({nv:'triplet'}) === 'triplet',
       tripletNpb: etNpb({nv:'triplet'}) === 12,
     };
-    // No real étude declares tech:'triadpair' yet (Tasks 5-7 add them) — drive checkTriadPitch
-    // directly against a fabricated étude, never added to ETUDES, so the shared implementation is
-    // proven both ways before anything real depends on it.
+    // The nine real triad-pair études only ever exercise the passing side of checkTriadPitch: a
+    // clean library says nothing about whether the check still rejects. This fixture — fabricated,
+    // never added to ETUDES — drives the same implementation both ways, so a check that quietly
+    // stopped catching wrong notes fails here rather than waving a fret typo through.
     // bar 1: C major / E minor triads (tones 0,4,7,11) — bar 2: G major / B minor (tones 7,11,2,6)
     const cleanFx = { tp: '0:maj 4:min / 7:maj 11:min', t: '0:0 0:3 0:7 / 0:3 0:7 0:2' };
     const brokenFx = { ...cleanFx, t: cleanFx.t.replace('0:7', '0:1') };   // last note of bar 1 -> pc5, in neither triad
@@ -387,10 +388,11 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('etude: pair labels share the progression\'s accidental family'
     + (tpChk.spell.length ? ' — ' + tpChk.spell.slice(0, 4).join(', ') : ''), tpChk.spell.length === 0);
 
-  // The four checks above pass vacuously today: no étude has tech:'triadpair' yet, so the
-  // ETUDES.forEach callback above returns before ever calling etudePairs or reading t.pairs.
-  // They earn their keep in Task 5. Until then, drive etudePairs/etudeIn directly with a
-  // fabricated étude — never added to ETUDES — so this suite exercises the new logic now.
+  // The four checks above run over the nine real études, but every one of them is relative: a
+  // transposed pair is compared against the étude's own written pair, and the accidental test only
+  // asks that the family agree. Neither ever pins a spelling. This fixture — fabricated, never
+  // added to ETUDES — pins absolute labels (Aaug, Caug, Bb, F#m), so a CHORD_SYM or NM regression
+  // that moved every label the same wrong way still fails here.
   const tpFix = await p.evaluate(() => {
     // Guarded so a broken etudePairs/etudeIn (e.g. missing keys, wrong shape) reports clean
     // per-assertion failures below instead of an uncaught exception aborting the whole suite.
@@ -481,7 +483,10 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   }));
   assert(`etude: the Triad pairs filter shows nine études (${tpView.cards})`, tpView.cards === 9);
   assert('etude: all three levels are represented', tpView.levels === 3);
-  assert(`etude: triad-pair cards label the pair under the chord (${tpView.subs} sub-labels)`, tpView.subs > 0);
+  // One sub-label per bar across the whole filtered view: seven 4-bar études (28) plus the two
+  // 8-bar ones, tp-major-251 and tp-minor-251-tritone (16). Exact, because a floor of `> 0` passes
+  // just as happily when one card is wired and the other eight draw bare chord symbols.
+  assert(`etude: every triad-pair bar carries its pair label (${tpView.subs} of 44)`, tpView.subs === 44);
   await p.selectOption('#etTech', 'sweep');   // the tab-view assertion below counts the sweep cards
   await p.waitForTimeout(200);
   await p.selectOption('#etView', 'tab');
@@ -504,7 +509,9 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
                   && count(stacked, 'class="plab"') === 2,
       // a stacked label reserves exactly 10px more headroom than a plain one (38 - 28), which
       // shows up as an identical bump in the whole SVG's height — everything else about the
-      // two renders (notes, key, view) is the same
+      // two renders (notes, key, view) is the same. Exact, not just "taller", because the
+      // triplet numerals draw at staffTop-3 and the sub-line baseline is y=25: lose the 10px and
+      // the `3` brackets on the three triplet études land on the pair labels, silently.
       headroom:   height(stacked) - height(plain) === 10,
     };
   });
@@ -521,16 +528,33 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.waitForTimeout(4400);
   const etHl = await p.evaluate(() => [...document.querySelectorAll('#etOut .keyblock .nn')].findIndex(e => e.classList.contains('hl')));
   assert(`etude: follow-along tracks the étude's own note value (idx ${etHl})`, etHl >= 2);
-  // A triplet étude runs at 1/3 of a beat a note, so in the same wall-clock time the highlight
-  // must be further along than an eighth-note étude would be.
-  const tri = await p.evaluate(() => {
-    const e = ETUDES.find(x => x.nv === 'triplet');
-    return e ? { id: e.id, npb: etNpb(e), nv: etNv(e) } : null;
-  });
-  assert('etude: at least one étude is written in triplets', tri && tri.npb === 12 && tri.nv === 'triplet');
   await p.click('#etOut .keyblock .pbtn');
   await p.waitForTimeout(300);
   assert('etude: stop clears the highlight', (await p.locator('#etOut .hl').count()) === 0);
+
+  // The triplet path at runtime — playNotes(..,'triplet'), etudePads(..,12), markBarLines(..,
+  // 'triplet') are reached by nothing else in this suite; the eighth-note check above and the
+  // 12-key run both drive eighth-note études. Inspecting nv/npb would only re-read the data.
+  // Arithmetic: 80bpm, so a beat is 750ms and the 4-beat count-in eats 3000ms. A triplet-eighth
+  // is 250ms against 375ms for a straight eighth, so 8000ms after the press the highlight sits
+  // at note (8000-3000)/250 ≈ 19 in triplets and could only be at ≈13 if the étude were played
+  // in eighths. A floor of 17 is a full 1.5s of tempo drift out of an eighth note's reach.
+  // selNV is still 'half' here: the étude's own subdivision has to beat that too.
+  await p.selectOption('#etTech', 'triadpair');
+  await p.waitForTimeout(200);
+  await p.evaluate(() => setBpm(80));
+  const triIdx = await p.evaluate(() => etudeList().findIndex(e => e.id === 'tp-tritone-outside'));
+  assert('etude: tp-tritone-outside is on the Triad pairs list', triIdx >= 0);
+  const triCard = p.locator('#etOut .keyblock').nth(Math.max(triIdx, 0));
+  await triCard.locator('.pbtn').click();
+  await p.waitForTimeout(8000);
+  const triHl = await p.evaluate(i => [...document.querySelectorAll('#etOut .keyblock')[i].querySelectorAll('.nn')]
+    .findIndex(e => e.classList.contains('hl')), triIdx);
+  assert(`etude: a triplet étude's follow-along runs at triplet speed (idx ${triHl}; in eighths it could only be ~13)`,
+    triHl >= 17 && triHl <= 24);
+  await triCard.locator('.pbtn').click();
+  await p.waitForTimeout(300);
+  assert('etude: stopping the triplet étude clears the highlight', (await p.locator('#etOut .hl').count()) === 0);
   await p.evaluate(() => { selNV.value = 'quarter'; });
   await p.selectOption('#etTech', 'all');
   await p.waitForTimeout(200);
