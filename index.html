@@ -2584,6 +2584,39 @@ const ETUDES = [
      + '/ 3:5 4:7 4:5 2:5 2:7 1:7 2:10 3:7 / 4:7 4:8 4:10 5:10 5:8 5:5 3:7 3:9 '
      + '/ 4:8 5:7 5:10 4:5 2:9 2:7 2:5 1:7 / 2:5 3:7 2:7 2:9 4:8 5:9 5:10 5:7 '
      + '/ 5:10 5:8 5:5 4:7 4:8 3:7 4:10 4:5 / 4:8 4:10 3:9 2:10 2:7 1:10 1:7 1:5' },
+  { id:'tp-tritone-outside', n:'Tritone-apart majors over a dominant', tech:'triadpair', lvl:2,
+    key:0, qual:'dimHW', ch:'C7 C7 C7 C7', nv:'triplet',
+    tp:'0:maj 6:maj / 0:maj 6:maj / 0:maj 6:maj / 0:maj 6:maj',
+    why:'C major is the chord; the triad a tritone off shares its ♭7 and adds the ♭9 and ♯11. '
+       + 'Two of each per cell, cutting across the triplets — make the outside notes sound chosen.',
+    t:'0:8 1:7 0:6 0:9 1:10 2:10 1:9 2:8 3:9 4:8 4:7 5:6 '
+     + '/ 5:9 4:8 5:6 5:8 4:7 3:5 3:6 3:9 2:8 1:7 1:9 0:8 '
+     + '/ 0:9 1:7 2:5 1:9 2:8 3:5 4:5 3:6 4:7 4:8 5:8 5:6 '
+     + '/ 4:8 5:6 4:7 4:5 3:5 3:6 2:8 2:5 1:7 1:9 0:9 0:8' },
+  { id:'tp-altered-augmented', n:'Augmented pairs over an altered dominant', tech:'triadpair', lvl:2,
+    key:7, qual:'wholetone', ch:'G7 G7 Cm7 Cm7', nv:'triplet',
+    tp:'7:aug 5:aug / 7:aug 5:aug / 0:min 2:min / 0:min 2:min',
+    why:'Two augmented triads a whole step apart make the whole-tone scale: the ♯5 and ♯11 over '
+       + 'the V. Symmetry means an inversion is the same shape moved — find the bar by ear, not by grip.',
+    t:'0:7 0:5 0:9 1:6 2:5 1:8 2:7 2:9 3:8 3:6 4:6 4:8 '
+     + '/ 4:10 4:6 4:8 3:8 3:6 2:7 2:9 2:5 1:8 0:9 1:6 0:7 '
+     + '/ 0:8 1:8 1:6 1:5 2:5 2:7 3:5 3:7 3:8 4:10 4:8 4:6 '
+     + '/ 3:7 4:8 4:6 3:8 2:7 3:5 1:8 2:5 1:5 1:6 0:5 0:8' },
+  { id:'tp-minor-251-tritone', n:'Minor ii–V–i with a tritone-sub pair on the i', tech:'triadpair', lvl:2,
+    key:0, qual:'dimHW', ch:'Dm7b5 G7 Cm7 Cm7 Dm7b5 G7 Cm7 Cm7', nv:'triplet',
+    tp:'5:min 7:min / 7:aug 5:aug / 0:min 2:min / 0:min 6:min '
+      +'/ 5:min 7:min / 7:aug 5:aug / 0:min 2:min / 0:min 6:min',
+    why:'A minor pair on the half-diminished ii, an augmented pair on the altered V, a plain minor '
+       + 'pair on the i — then bar 4 answers the i with a minor triad a tritone away. Land that swap '
+       + 'without flinching.',
+    t:'0:8 1:8 0:6 1:5 2:6 2:10 2:5 2:8 3:10 4:9 3:7 4:8 '
+     + '/ 4:10 4:8 3:6 3:8 2:7 2:9 1:8 2:5 0:9 1:6 0:5 0:7 '
+     + '/ 0:8 0:5 1:5 1:6 2:5 2:7 1:8 3:5 3:8 4:6 3:7 4:8 '
+     + '/ 4:10 3:8 4:8 4:7 3:6 2:5 3:5 2:7 1:9 1:6 0:8 0:9 '
+     + '/ 1:5 2:5 1:8 2:6 2:8 3:7 3:5 3:10 4:8 5:6 4:9 5:8 '
+     + '/ 5:7 5:9 4:8 4:10 3:8 4:6 2:9 3:6 2:5 2:7 1:6 1:8 '
+     + '/ 1:5 1:6 2:5 1:8 2:7 3:5 3:8 4:6 3:7 4:8 5:8 5:5 '
+     + '/ 4:8 4:10 4:7 3:8 3:5 3:6 2:7 2:5 1:6 1:9 0:9 0:8' },
 ];
 // ===== ENGINE END =====
 

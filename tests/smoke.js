@@ -508,6 +508,13 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.waitForTimeout(4400);
   const etHl = await p.evaluate(() => [...document.querySelectorAll('#etOut .keyblock .nn')].findIndex(e => e.classList.contains('hl')));
   assert(`etude: follow-along tracks the étude's own note value (idx ${etHl})`, etHl >= 2);
+  // A triplet étude runs at 1/3 of a beat a note, so in the same wall-clock time the highlight
+  // must be further along than an eighth-note étude would be.
+  const tri = await p.evaluate(() => {
+    const e = ETUDES.find(x => x.nv === 'triplet');
+    return e ? { id: e.id, npb: etNpb(e), nv: etNv(e) } : null;
+  });
+  assert('etude: at least one étude is written in triplets', tri && tri.npb === 12 && tri.nv === 'triplet');
   await p.click('#etOut .keyblock .pbtn');
   await p.waitForTimeout(300);
   assert('etude: stop clears the highlight', (await p.locator('#etOut .hl').count()) === 0);
