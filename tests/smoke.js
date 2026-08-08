@@ -218,7 +218,7 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
       seen.add(e.id);
       let groups;
       try { groups = etudeGroups(e.t); } catch (err) { bad.shape.push(e.id + ' THREW'); return; }
-      if (groups.length !== 4 || groups.some(g => g.length !== ET_NOTES_PER_BAR)) bad.shape.push(e.id);
+      if (groups.some(g => g.length !== etNpb(e))) bad.shape.push(e.id);
       const chords = parseProgression(e.ch).chords;
       if (chords.length !== groups.length) bad.chords.push(`${e.id} ${chords.length}/${groups.length}`);
       groups.forEach((g, gi) => {
@@ -253,10 +253,17 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
         if (n !== 3) thin.push(`${t.value}/${l.value}=${n}`);
       }));
     tSel.value = 'all'; lSel.value = 'all';
-    return { ...bad, empty, thin, count: ETUDES.length };
+    const helpers = {
+      defaultNv:  etNv({}) === 'eighth',
+      defaultNpb: etNpb({}) === 8,
+      tripletNv:  etNv({nv:'triplet'}) === 'triplet',
+      tripletNpb: etNpb({nv:'triplet'}) === 12,
+    };
+    return { ...bad, empty, thin, helpers, count: ETUDES.length };
   });
   assert(`etude: ${et.count} études, ids/tech/level/quality all valid` + (et.id.length ? ' — ' + et.id.join(', ') : ''), et.id.length === 0);
-  assert('etude: every étude is 4 bars of 8' + (et.shape.length ? ' — ' + et.shape.join(', ') : ''), et.shape.length === 0);
+  assert('etude: every bar holds the étude\'s own note count' + (et.shape.length ? ' — ' + et.shape.join(', ') : ''), et.shape.length === 0);
+  assert('etude: subdivision helpers default to eighths and know triplets', Object.values(et.helpers).every(Boolean));
   assert('etude: one chord per bar' + (et.chords.length ? ' — ' + et.chords.join(', ') : ''), et.chords.length === 0);
   assert('etude: strings/frets/pitches in range' + (et.range.length ? ' — ' + et.range.join(', ') : ''), et.range.length === 0);
   assert('etude: every bar fits one hand position' + (et.span.length ? ' — ' + et.span.join(', ') : ''), et.span.length === 0);
@@ -348,6 +355,7 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
       names: [...document.querySelectorAll('#etOut .et12 > .keyblock .keyname')].map(e => e.textContent),
       expected: et && ET_CIRCLE(et.key).map(keyName),
       notes: document.querySelectorAll('#etOut .et12 .nn').length,
+      expectNotes: et && 12 * etudeGroups(et.t).length * etNpb(et),
       pbtns: document.querySelectorAll('#etOut .et12 .pbtn').length,
       // every card must be a different key, and each one a real transposition of the same line
       chords: new Set([...document.querySelectorAll('#etOut .et12 > .keyblock .sub')].map(e => e.textContent)).size,
@@ -357,7 +365,7 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert(`etude: circle of fourths from the written key (${run.written}: ${run.names.join(' ')})`,
     JSON.stringify(run.names) === JSON.stringify(run.expected) && run.names[0] === run.written);
   assert(`etude: twelve distinct progressions, no key drawn twice (${run.chords})`, run.chords === 12);
-  assert(`etude: all twelve notated inside one playback container (${run.notes} notes)`, run.notes === 12 * 4 * 8);
+  assert(`etude: all twelve notated inside one playback container (${run.notes} notes)`, run.notes === run.expectNotes);
   assert(`etude: a ▶ per key plus one for the whole run (${run.pbtns})`, run.pbtns === 13);
 
   // the run button plays straight through: at 240bpm a note is 125ms, so ~5.5s in the

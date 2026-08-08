@@ -2214,12 +2214,14 @@ function parseQuery(raw){
 // picking-hand problem is the reason the line is shaped the way it is. They are data, not a
 // generator, so they cost nothing at runtime and work with the network off.
 //
-// ponytail: every étude is 4 bars of 8 eighth notes, one chord per bar, uniform subdivision.
-// Classic technique studies (Petrucci, Gilbert, Coltrane cells) are written exactly this way —
-// the musical interest is in the pitches and the metronome is the difficulty knob. Per-note
-// durations would mean reworking both renderNotationSystems and playNotes; add that when a
-// written étude genuinely needs syncopation to make its point.
-const ET_NOTES_PER_BAR = 8, ET_NV = 'eighth';
+// An étude carries its own subdivision. Uniform within the étude: either all straight eighths or
+// all triplets, never both. ponytail: per-note durations would mean variable column widths,
+// beaming groups and triplet brackets over arbitrary subsets in renderNotationSystems — which four
+// tabs share. The across-the-barline effect these studies want comes instead from cell lengths that
+// do not divide the bar (three-note cells against eight eighths). Add real durations when a written
+// étude needs a rhythm that phasing cannot produce.
+const etNv  = et => et.nv ?? 'eighth';
+const etNpb = et => et.nv === 'triplet' ? 12 : 8;
 const ET_LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
 // "string:fret", space-separated, ' / ' between bars. String 0 is the low E.
 function etudeGroups(t){
@@ -4964,9 +4966,9 @@ $('etChips').appendChild(etDice);
 let et12 = null;
 const ET_CIRCLE = pc => Array.from({length: 12}, (_,i)=> (pc + i*5) % 12);
 // one pad per bar, matching the way the Progressions tab voices its comp
-const etudePads = (chords, bar0)=> chords.map((c,i)=>{
+const etudePads = (chords, bar0, npb)=> chords.map((c,i)=>{
   let rootM = 48 + c.pc; if(rootM > 55) rootM -= 12;
-  return {at: (bar0+i)*ET_NOTES_PER_BAR, dur: ET_NOTES_PER_BAR,
+  return {at: (bar0+i)*npb, dur: npb,
     pitches: QUALITIES[c.qual].intervals.slice(0,4).map(iv=>rootM+iv)};
 });
 function etudeList(){
@@ -4981,7 +4983,7 @@ const etudeTip = et => `${[...selTech.options].find(o=>o.value===et.tech).text}:
 // heading so auto-advance can open one key at a time.
 function etudeCard(et, pc, name, run){
   const {groups, chords, key} = etudeIn(et, pc);
-  markBarLines(groups, ET_NV);
+  markBarLines(groups, etNv(et));
   const div = document.createElement('div'); div.className = 'keyblock';
   const head = document.createElement('div'); head.className = 'keyhead';
   head.innerHTML = `<span class="keyname"></span>`;
@@ -4992,16 +4994,16 @@ function etudeCard(et, pc, name, run){
   pb.onclick = ()=>{
     if(playState && playState.btn === pb){ stopPlayback(); return; }
     track('etude_play', {id: et.id, tech: et.tech, lvl: et.lvl, key: keyName(key)});
-    playNotes(groups.flat(), pb, etudePads(chords, 0), false, ET_NV);
+    playNotes(groups.flat(), pb, etudePads(chords, 0, etNpb(et)), false, etNv(et));
   };
   head.appendChild(pb);
   if(run) addFoldToggle(div, head, name);
   div.appendChild(head);
-  div.appendChild(etudeSub(`${chords.map(c=>c.label).join(' – ')} · ${ET_LEVELS[et.lvl]} · eighth notes`));
+  div.appendChild(etudeSub(`${chords.map(c=>c.label).join(' – ')} · ${ET_LEVELS[et.lvl]} · ${etNv(et) === 'triplet' ? 'triplets' : 'eighth notes'}`));
   if(!run){ div.appendChild(etudeSub(et.why)); div.appendChild(etudeSub(etudeTip(et))); }
   if($('etView').value === 'note'){
     const nd = document.createElement('div'); nd.className = 'notation';
-    nd.innerHTML = renderNotationSystems(groups, key, chords.map(c=>c.label), ET_NV, null,
+    nd.innerHTML = renderNotationSystems(groups, key, chords.map(c=>c.label), etNv(et), null,
       $('etOut').clientWidth - 34).map(s=>`<div class="nsys">${s}</div>`).join('');
     div.appendChild(nd);
   } else {
@@ -5033,10 +5035,10 @@ function etude12(et){
     ET_CIRCLE(et.key).forEach((pc,i)=>{
       const {groups, chords} = etudeIn(et, pc);
       notes.push(...groups.flat());
-      pads.push(...etudePads(chords, i*chords.length));
+      pads.push(...etudePads(chords, i*chords.length, etNpb(et)));
     });
     track('etude_play', {id: et.id, tech: et.tech, lvl: et.lvl, key: 'all12'});
-    playNotes(notes, pb, pads, false, ET_NV);
+    playNotes(notes, pb, pads, false, etNv(et));
   };
   head.appendChild(pb);
   // Auto-advance is the other way through the circle: you play, the metronome counts, and the
@@ -5051,7 +5053,7 @@ function etude12(et){
   const akb = document.createElement('input');
   akb.id = 'etAkBars'; akb.type = 'number'; akb.min = 1; akb.max = 99; akb.value = 4;
   akb.setAttribute('aria-label', 'Bars per key');
-  akb.title = 'Bars in each key before it advances — the étude is 4 bars, so 8 is twice through';
+  akb.title = `Bars in each key before it advances — the étude is ${etudeGroups(et.t).length} bars, so ${etudeGroups(et.t).length * 2} is twice through`;
   head.append(ak, akb);
   wrap.appendChild(head);
   wrap.appendChild(etudeSub(et.why));
