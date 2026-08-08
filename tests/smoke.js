@@ -471,6 +471,19 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.waitForTimeout(200);
   const etSweep = await p.locator('#etOut .keyblock').count();
   assert(`etude: technique filter narrows the list (${etSweep} of ${etAll})`, etSweep > 0 && etSweep < etAll);
+  await p.selectOption('#etTech', 'triadpair');
+  await p.waitForTimeout(200);
+  const tpView = await p.evaluate(() => ({
+    cards: document.querySelectorAll('#etOut .keyblock').length,
+    // the pair label under the chord symbol is the thing these études exist to show
+    subs: document.querySelectorAll('#etOut .nsys text.plab').length,
+    levels: new Set(etudeList().map(e => e.lvl)).size,
+  }));
+  assert(`etude: the Triad pairs filter shows nine études (${tpView.cards})`, tpView.cards === 9);
+  assert('etude: all three levels are represented', tpView.levels === 3);
+  assert(`etude: triad-pair cards label the pair under the chord (${tpView.subs} sub-labels)`, tpView.subs > 0);
+  await p.selectOption('#etTech', 'sweep');   // the tab-view assertion below counts the sweep cards
+  await p.waitForTimeout(200);
   await p.selectOption('#etView', 'tab');
   await p.waitForTimeout(200);
   assert('etude: tab view renders text tab', (await p.locator('#etOut pre.tab').count()) === etSweep);

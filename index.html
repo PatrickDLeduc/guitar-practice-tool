@@ -799,6 +799,7 @@
         <option value="legato">Legato</option>
         <option value="sweep">Sweep picking</option>
         <option value="hybrid">Hybrid picking</option>
+        <option value="triadpair">Triad pairs</option>
       </select></div>
       <div class="ctl"><label>Level</label><select id="etLvl">
         <option value="all" selected>Every level</option>
@@ -817,7 +818,9 @@
     <p class="sub">Written lines, not scale runs: each one states a motif, develops it over a chord
       progression and resolves — while drilling one picking-hand problem. ▶ plays it with chord
       pads underneath at the metronome tempo; Loop turns any of them into a practice cell.
-      ⟳ 12 keys takes one étude round the circle of fourths and plays it straight through.</p>
+      ⟳ 12 keys takes one étude round the circle of fourths and plays it straight through.
+      The Triad pairs studies are note choice rather than picking: two triads per chord, labelled
+      under the chord symbol, interwoven rather than arpeggiated.</p>
     <div id="etOut"></div>
   </div>
 
@@ -5101,7 +5104,7 @@ const etudeTip = et => `${ET_TECH_NAMES[et.tech]}: ${TECH_TIPS[et.tech]}`;
 // rather than by étude, drops the prose (twelve copies of it is just scroll) and folds to its
 // heading so auto-advance can open one key at a time.
 function etudeCard(et, pc, name, run){
-  const {groups, chords, key} = etudeIn(et, pc);
+  const {groups, chords, key, pairs} = etudeIn(et, pc);
   markBarLines(groups, etNv(et));
   const div = document.createElement('div'); div.className = 'keyblock';
   const head = document.createElement('div'); head.className = 'keyhead';
@@ -5122,7 +5125,10 @@ function etudeCard(et, pc, name, run){
   if(!run){ div.appendChild(etudeSub(et.why)); div.appendChild(etudeSub(etudeTip(et))); }
   if($('etView').value === 'note'){
     const nd = document.createElement('div'); nd.className = 'notation';
-    nd.innerHTML = renderNotationSystems(groups, key, chords.map(c=>c.label), etNv(et), null,
+    // a triad-pair étude labels each bar twice: the chord, and the two triads it is built from
+    const labels = chords.map((c,i)=> pairs
+      ? [c.label, pairs[i].map(t=>t.label).join(' / ')] : c.label);
+    nd.innerHTML = renderNotationSystems(groups, key, labels, etNv(et), null,
       $('etOut').clientWidth - 34).map(s=>`<div class="nsys">${s}</div>`).join('');
     div.appendChild(nd);
   } else {
