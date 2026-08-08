@@ -339,6 +339,80 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('etude: pair labels share the progression\'s accidental family'
     + (tpChk.spell.length ? ' — ' + tpChk.spell.slice(0, 4).join(', ') : ''), tpChk.spell.length === 0);
 
+  // The four checks above pass vacuously today: no étude has tech:'triadpair' yet, so the
+  // ETUDES.forEach callback above returns before ever calling etudePairs or reading t.pairs.
+  // They earn their keep in Task 5. Until then, drive etudePairs/etudeIn directly with a
+  // fabricated étude — never added to ETUDES — so this suite exercises the new logic now.
+  const tpFix = await p.evaluate(() => {
+    // Guarded so a broken etudePairs/etudeIn (e.g. missing keys, wrong shape) reports clean
+    // per-assertion failures below instead of an uncaught exception aborting the whole suite.
+    const out = { shape: false, asWritten: false, transposedFlat: false, transposedSharp: false, threw: null };
+    try {
+      // etudePairs: a multi-bar "pc:qual pc:qual / ..." string becomes one array entry per bar,
+      // two triads per bar, numeric pc and string qual.
+      const parsed = etudePairs('2:min 4:min / 7:maj 9:maj');
+      out.shape = parsed.length === 2
+        && parsed.every(b => b.length === 2)
+        && parsed[0][0].pc === 2 && parsed[0][0].qual === 'min'
+        && parsed[0][1].pc === 4 && parsed[0][1].qual === 'min'
+        && parsed[1][0].pc === 7 && parsed[1][0].qual === 'maj'
+        && parsed[1][1].pc === 9 && parsed[1][1].qual === 'maj'
+        && typeof parsed[0][0].pc === 'number' && typeof parsed[0][0].qual === 'string';
+
+      // A fake étude — never added to ETUDES, a pure test fixture. key 5 (F) sits outside
+      // SHARP_KEYS, so as-written labels use the flat family. Two bars, matching tp's bar count.
+      const fake = {
+        id: '__tp_fixture_not_in_ETUDES__', key: 5,
+        t: '0:1 0:2 / 0:3 0:4', ch: 'Dm Aaug', tp: '2:min 9:aug / 4:min 7:maj',
+      };
+
+      // etudeIn(fake, null): the as-written path builds pair labels through CHORD_SYM, in the
+      // étude's own (flat) family — 2:min -> Dm, 9:aug -> Aaug (the aug suffix), 7:maj -> G.
+      const asW = etudeIn(fake, null);
+      out.asWritten = !!asW.pairs?.[0]?.[1] && !!asW.pairs?.[1]?.[1] && asW.pairs.length === 2
+        && asW.pairs[0][0].pc === 2 && asW.pairs[0][0].label === 'Dm'
+        && asW.pairs[0][1].pc === 9 && asW.pairs[0][1].label === 'Aaug'
+        && asW.pairs[1][0].pc === 4 && asW.pairs[1][0].label === 'Em'
+        && asW.pairs[1][1].pc === 7 && asW.pairs[1][1].label === 'G';
+
+      // etudeIn(fake, 8): transposed path, interval 3 (F->Ab). Independently computed: 2:min up
+      // 3 semitones is pc 5 (F), labelled Fm — not a value that appears anywhere in the inputs,
+      // so this fails if the interval math or the label lookup is wrong.
+      const flat = etudeIn(fake, 8);
+      const ivFlat = (8 - 5 + 12) % 12;
+      out.transposedFlat = ivFlat === 3 && !!flat.pairs?.[0]?.[1] && !!flat.pairs?.[1]?.[1]
+        && flat.pairs[0][0].pc === 5 && flat.pairs[0][0].label === 'Fm'
+        && flat.pairs[0][1].pc === 0 && flat.pairs[0][1].label === 'Caug'
+        && flat.pairs[1][0].pc === 7 && flat.pairs[1][0].label === 'Gm'
+        && flat.pairs[1][1].pc === 10 && flat.pairs[1][1].label === 'Bb';
+
+      // etudeIn(fake, 9): transposed path into a sharp key (interval 4). Pairs must move by the
+      // same interval as the chords AND pick up the same accidental family as those chords — not
+      // two independently-plausible answers that happen to disagree with each other.
+      const sharp = etudeIn(fake, 9);
+      const ivSharp = (9 - 5 + 12) % 12;
+      // same accidental-family test the app itself uses: the set of accidentals actually in use
+      // (ignoring naturals, which carry neither) must have at most one member
+      const accSharp = new Set([...(sharp.chords || []).map(c => c.label[1]), ...(sharp.pairs || []).flat().map(t => t.label[1])]
+        .filter(a => a === '#' || a === 'b'));
+      out.transposedSharp = ivSharp === 4 && !!sharp.pairs?.[0]?.[1]
+        && sharp.chords[0].pc === 6 && sharp.chords[0].label === 'F#m'
+        && sharp.pairs[0][0].pc === 6 && sharp.pairs[0][0].label === 'F#m'
+        && sharp.chords[1].pc === 1 && sharp.chords[1].label === 'C#aug'
+        && sharp.pairs[0][1].pc === 1 && sharp.pairs[0][1].label === 'C#aug'
+        && accSharp.size === 1 && accSharp.has('#');
+    } catch (err) { out.threw = String(err); }
+    return out;
+  });
+  assert('etude fixture: etudePairs parses a multi-bar string into pc/qual pairs, two per bar'
+    + (tpFix.threw ? ' — THREW: ' + tpFix.threw : ''), tpFix.shape);
+  assert('etude fixture: etudeIn(fake, null) builds as-written pair labels through CHORD_SYM'
+    + (tpFix.threw ? ' — THREW: ' + tpFix.threw : ''), tpFix.asWritten);
+  assert('etude fixture: etudeIn(fake, pc) moves pairs by the chords\' interval (independently verified: 2:min +3 semitones -> Fm)'
+    + (tpFix.threw ? ' — THREW: ' + tpFix.threw : ''), tpFix.transposedFlat);
+  assert('etude fixture: transposed pairs share the chords\' accidental family in a sharp key'
+    + (tpFix.threw ? ' — THREW: ' + tpFix.threw : ''), tpFix.transposedSharp);
+
   await p.click('.tabbtn[data-tab="etude"]');
   await p.waitForTimeout(300);
   const etAll = await p.locator('#etOut .keyblock').count();
