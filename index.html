@@ -2230,6 +2230,15 @@ function etudeGroups(t){
     return { s, f, p: STRINGS[s] + f };
   }));
 }
+// Triad pairs, one pair per bar: "pc:qual pc:qual", ' / ' between bars. Pitch classes rather than
+// names so a pair rides the same transposition as the chord it sits over — a label that stayed put
+// while the line moved would simply be wrong.
+function etudePairs(tp){
+  return tp.split('/').map(bar => bar.trim().split(/\s+/).map(tok => {
+    const [pc, qual] = tok.split(':');
+    return {pc: +pc, qual};
+  }));
+}
 const ETUDES = [
   // ---- alternate picking ----
   { id:'alt-pent-answer', n:'Pentatonic call and answer', tech:'alternate', lvl:0,
@@ -4936,7 +4945,12 @@ const etKeyPc = ()=> $('etKey').value === '' ? null : +$('etKey').value;
 const ET_HIGH_FRET = 15;
 function etudeIn(et, pc){
   const groups = etudeGroups(et.t), chords = etudeChords(et);
-  if(pc === null || pc === et.key) return {groups, chords, key: et.key};
+  const pairs = et.tp ? etudePairs(et.tp) : null;
+  const NM0 = SHARP_KEYS.has(et.key) ? SHARP_NAMES : FLAT_NAMES;
+  const name = (p, q, nm) => nm[p] + (CHORD_SYM[q] ?? '');
+  if(pc === null || pc === et.key)
+    return {groups, chords, key: et.key,
+      pairs: pairs && pairs.map(b => b.map(t => ({...t, label: name(t.pc, t.qual, NM0)})))};
   const iv = (pc - et.key + 12) % 12, frets = groups.flat().map(n => n.f);
   let n = iv;
   if(Math.max(...frets) + n > ET_HIGH_FRET && Math.min(...frets) + n - 12 >= 0) n -= 12;
@@ -4946,8 +4960,11 @@ function etudeIn(et, pc){
   const NM = SHARP_KEYS.has(pc) ? SHARP_NAMES : FLAT_NAMES;
   return {groups, key: pc, chords: chords.map(c=>{
     const p2 = (c.pc + iv) % 12;
-    return {pc: p2, qual: c.qual, label: NM[p2] + (CHORD_SYM[c.qual] ?? '')};
-  })};
+    return {pc: p2, qual: c.qual, label: name(p2, c.qual, NM)};
+  }), pairs: pairs && pairs.map(b => b.map(t => {
+    const p2 = (t.pc + iv) % 12;
+    return {pc: p2, qual: t.qual, label: name(p2, t.qual, NM)};
+  }))};
 }
 const etDice = document.createElement('button');
 etDice.className = 'chip dicechip'; etDice.textContent = '🎲 Surprise me';

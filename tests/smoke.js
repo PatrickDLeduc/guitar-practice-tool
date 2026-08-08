@@ -303,6 +303,42 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('etude: "as written" leaves the frets alone',
     etTr.asWritten === (await p.evaluate(() => etudeGroups(ETUDES[0].t).flat().map(n => n.f).join())));
 
+  // Triad pairs are stored as pitch classes so they ride the same transposition as the chords.
+  // A pair that stayed put while the line moved would be a label that lies.
+  const tpChk = await p.evaluate(() => {
+    const bad = { shape: [], move: [], spell: [], absent: [] };
+    ETUDES.forEach(e => {
+      const bars = etudeGroups(e.t).length;
+      if (e.tech !== 'triadpair') { if (e.tp) bad.absent.push(e.id); return; }
+      if (!e.tp) { bad.absent.push(e.id); return; }
+      let pairs;
+      try { pairs = etudePairs(e.tp); } catch (err) { bad.shape.push(e.id + ' THREW'); return; }
+      if (pairs.length !== bars || pairs.some(p => p.length !== 2)) bad.shape.push(e.id);
+      if (pairs.some(p => p.some(t => !QUALITIES[t.qual] || !(t.pc >= 0 && t.pc <= 11)))) bad.shape.push(e.id);
+      for (let pc = 0; pc < 12; pc++) {
+        const iv = (pc - e.key + 12) % 12, t = etudeIn(e, pc);
+        if (!t.pairs || t.pairs.length !== bars) { bad.move.push(`${e.id}@${pc}`); continue; }
+        t.pairs.forEach((p, bi) => p.forEach((tri, ti) => {
+          if (tri.pc !== (pairs[bi][ti].pc + iv) % 12 || tri.qual !== pairs[bi][ti].qual)
+            bad.move.push(`${e.id}@${pc} bar${bi + 1}`);
+        }));
+        // pair labels must use the same accidental family as the chords in that key
+        const acc = new Set([...t.chords.map(c => c.label[1]), ...t.pairs.flat().map(x => x.label[1])]
+          .filter(a => a === '#' || a === 'b'));
+        if (acc.size > 1) bad.spell.push(`${e.id}@${pc}`);
+      }
+    });
+    return bad;
+  });
+  assert('etude: every triad-pair étude declares one pair of two triads per bar'
+    + (tpChk.shape.length ? ' — ' + tpChk.shape.join(', ') : ''), tpChk.shape.length === 0);
+  assert('etude: tp is present on triad-pair études and absent on the rest'
+    + (tpChk.absent.length ? ' — ' + tpChk.absent.join(', ') : ''), tpChk.absent.length === 0);
+  assert('etude: triad pairs transpose with the same interval as the chords'
+    + (tpChk.move.length ? ' — ' + tpChk.move.slice(0, 6).join(', ') : ''), tpChk.move.length === 0);
+  assert('etude: pair labels share the progression\'s accidental family'
+    + (tpChk.spell.length ? ' — ' + tpChk.spell.slice(0, 4).join(', ') : ''), tpChk.spell.length === 0);
+
   await p.click('.tabbtn[data-tab="etude"]');
   await p.waitForTimeout(300);
   const etAll = await p.locator('#etOut .keyblock').count();
