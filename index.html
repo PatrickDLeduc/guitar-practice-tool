@@ -3301,6 +3301,7 @@ const TECH_TIPS = {
   legato: 'Pick only the first note on each string — hammer-on the rest ascending, pull-off descending. Pairs perfectly with 3-notes-per-string fingering.',
   sweep: 'Drag the pick across adjacent strings in one continuous motion. Roll the fretting fingers to keep notes from ringing together. Best on arpeggios, straight pattern.',
   hybrid: 'Pick the lower note, pluck the higher with your middle or ring finger — ideal for the wide jumps in 3rds, 4ths, and pedal-root variations.',
+  triadpair: 'Two triads, one chord: play them interwoven rather than one after the other, and use inversions so the leaps stay wide. The upper triad is where the extensions live — that is the sound you are after.',
 };
 
 FLAT_NAMES.forEach((n,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=n; selRoot.appendChild(o); });
@@ -5000,7 +5001,13 @@ function etudeList(){
 }
 function etudeChords(et){ return parseProgression(et.ch).chords; }
 const etudeSub = text =>{ const p = document.createElement('p'); p.className = 'sub'; p.textContent = text; return p; };
-const etudeTip = et => `${[...selTech.options].find(o=>o.value===et.tech).text}: ${TECH_TIPS[et.tech]}`;
+// Its own name map rather than the Exercises tab's picking dropdown: triad pairs are note choice,
+// not a picking-hand technique, and it has no business being offered as a picking focus.
+const ET_TECH_NAMES = {
+  alternate: 'Alternate picking', economy: 'Economy picking', legato: 'Legato',
+  sweep: 'Sweep picking', hybrid: 'Hybrid picking', triadpair: 'Triad pairs',
+};
+const etudeTip = et => `${ET_TECH_NAMES[et.tech]}: ${TECH_TIPS[et.tech]}`;
 // One card: the étude in one key. `run` marks a card in the twelve-key run, which lists by key
 // rather than by étude, drops the prose (twelve copies of it is just scroll) and folds to its
 // heading so auto-advance can open one key at a time.

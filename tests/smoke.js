@@ -230,13 +230,28 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
         // mid-bar, which no étude here asks for.
         if (fr.length && Math.max(...fr) - Math.min(...fr) > 6) bad.span.push(`${e.id} bar${gi + 1}`);
       });
-      const sc = new Set(QUALITIES[e.qual].intervals.map(iv => (iv + e.key) % 12));
+      // A triad-pair étude is defined by its pairs, not by a parent scale: the check is that every
+      // note in a bar is a chord tone of one of that bar's two triads. Stricter than the scale
+      // check it replaces, and unlike a scale it covers an étude that switches device mid-chorus.
       const flat = groups.flat();
-      flat.forEach((n, i) => {
-        if (sc.has(n.p % 12)) return;
-        const nx = flat[i + 1];
-        if (!nx || Math.abs(nx.p - n.p) !== 1) bad.pitch.push(`${e.id} @${i} pc${n.p % 12}`);
-      });
+      if (e.tech === 'triadpair') {
+        const pairs = etudePairs(e.tp);
+        groups.forEach((g, bi) => {
+          const tones = new Set(pairs[bi].flatMap(t => QUALITIES[t.qual].intervals.map(iv => (iv + t.pc) % 12)));
+          g.forEach((n, i) => {
+            if (tones.has(n.p % 12)) return;
+            const nx = g[i + 1];
+            if (!nx || Math.abs(nx.p - n.p) !== 1) bad.pitch.push(`${e.id} bar${bi + 1}@${i} pc${n.p % 12}`);
+          });
+        });
+      } else {
+        const sc = new Set(QUALITIES[e.qual].intervals.map(iv => (iv + e.key) % 12));
+        flat.forEach((n, i) => {
+          if (sc.has(n.p % 12)) return;
+          const nx = flat[i + 1];
+          if (!nx || Math.abs(nx.p - n.p) !== 1) bad.pitch.push(`${e.id} @${i} pc${n.p % 12}`);
+        });
+      }
     });
     // no filter combination the UI offers may show an empty list
     const tSel = document.getElementById('etTech'), lSel = document.getElementById('etLvl');
@@ -267,9 +282,49 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('etude: one chord per bar' + (et.chords.length ? ' — ' + et.chords.join(', ') : ''), et.chords.length === 0);
   assert('etude: strings/frets/pitches in range' + (et.range.length ? ' — ' + et.range.join(', ') : ''), et.range.length === 0);
   assert('etude: every bar fits one hand position' + (et.span.length ? ' — ' + et.span.join(', ') : ''), et.span.length === 0);
-  assert('etude: every note is in key or a semitone approach' + (et.pitch.length ? ' — ' + et.pitch.slice(0, 8).join(', ') : ''), et.pitch.length === 0);
+  assert('etude: every note is in the declared scale, or in one of the bar\'s two triads' + (et.pitch.length ? ' — ' + et.pitch.slice(0, 8).join(', ') : ''), et.pitch.length === 0);
   assert('etude: no filter combination is empty' + (et.empty.length ? ' — ' + et.empty.join(', ') : ''), et.empty.length === 0);
   assert('etude: three per technique per level' + (et.thin.length ? ' — ' + et.thin.join(', ') : ''), et.thin.length === 0);
+
+  const tipChk = await p.evaluate(() => {
+    const techs = [...new Set(ETUDES.map(e => e.tech))];
+    return {
+      named:   techs.every(t => ET_TECH_NAMES[t] && TECH_TIPS[t]),
+      tips:    ETUDES.every(e => etudeTip(e).includes(ET_TECH_NAMES[e.tech])),
+      // the Exercises-tab picking dropdown must stay picking-only
+      picking: ![...document.getElementById('selTech').options].some(o => o.value === 'triadpair'),
+    };
+  });
+  assert('etude: every technique has a display name and a tip', tipChk.named);
+  assert('etude: tips read from the étude name map, not the Exercises dropdown', tipChk.tips);
+  assert('etude: "triad pairs" never appears in the picking-technique dropdown', tipChk.picking);
+
+  // No real étude declares tech:'triadpair' yet — that's Tasks 5-7. Drive the per-bar
+  // triad-membership check directly against a fabricated étude (never added to ETUDES) so the
+  // logic is proven both ways before anything depends on it: a clean line passes, a note outside
+  // both of its bar's triads gets caught.
+  const tpFixture = await p.evaluate(() => {
+    const checkPitch = e => {
+      const bad = [];
+      const groups = etudeGroups(e.t), pairs = etudePairs(e.tp);
+      groups.forEach((g, bi) => {
+        const tones = new Set(pairs[bi].flatMap(t => QUALITIES[t.qual].intervals.map(iv => (iv + t.pc) % 12)));
+        g.forEach((n, i) => {
+          if (tones.has(n.p % 12)) return;
+          const nx = g[i + 1];
+          if (!nx || Math.abs(nx.p - n.p) !== 1) bad.push(`bar${bi + 1}@${i} pc${n.p % 12}`);
+        });
+      });
+      return bad;
+    };
+    // bar 1: C major / E minor triads (tones 0,4,7,11) — bar 2: G major / B minor (tones 7,11,2,6)
+    const clean = { id: 'fixture', tech: 'triadpair', tp: '0:maj 4:min / 7:maj 11:min',
+      t: '0:0 0:3 0:7 / 0:3 0:7 0:2' };
+    const broken = { ...clean, t: clean.t.replace('0:7', '0:1') };   // last note of bar 1 -> pc5, in neither triad
+    return { clean: checkPitch(clean), broken: checkPitch(broken) };
+  });
+  assert('etude fixture: a line built only from its bars\' declared triads passes the triad-membership check', tpFixture.clean.length === 0);
+  assert('etude fixture: a note outside both of its bar\'s triads is caught' + (tpFixture.broken.length ? ' — ' + tpFixture.broken.join(', ') : ' — nothing caught'), tpFixture.broken.length > 0);
 
   // Transposition slides frets and leaves strings alone, so the check is that the *line* is
   // untouched: one single shift for every note, the right shift, and still on the neck. 45
