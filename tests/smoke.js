@@ -264,6 +264,38 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('etude: no filter combination is empty' + (et.empty.length ? ' — ' + et.empty.join(', ') : ''), et.empty.length === 0);
   assert('etude: three per technique per level' + (et.thin.length ? ' — ' + et.thin.join(', ') : ''), et.thin.length === 0);
 
+  // Transposition slides frets and leaves strings alone, so the check is that the *line* is
+  // untouched: one single shift for every note, the right shift, and still on the neck. 45
+  // études x 12 keys is the whole surface, so a bad octave-drop rule cannot hide in one corner.
+  const etTr = await p.evaluate(() => {
+    const bad = { shift: [], range: [], chords: [], spelling: [] };
+    let highest = 0;
+    ETUDES.forEach(e => {
+      const orig = etudeGroups(e.t).flat().map(n => n.p);
+      const base = parseProgression(e.ch).chords;
+      for (let pc = 0; pc < 12; pc++) {
+        const t = etudeIn(e, pc), flat = t.groups.flat(), iv = (pc - e.key + 12) % 12;
+        const shifts = [...new Set(flat.map((n, i) => n.p - orig[i]))];
+        if (flat.length !== orig.length || shifts.length !== 1 || ((shifts[0] % 12) + 12) % 12 !== iv)
+          bad.shift.push(`${e.id}@${pc} ${shifts.join('/')}`);
+        flat.forEach(n => { highest = Math.max(highest, n.f); });
+        if (flat.some(n => n.f < 0 || n.f > 24 || n.p !== STRINGS[n.s] + n.f)) bad.range.push(`${e.id}@${pc}`);
+        if (t.key !== pc || t.chords.some((c, i) => c.pc !== (base[i].pc + iv) % 12)) bad.chords.push(`${e.id}@${pc}`);
+        // sharps and flats must not be mixed inside one progression (the IV of D♭ is G♭, not F♯)
+        const acc = new Set(t.chords.map(c => c.label[1]).filter(a => a === '#' || a === 'b'));
+        if (acc.size > 1) bad.spelling.push(`${e.id}@${pc} ${t.chords.map(c => c.label).join(' ')}`);
+      }
+    });
+    return { ...bad, highest, asWritten: etudeIn(ETUDES[0], null).groups.flat().map(n => n.f).join() };
+  });
+  assert('etude: transpose shifts every note by one interval, the right one' + (etTr.shift.length ? ' — ' + etTr.shift.slice(0, 6).join(', ') : ''), etTr.shift.length === 0);
+  assert(`etude: all 45 in all 12 keys stay on the neck (highest fret ${etTr.highest})` + (etTr.range.length ? ' — ' + etTr.range.slice(0, 6).join(', ') : ''),
+    etTr.range.length === 0 && etTr.highest <= 24);
+  assert('etude: chords and key signature move with the line' + (etTr.chords.length ? ' — ' + etTr.chords.slice(0, 6).join(', ') : ''), etTr.chords.length === 0);
+  assert('etude: one accidental family per transposed progression' + (etTr.spelling.length ? ' — ' + etTr.spelling.slice(0, 4).join(', ') : ''), etTr.spelling.length === 0);
+  assert('etude: "as written" leaves the frets alone',
+    etTr.asWritten === (await p.evaluate(() => etudeGroups(ETUDES[0].t).flat().map(n => n.f).join())));
+
   await p.click('.tabbtn[data-tab="etude"]');
   await p.waitForTimeout(300);
   const etAll = await p.locator('#etOut .keyblock').count();
@@ -292,6 +324,101 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.evaluate(() => { selNV.value = 'quarter'; });
   await p.selectOption('#etTech', 'all');
   await p.waitForTimeout(200);
+
+  // key picker: the whole library redrawn in one chosen key
+  const etMeta = () => p.locator('#etOut .keyblock .sub').first().innerText();
+  const written = await etMeta();
+  await p.selectOption('#etKey', '1');
+  await p.waitForTimeout(200);
+  const inDb = await etMeta();
+  assert(`etude: key picker redraws in the chosen key (${written.split(' · ')[0]} -> ${inDb.split(' · ')[0]})`, inDb !== written);
+  assert('etude: transposed cards still render notation', (await p.locator('#etOut .nsys').count()) > 0);
+  await p.selectOption('#etKey', '');
+  await p.waitForTimeout(200);
+  assert('etude: "as written" restores the original key', (await etMeta()) === written);
+
+  // ⟳ 12 keys: one étude, twelve cards, one press
+  await p.locator('#etOut .keyblock .chip').first().click();
+  await p.waitForTimeout(500);
+  const run = await p.evaluate(() => {
+    const et = ETUDES.find(e => e.id === et12);
+    return {
+      id: et12, written: et && keyName(et.key),
+      cards: document.querySelectorAll('#etOut .et12 > .keyblock').length,
+      names: [...document.querySelectorAll('#etOut .et12 > .keyblock .keyname')].map(e => e.textContent),
+      expected: et && ET_CIRCLE(et.key).map(keyName),
+      notes: document.querySelectorAll('#etOut .et12 .nn').length,
+      pbtns: document.querySelectorAll('#etOut .et12 .pbtn').length,
+      // every card must be a different key, and each one a real transposition of the same line
+      chords: new Set([...document.querySelectorAll('#etOut .et12 > .keyblock .sub')].map(e => e.textContent)).size,
+    };
+  });
+  assert(`etude: ⟳ 12 keys renders twelve cards (${run.cards})`, run.cards === 12);
+  assert(`etude: circle of fourths from the written key (${run.written}: ${run.names.join(' ')})`,
+    JSON.stringify(run.names) === JSON.stringify(run.expected) && run.names[0] === run.written);
+  assert(`etude: twelve distinct progressions, no key drawn twice (${run.chords})`, run.chords === 12);
+  assert(`etude: all twelve notated inside one playback container (${run.notes} notes)`, run.notes === 12 * 4 * 8);
+  assert(`etude: a ▶ per key plus one for the whole run (${run.pbtns})`, run.pbtns === 13);
+
+  // the run button plays straight through: at 240bpm a note is 125ms, so ~5.5s in the
+  // highlight must have left the first key entirely — that is the container wiring under test
+  await p.evaluate(() => setBpm(240));
+  await p.click('#etOut .et12 > .keyhead .pbtn');
+  await p.waitForTimeout(5600);
+  const hl = await p.evaluate(() =>
+    [...document.querySelectorAll('#etOut .et12 .nn')].findIndex(e => e.classList.contains('hl')));
+  assert(`etude: the 12-key run's highlight crosses out of the first key (idx ${hl} of 384)`, hl >= 32);
+  await p.click('#etOut .et12 > .keyhead .pbtn');
+  await p.evaluate(() => setBpm(80));
+  await p.waitForTimeout(300);
+  assert('etude: stopping the run clears the highlight', (await p.locator('#etOut .hl').count()) === 0);
+
+  // auto-advance: the Exercises tab's walker, pointed at the run. Same count-in, same folding,
+  // same scroll — so what is under test is that it found these twelve blocks and not #out's.
+  await p.fill('#etAkBars', '1');
+  await p.evaluate(() => setBpm(240));
+  await p.click('#etAkBtn');
+  await p.waitForTimeout(400);
+  const akStart = await p.evaluate(() => ({
+    on: akOn, label: $('etAkBtn').textContent, metro: metro.playing,
+    walking: akList === document.querySelector('#etOut .et12'),
+    active: [...document.querySelectorAll('#etOut .et12 > .keyblock')].findIndex(b => b.classList.contains('activekey')),
+    open: [...document.querySelectorAll('#etOut .et12 > .keyblock')].filter(b => !b.classList.contains('folded')).length,
+    exUntouched: [...document.querySelectorAll('#out > .keyblock')].every(b => !b.classList.contains('activekey')),
+  }));
+  assert(`etude: auto-advance turns on and starts the metronome (${akStart.label})`,
+    akStart.on === true && akStart.metro === true && akStart.label.includes('ON'));
+  assert('etude: it walks the 12-key run, not the Exercises tab', akStart.walking && akStart.exUntouched);
+  assert(`etude: it opens the first key and folds the rest (active ${akStart.active}, ${akStart.open} open)`,
+    akStart.active === 0 && akStart.open === 1);
+  // 1 bar/key at 240bpm in 4/4 = 1s a key, plus the free count-in bar — well past key 1 by now
+  await p.waitForTimeout(3200);
+  const akMoved = await p.evaluate(() => ({
+    active: [...document.querySelectorAll('#etOut .et12 > .keyblock')].findIndex(b => b.classList.contains('activekey')),
+    open: [...document.querySelectorAll('#etOut .et12 > .keyblock')].filter(b => !b.classList.contains('folded')).length,
+  }));
+  assert(`etude: auto-advance moves on to a later key (now on ${akMoved.active})`, akMoved.active > 0);
+  assert('etude: still exactly one key open', akMoved.open === 1);
+  await p.click('#etAkBtn');
+  await p.evaluate(() => { metroStop(); setBpm(80); });
+  await p.waitForTimeout(200);
+  const akEnd = await p.evaluate(() => ({ on: akOn, list: akList, countIn: metro.countIn }));
+  assert('etude: switching it off releases the container and clears the count-in',
+    akEnd.on === false && akEnd.list === null && akEnd.countIn === false);
+  // a folded key must not be a dead end once auto-advance is off
+  await p.evaluate(() => document.querySelectorAll('#etOut .et12 > .keyblock')[4].querySelector('.kfold').click());
+  await p.waitForTimeout(150);
+  assert('etude: the fold toggle reopens a key by hand', await p.evaluate(() =>
+    !document.querySelectorAll('#etOut .et12 > .keyblock')[4].classList.contains('folded')));
+
+  await p.click('#etOut .et12 > .chip');   // ← All études
+  await p.waitForTimeout(300);
+  const back = await p.evaluate(() => ({
+    et12, cards: document.querySelectorAll('#etOut > .keyblock').length, focus: etFocus,
+  }));
+  assert(`etude: ← All études returns to the library (${back.cards} cards)`, back.et12 === null && back.cards === et.count);
+  assert('etude: and leaves you focused on the étude you took round the circle', back.focus === run.id);
+
   await p.click('#etChips .dicechip');
   await p.waitForTimeout(250);
   const etHash = await p.evaluate(() => location.hash);

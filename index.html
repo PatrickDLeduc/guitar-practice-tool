@@ -111,9 +111,11 @@
   .pbtn.playing{background:var(--accent);color:#1a1408}
   #droneBtn,#loopBtn,#akBtn{background:var(--panel2);color:var(--muted);padding:8px 14px;font-size:13px;border:1px solid var(--border);margin-right:8px}
   #droneBtn:hover,#loopBtn:hover,#akBtn:hover{color:var(--text)}
-  #droneBtn.playing,#loopBtn.playing,#akBtn.playing{color:var(--accent);border-color:var(--accent)}
-  #akBars{width:48px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 6px;font-size:13px;margin-right:8px}
+  #droneBtn.playing,#loopBtn.playing,#akBtn.playing,#etAkBtn.playing{color:var(--accent);border-color:var(--accent)}
+  #akBars,#etAkBars{width:48px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 6px;font-size:13px;margin-right:8px}
   .keyblock.activekey{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  /* the 12-key run is a .keyblock only so playback can find all twelve cards as one container */
+  .keyblock.et12{background:none;border:0;padding:0}
   /* folded keys: heading only, so a 12-key cycle is a scannable list instead of 13,000px */
   .keyblock.folded{padding-bottom:8px}
   .keyblock.folded > *:not(.keyhead){display:none}
@@ -804,6 +806,9 @@
         <option value="1">Intermediate</option>
         <option value="2">Advanced</option>
       </select></div>
+      <div class="ctl"><label>Key</label><select id="etKey">
+        <option value="" selected>As written</option>
+      </select></div>
       <div class="ctl"><label>View</label><select id="etView">
         <option value="note" selected>Notation</option>
         <option value="tab">Tab only (text)</option>
@@ -811,7 +816,8 @@
     </div>
     <p class="sub">Written lines, not scale runs: each one states a motif, develops it over a chord
       progression and resolves — while drilling one picking-hand problem. ▶ plays it with chord
-      pads underneath at the metronome tempo; Loop turns any of them into a practice cell.</p>
+      pads underneath at the metronome tempo; Loop turns any of them into a practice cell.
+      ⟳ 12 keys takes one étude round the circle of fourths and plays it straight through.</p>
     <div id="etOut"></div>
   </div>
 
@@ -3524,6 +3530,17 @@ function foldKey(block, open){
     tg.setAttribute('aria-label', (open ? 'Hide ' : 'Show ') + name);
   }
 }
+// The ▸/▾ on a key heading, plus the whole heading as a click target. Auto-advance folds
+// everything but the key you are on, so without this a folded block is a dead end.
+function addFoldToggle(div, head, name){
+  const tg = document.createElement('button');
+  tg.type = 'button'; tg.className = 'kfold';
+  tg.setAttribute('aria-expanded', 'true');
+  tg.setAttribute('aria-label', 'Hide ' + name);
+  tg.onclick = ()=> foldKey(div, div.classList.contains('folded'));
+  head.appendChild(tg);
+  head.onclick = e=>{ if(!e.target.closest('button')) foldKey(div, div.classList.contains('folded')); };
+}
 
 // Stacked patterns place every note themselves, so the fingering modes, the per-group
 // variations and tapping have nothing left to say. Park them at their defaults and
@@ -3599,15 +3616,8 @@ function generate(){
     // last key. Every key past the first arrives folded to its heading; auto-advance opens
     // whichever one is current, so playing through never leaves you scrolling for it.
     if(jobs.length > 1){
-      if(ji > 0) div.classList.add('folded');
-      const tg = document.createElement('button');
-      tg.type = 'button'; tg.className = 'kfold';
-      tg.setAttribute('aria-expanded', ji > 0 ? 'false' : 'true');
-      tg.setAttribute('aria-label', (ji > 0 ? 'Show ' : 'Hide ') + ex.name);
-      tg.onclick = ()=> foldKey(div, div.classList.contains('folded'));
-      head.appendChild(tg);
-      head.onclick = e=>{ if(!e.target.closest('.pbtn') && !e.target.closest('.kfold'))
-        foldKey(div, div.classList.contains('folded')); };
+      addFoldToggle(div, head, ex.name);
+      if(ji > 0) foldKey(div, false);
     }
     div.appendChild(head);
     if(instrument === 'piano'){
@@ -3726,19 +3736,31 @@ function setCountIn(on, delayMs){
   metro.countIn = on;   // the scheduler reads this while it schedules the bar — must be set now
   setTimeout(()=> $('metro').classList.toggle('countin', on), Math.max(delayMs, 0));
 }
+// Two things on screen are a list of keys to be walked: the Exercises tab's cycle, and an étude's
+// twelve-key run. Which container holds them is the only difference — the bar counting, the free
+// count-in bar and the fold-and-scroll are shared. The container is captured when auto-advance is
+// switched on and held until it is switched off, so switching tabs mid-run cannot hand the walk to
+// the other list; its children are re-queried every bar, because a re-render replaces the blocks
+// under a container that stays put.
+let akList = null;
+function akTarget(){
+  if(akList?.isConnected) return akList;
+  return currentTab === 'etude' && et12 ? $('etOut').querySelector('.et12') : $('out');
+}
+const akBlocks = ()=> [...(akTarget()?.querySelectorAll(':scope > .keyblock') || [])];
+const akNeed = ()=> Math.max(1, +$(akTarget()?.id === 'out' ? 'akBars' : 'etAkBars')?.value || 4);
 function akOnBar(delayMs){
   if(!akOn) return;
   if(metro.countIn){ setCountIn(false, delayMs); return; }   // count-in over — this bar you play
   akCount++;
-  const need = Math.max(1, +$('akBars').value || 4);
-  if(akCount >= need){
+  if(akCount >= akNeed()){
     akCount = 0;
     setCountIn(true, delayMs);
     setTimeout(akAdvance, Math.max(delayMs, 0));
   }
 }
 function akAdvance(){
-  const blocks = [...$('out').children];
+  const blocks = akBlocks();
   if(!blocks.length) return;
   blocks.forEach(b=>{ b.classList.remove('activekey'); foldKey(b, false); });
   akIdx = (akIdx + 1) % blocks.length;
@@ -3746,12 +3768,17 @@ function akAdvance(){
   foldKey(blocks[akIdx], true);   // the key you're being moved to has to be readable
   blocks[akIdx].scrollIntoView({behavior:'smooth', block:'center'});
 }
-$('akBtn').onclick = ()=>{
+function akToggle(){
   akOn = !akOn;
-  $('akBtn').textContent = 'Auto-advance: ' + (akOn ? 'ON' : 'off');
-  $('akBtn').classList.toggle('playing', akOn);
+  // both buttons exist once an étude run has been drawn; only one is ever on screen
+  ['akBtn','etAkBtn'].forEach(id=>{
+    const b = $(id); if(!b) return;
+    b.textContent = 'Auto-advance: ' + (akOn ? 'ON' : 'off');
+    b.classList.toggle('playing', akOn);
+  });
   akCount = 0; akIdx = 0;
-  const blocks = [...$('out').children];
+  const blocks = akBlocks();          // still the list it was walking, if it is being switched off
+  akList = akOn ? akTarget() : null;
   blocks.forEach(b=>b.classList.remove('activekey'));
   if(akOn && blocks.length){
     blocks.forEach((b,i)=> foldKey(b, i === 0));
@@ -3759,7 +3786,9 @@ $('akBtn').onclick = ()=>{
     blocks[0].scrollIntoView({behavior:'smooth', block:'center'});
     if(!metro.playing){ setCountIn(true, 0); metroStart(); }   // first key gets the same free bar
   } else setCountIn(false, 0);
-};
+}
+const akOff = ()=>{ if(akOn) akToggle(); };   // leaving the list it was walking
+$('akBtn').onclick = akToggle;
 // ---- Shareable URL state (compact: only non-default settings) ----
 let currentTab = 'ex';
 let hashReady = false;
@@ -4891,6 +4920,33 @@ $('loopBtn2').onclick = ()=> setLoop(!playLoop);
 // The list is static, so this only ever filters and draws. Chord labels, pads, notation, tab
 // and the follow-along highlight all come from the same helpers the Progressions tab uses.
 let etFocus = null;   // id from the deep link or 🎲 — scrolled to and outlined once drawn
+const keyName = pc => (SHARP_KEYS.has(pc) ? SHARP_NAMES : FLAT_NAMES)[pc];
+FLAT_NAMES.forEach((_,i)=>{
+  const o = document.createElement('option'); o.value = i; o.textContent = keyName(i); $('etKey').appendChild(o);
+});
+const etKeyPc = ()=> $('etKey').value === '' ? null : +$('etKey').value;
+// Standard tuning puts a semitone under every fret, so an étude changes key by sliding every
+// fret and leaving the strings alone: the fingering, and with it the picking problem the study
+// exists to drill, survives the move intact.
+// ponytail: transpose up, and only drop the octave when the line would otherwise climb past the
+// 15th fret and there is room for it below the nut. Two comparisons keep all 45 études inside
+// fret 0–23 in all 12 keys; a per-étude reachable-position table would buy nothing.
+const ET_HIGH_FRET = 15;
+function etudeIn(et, pc){
+  const groups = etudeGroups(et.t), chords = etudeChords(et);
+  if(pc === null || pc === et.key) return {groups, chords, key: et.key};
+  const iv = (pc - et.key + 12) % 12, frets = groups.flat().map(n => n.f);
+  let n = iv;
+  if(Math.max(...frets) + n > ET_HIGH_FRET && Math.min(...frets) + n - 12 >= 0) n -= 12;
+  groups.forEach(g => g.forEach(nt => { nt.f += n; nt.p += n; }));
+  // one accidental family for the whole progression, chosen by the key — spelling the IV of
+  // D♭ as F♯ is how you get a chart nobody can read
+  const NM = SHARP_KEYS.has(pc) ? SHARP_NAMES : FLAT_NAMES;
+  return {groups, key: pc, chords: chords.map(c=>{
+    const p2 = (c.pc + iv) % 12;
+    return {pc: p2, qual: c.qual, label: NM[p2] + (CHORD_SYM[c.qual] ?? '')};
+  })};
+}
 const etDice = document.createElement('button');
 etDice.className = 'chip dicechip'; etDice.textContent = '🎲 Surprise me';
 etDice.onclick = ()=>{
@@ -4902,57 +4958,123 @@ etDice.onclick = ()=>{
   renderEtudes();
 };
 $('etChips').appendChild(etDice);
+// Set to an étude id, the tab drops the library and shows that one étude twelve times, once per
+// key. Fourths, not chromatic: it is the order the standard "take it through all 12" drill uses,
+// because each key shares six notes with the last and the ear hears a cadence, not a shove.
+let et12 = null;
+const ET_CIRCLE = pc => Array.from({length: 12}, (_,i)=> (pc + i*5) % 12);
+// one pad per bar, matching the way the Progressions tab voices its comp
+const etudePads = (chords, bar0)=> chords.map((c,i)=>{
+  let rootM = 48 + c.pc; if(rootM > 55) rootM -= 12;
+  return {at: (bar0+i)*ET_NOTES_PER_BAR, dur: ET_NOTES_PER_BAR,
+    pitches: QUALITIES[c.qual].intervals.slice(0,4).map(iv=>rootM+iv)};
+});
 function etudeList(){
   const tech = $('etTech').value, lvl = $('etLvl').value;
   return ETUDES.filter(e => (tech === 'all' || e.tech === tech) && (lvl === 'all' || e.lvl === +lvl));
 }
 function etudeChords(et){ return parseProgression(et.ch).chords; }
+const etudeSub = text =>{ const p = document.createElement('p'); p.className = 'sub'; p.textContent = text; return p; };
+const etudeTip = et => `${[...selTech.options].find(o=>o.value===et.tech).text}: ${TECH_TIPS[et.tech]}`;
+// One card: the étude in one key. `run` marks a card in the twelve-key run, which lists by key
+// rather than by étude, drops the prose (twelve copies of it is just scroll) and folds to its
+// heading so auto-advance can open one key at a time.
+function etudeCard(et, pc, name, run){
+  const {groups, chords, key} = etudeIn(et, pc);
+  markBarLines(groups, ET_NV);
+  const div = document.createElement('div'); div.className = 'keyblock';
+  const head = document.createElement('div'); head.className = 'keyhead';
+  head.innerHTML = `<span class="keyname"></span>`;
+  head.firstChild.textContent = name;
+  const pb = document.createElement('button'); pb.className = 'pbtn'; pb.textContent = '▶';
+  pb.title = 'Play this étude with chord pads at the metronome tempo';
+  pb.setAttribute('aria-label', `Play ${et.n} in ${keyName(key)}`);
+  pb.onclick = ()=>{
+    if(playState && playState.btn === pb){ stopPlayback(); return; }
+    track('etude_play', {id: et.id, tech: et.tech, lvl: et.lvl, key: keyName(key)});
+    playNotes(groups.flat(), pb, etudePads(chords, 0), false, ET_NV);
+  };
+  head.appendChild(pb);
+  if(run) addFoldToggle(div, head, name);
+  div.appendChild(head);
+  div.appendChild(etudeSub(`${chords.map(c=>c.label).join(' – ')} · ${ET_LEVELS[et.lvl]} · eighth notes`));
+  if(!run){ div.appendChild(etudeSub(et.why)); div.appendChild(etudeSub(etudeTip(et))); }
+  if($('etView').value === 'note'){
+    const nd = document.createElement('div'); nd.className = 'notation';
+    nd.innerHTML = renderNotationSystems(groups, key, chords.map(c=>c.label), ET_NV, null,
+      $('etOut').clientWidth - 34).map(s=>`<div class="nsys">${s}</div>`).join('');
+    div.appendChild(nd);
+  } else {
+    const pre = document.createElement('pre'); pre.className = 'tab';
+    pre.innerHTML = renderTab(groups).map(s=>`<span class="sys">${s}</span>`).join('');
+    div.appendChild(pre);
+  }
+  return div;
+}
+// The twelve-key run. The wrapper is itself a .keyblock, which is what makes the single ▶ work:
+// playNotes hands trackPlayback `btn.closest('.keyblock')`, so this button's container is all
+// twelve cards and the follow-along highlight walks the whole run, scrolling key to key. Each
+// inner card's own ▶ resolves to that card instead. Nothing in the playback code had to know.
+function etude12(et){
+  const wrap = document.createElement('div'); wrap.className = 'keyblock et12';
+  const back = document.createElement('button'); back.className = 'chip';
+  back.textContent = '← All études';
+  back.onclick = ()=>{ stopPlayback(); akOff(); et12 = null; etFocus = et.id; renderEtudes(); };
+  wrap.appendChild(back);
+  const head = document.createElement('div'); head.className = 'keyhead';
+  head.innerHTML = `<span class="keyname"></span>`;
+  head.firstChild.textContent = `${et.n} — all 12 keys`;
+  const pb = document.createElement('button'); pb.className = 'pbtn'; pb.textContent = '▶';
+  pb.title = 'Play it straight through all twelve keys, a fourth apart, without stopping';
+  pb.setAttribute('aria-label', `Play ${et.n} through all twelve keys`);
+  pb.onclick = ()=>{
+    if(playState && playState.btn === pb){ stopPlayback(); return; }
+    const notes = [], pads = [];
+    ET_CIRCLE(et.key).forEach((pc,i)=>{
+      const {groups, chords} = etudeIn(et, pc);
+      notes.push(...groups.flat());
+      pads.push(...etudePads(chords, i*chords.length));
+    });
+    track('etude_play', {id: et.id, tech: et.tech, lvl: et.lvl, key: 'all12'});
+    playNotes(notes, pb, pads, false, ET_NV);
+  };
+  head.appendChild(pb);
+  // Auto-advance is the other way through the circle: you play, the metronome counts, and the
+  // page moves to the next key for you. Same button, same bar counting, same free count-in bar
+  // as the Exercises tab — akContext just finds these twelve blocks instead of those.
+  const ak = document.createElement('button');
+  ak.id = 'etAkBtn'; ak.className = 'chip';
+  ak.textContent = 'Auto-advance: ' + (akOn ? 'ON' : 'off');
+  ak.classList.toggle('playing', akOn);
+  ak.title = 'You play along to the metronome; it moves you to the next key every few bars, after a free bar of count-in';
+  ak.onclick = akToggle;
+  const akb = document.createElement('input');
+  akb.id = 'etAkBars'; akb.type = 'number'; akb.min = 1; akb.max = 99; akb.value = 4;
+  akb.setAttribute('aria-label', 'Bars per key');
+  akb.title = 'Bars in each key before it advances — the étude is 4 bars, so 8 is twice through';
+  head.append(ak, akb);
+  wrap.appendChild(head);
+  wrap.appendChild(etudeSub(et.why));
+  wrap.appendChild(etudeSub(etudeTip(et)));
+  wrap.appendChild(etudeSub('Up a fourth each time, starting from the key it is written in — '
+    + 'twelve keys and you are back where you started. ▶ plays the whole circle to you; '
+    + 'Auto-advance is for playing it yourself, moving you on every 4 bars.'));
+  ET_CIRCLE(et.key).forEach(pc=> wrap.appendChild(etudeCard(et, pc, keyName(pc), true)));
+  return wrap;
+}
 function renderEtudes(){
   const out = $('etOut'); out.innerHTML = '';
-  const list = etudeList();
-  const noteView = $('etView').value === 'note';
+  const only = et12 && ETUDES.find(e => e.id === et12);
+  if(only){ out.appendChild(etude12(only)); stateToHash(); return; }
+  const list = etudeList(), pc = etKeyPc();
   list.forEach(et=>{
-    const groups = etudeGroups(et.t), chords = etudeChords(et);
-    markBarLines(groups, ET_NV);
-    const div = document.createElement('div'); div.className = 'keyblock';
+    const div = etudeCard(et, pc, et.n, false);
     if(et.id === etFocus) div.style.outline = '2px solid var(--accent)';
-    const head = document.createElement('div'); head.className = 'keyhead';
-    head.innerHTML = `<span class="keyname">${et.n}</span>`;
-    const pb = document.createElement('button'); pb.className = 'pbtn'; pb.textContent = '▶';
-    pb.title = 'Play this étude with chord pads at the metronome tempo';
-    pb.setAttribute('aria-label', 'Play ' + et.n);
-    pb.onclick = ()=>{
-      if(playState && playState.btn === pb){ stopPlayback(); return; }
-      // one pad per bar, matching the way the Progressions tab voices its comp
-      const pads = chords.map((c,i)=>{
-        let rootM = 48 + c.pc; if(rootM > 55) rootM -= 12;
-        return {at: i*ET_NOTES_PER_BAR, dur: ET_NOTES_PER_BAR,
-          pitches: QUALITIES[c.qual].intervals.slice(0,4).map(iv=>rootM+iv)};
-      });
-      track('etude_play', {id: et.id, tech: et.tech, lvl: et.lvl});
-      playNotes(groups.flat(), pb, pads, false, ET_NV);
-    };
-    head.appendChild(pb);
-    div.appendChild(head);
-    const meta = document.createElement('p'); meta.className = 'sub';
-    meta.textContent = `${chords.map(c=>c.label).join(' – ')} · ${ET_LEVELS[et.lvl]} · eighth notes`;
-    div.appendChild(meta);
-    const why = document.createElement('p'); why.className = 'sub';
-    why.textContent = et.why;
-    div.appendChild(why);
-    const tip = document.createElement('p'); tip.className = 'sub';
-    tip.textContent = `${[...selTech.options].find(o=>o.value===et.tech).text}: ${TECH_TIPS[et.tech]}`;
-    div.appendChild(tip);
-    if(noteView){
-      const nd = document.createElement('div'); nd.className = 'notation';
-      nd.innerHTML = renderNotationSystems(groups, et.key, chords.map(c=>c.label), ET_NV, null,
-        $('etOut').clientWidth - 34).map(s=>`<div class="nsys">${s}</div>`).join('');
-      div.appendChild(nd);
-    } else {
-      const pre = document.createElement('pre'); pre.className = 'tab';
-      pre.innerHTML = renderTab(groups).map(s=>`<span class="sys">${s}</span>`).join('');
-      div.appendChild(pre);
-    }
+    const b12 = document.createElement('button'); b12.className = 'chip';
+    b12.textContent = '⟳ 12 keys';
+    b12.title = 'Take this étude round the circle of fourths — all twelve keys, one after another';
+    b12.onclick = ()=>{ stopPlayback(); akOff(); et12 = et.id; renderEtudes(); window.scrollTo(0, 0); };
+    div.querySelector('.keyhead').appendChild(b12);
     out.appendChild(div);
     if(et.id === etFocus) requestAnimationFrame(()=> div.scrollIntoView({block:'nearest'}));
   });
@@ -4960,6 +5082,7 @@ function renderEtudes(){
   stateToHash();
 }
 ['etTech','etLvl','etView'].forEach(id=> $(id).addEventListener('change', ()=>{ etFocus = null; renderEtudes(); }));
+$('etKey').addEventListener('change', renderEtudes);   // a key change filters nothing, so the focus survives it
 // ---- Jam track: drums + bass + comping over the current progression ----
 let noiseBuf = null;
 function noiseBuffer(ctx){
