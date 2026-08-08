@@ -79,6 +79,9 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
     return bad;
   });
   assert('prog: 96/96 dice combos parse', badProg.length === 0);
+  // "a" the article is dropped; "A" the chord is not. Case-insensitive matching used to eat it.
+  const bareA = await p.evaluate(() => parseProgression('C G Am A').chords.map(c => c.label).join(' '));
+  assert(`prog: a bare A chord survives the word filter (${bareA})`, bareA === 'C G Am A');
   await p.click('.tabbtn[data-tab="prog"]');
   await p.click('#progChips .dicechip');
   await p.waitForTimeout(200);
@@ -203,6 +206,106 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('dice: level chip cycles', (await p.locator('#diceLvlChip').innerText()).includes('Intermediate'));
   await p.reload(); await p.waitForTimeout(1200);
   assert('dice: level persists across reload', (await p.locator('#diceLvlChip').innerText()).includes('Intermediate'));
+
+  // Études: the library is hand-written data, so this is the check that catches a bad line —
+  // a fret typo shows up as a note that is neither in the declared scale nor a semitone
+  // approach into the next one.
+  const et = await p.evaluate(() => {
+    const bad = { id: [], shape: [], span: [], range: [], chords: [], pitch: [] };
+    const seen = new Set();
+    ETUDES.forEach(e => {
+      if (seen.has(e.id) || !TECH_TIPS[e.tech] || ![0, 1, 2].includes(e.lvl) || !QUALITIES[e.qual]) bad.id.push(e.id);
+      seen.add(e.id);
+      let groups;
+      try { groups = etudeGroups(e.t); } catch (err) { bad.shape.push(e.id + ' THREW'); return; }
+      if (groups.length !== 4 || groups.some(g => g.length !== ET_NOTES_PER_BAR)) bad.shape.push(e.id);
+      const chords = parseProgression(e.ch).chords;
+      if (chords.length !== groups.length) bad.chords.push(`${e.id} ${chords.length}/${groups.length}`);
+      groups.forEach((g, gi) => {
+        if (g.some(n => !(n.s >= 0 && n.s <= 5) || !(n.f >= 0 && n.f <= 24) || !(n.p >= 40 && n.p <= 88))) bad.range.push(e.id);
+        // Open strings need no finger, so they cost nothing in reach — an open-string pedal
+        // under a melody up at the 9th fret is one of the easiest things on the instrument.
+        const fr = g.map(n => n.f).filter(f => f > 0);
+        // 6 = a 7-fret window, reachable with an index-to-pinky stretch. Wider is a shift
+        // mid-bar, which no étude here asks for.
+        if (fr.length && Math.max(...fr) - Math.min(...fr) > 6) bad.span.push(`${e.id} bar${gi + 1}`);
+      });
+      const sc = new Set(QUALITIES[e.qual].intervals.map(iv => (iv + e.key) % 12));
+      const flat = groups.flat();
+      flat.forEach((n, i) => {
+        if (sc.has(n.p % 12)) return;
+        const nx = flat[i + 1];
+        if (!nx || Math.abs(nx.p - n.p) !== 1) bad.pitch.push(`${e.id} @${i} pc${n.p % 12}`);
+      });
+    });
+    // no filter combination the UI offers may show an empty list
+    const tSel = document.getElementById('etTech'), lSel = document.getElementById('etLvl');
+    const empty = [];
+    [...tSel.options].forEach(t => [...lSel.options].forEach(l => {
+      tSel.value = t.value; lSel.value = l.value;
+      if (!etudeList().length) empty.push(`${t.value}/${l.value}`);
+    }));
+    // the grid is meant to be even: three per technique per level, so no filter is thin either
+    const thin = [];
+    [...tSel.options].filter(t => t.value !== 'all').forEach(t =>
+      [...lSel.options].filter(l => l.value !== 'all').forEach(l => {
+        const n = ETUDES.filter(e => e.tech === t.value && e.lvl === +l.value).length;
+        if (n !== 3) thin.push(`${t.value}/${l.value}=${n}`);
+      }));
+    tSel.value = 'all'; lSel.value = 'all';
+    return { ...bad, empty, thin, count: ETUDES.length };
+  });
+  assert(`etude: ${et.count} études, ids/tech/level/quality all valid` + (et.id.length ? ' — ' + et.id.join(', ') : ''), et.id.length === 0);
+  assert('etude: every étude is 4 bars of 8' + (et.shape.length ? ' — ' + et.shape.join(', ') : ''), et.shape.length === 0);
+  assert('etude: one chord per bar' + (et.chords.length ? ' — ' + et.chords.join(', ') : ''), et.chords.length === 0);
+  assert('etude: strings/frets/pitches in range' + (et.range.length ? ' — ' + et.range.join(', ') : ''), et.range.length === 0);
+  assert('etude: every bar fits one hand position' + (et.span.length ? ' — ' + et.span.join(', ') : ''), et.span.length === 0);
+  assert('etude: every note is in key or a semitone approach' + (et.pitch.length ? ' — ' + et.pitch.slice(0, 8).join(', ') : ''), et.pitch.length === 0);
+  assert('etude: no filter combination is empty' + (et.empty.length ? ' — ' + et.empty.join(', ') : ''), et.empty.length === 0);
+  assert('etude: three per technique per level' + (et.thin.length ? ' — ' + et.thin.join(', ') : ''), et.thin.length === 0);
+
+  await p.click('.tabbtn[data-tab="etude"]');
+  await p.waitForTimeout(300);
+  const etAll = await p.locator('#etOut .keyblock').count();
+  assert(`etude: every étude renders a card (${etAll})`, etAll === et.count);
+  assert('etude: notation drawn', (await p.locator('#etOut .nsys').count()) > 0);
+  assert('etude: play button present', (await p.locator('#etOut .pbtn').count()) === et.count);
+  await p.selectOption('#etTech', 'sweep');
+  await p.waitForTimeout(200);
+  const etSweep = await p.locator('#etOut .keyblock').count();
+  assert(`etude: technique filter narrows the list (${etSweep} of ${etAll})`, etSweep > 0 && etSweep < etAll);
+  await p.selectOption('#etView', 'tab');
+  await p.waitForTimeout(200);
+  assert('etude: tab view renders text tab', (await p.locator('#etOut pre.tab').count()) === etSweep);
+  await p.selectOption('#etView', 'note');
+  await p.waitForTimeout(200);
+  // Études carry their own subdivision: this must play in 8ths even though the Exercises tab
+  // is left on half notes, so the follow-along has to be four times further along than that.
+  await p.evaluate(() => { selNV.value = 'half'; });   // it lives on the hidden Exercises view
+  await p.click('#etOut .keyblock .pbtn');
+  await p.waitForTimeout(4400);
+  const etHl = await p.evaluate(() => [...document.querySelectorAll('#etOut .keyblock .nn')].findIndex(e => e.classList.contains('hl')));
+  assert(`etude: follow-along tracks the étude's own note value (idx ${etHl})`, etHl >= 2);
+  await p.click('#etOut .keyblock .pbtn');
+  await p.waitForTimeout(300);
+  assert('etude: stop clears the highlight', (await p.locator('#etOut .hl').count()) === 0);
+  await p.evaluate(() => { selNV.value = 'quarter'; });
+  await p.selectOption('#etTech', 'all');
+  await p.waitForTimeout(200);
+  await p.click('#etChips .dicechip');
+  await p.waitForTimeout(250);
+  const etHash = await p.evaluate(() => location.hash);
+  assert('etude: 🎲 writes a deep link (' + etHash + ')', /[#&]et=[a-z0-9-]+/.test(etHash));
+  await p.goto(URL + etHash); await p.waitForTimeout(1200);
+  const etRestored = await p.evaluate(() => ({
+    tab: currentTab, focus: etFocus,
+    // the linked étude must actually be in the list the restore left showing
+    listed: etudeList().some(e => e.id === etFocus),
+  }));
+  assert(`etude: deep link reopens the tab on that étude (${etRestored.focus})`,
+    etRestored.tab === 'etude' && !!etRestored.focus && etHash.includes(etRestored.focus) && etRestored.listed);
+  await p.click('.tabbtn[data-tab="ex"]');
+  await p.waitForTimeout(200);
 
   // fingering: 2-string exercise cycles all 5 adjacent string pairs, notes stay on the pair
   await p.selectOption('#selSeq', 'single');   // isolate from leftover random-dice state (cycle4/etc.)
@@ -1218,6 +1321,23 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   assert('mobile: picking a section closes the More grid', !(await p.locator('#tabsBack').isVisible()));
   assert('mobile: the section you are in stays visible in the bar',
     await p.locator('.tabbtn[data-tab="poly"]').isVisible());
+
+  // études: four bars of notation is the widest thing on the page — it has to wrap, not scroll
+  await p.click('#tabMore');
+  await p.click('.tabbtn[data-tab="etude"]');
+  await p.waitForTimeout(400);
+  const etM = await p.evaluate(() => {
+    const cards = [...document.querySelectorAll('#etOut .keyblock')];
+    return {
+      cards: cards.length,
+      overflow: document.documentElement.scrollWidth - innerWidth,
+      widest: Math.max(...cards.map(c => c.scrollWidth)),
+      wrapped: cards.every(c => c.querySelectorAll('.nsys').length > 1),
+    };
+  });
+  assert(`mobile: étude tab reachable from More (${etM.cards} cards)`, etM.cards > 0);
+  assert(`mobile: étude notation wraps instead of overflowing (${etM.overflow}px)`,
+    etM.overflow === 0 && etM.widest <= 375 && etM.wrapped);
 
   // piano keyboard must fit the width rather than hide keys behind a scrollbar
   await p.click('.tabbtn[data-tab="ex"]');

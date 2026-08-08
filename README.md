@@ -44,6 +44,14 @@ Pick a base chord and see what every triad superimposed on it produces — added
 - **Harmony games (modal mixture)**: keep the home I chord and borrow the rest from any parallel mode — aeolian through melodic minor, every mode at once, or secondary dominants with automatic resolutions. Classic-move presets (backdoor ♭VII7, minor plagal, maj7 planing) and a borrowed-chord ear quiz
 - **Jam tracks**: loop any progression as a backing band — drums, walking-style bass, and soft comping pads (or stabs, or bass & drums only)
 
+### Études
+Everywhere else in the app, notes are *derived* from a scale and a pattern. The Études tab is
+the opposite: a library of composed technique studies — a motif that gets sequenced and answered
+over a chord progression, where the picking-hand problem is the reason the line is shaped the way
+it is. Filter by technique (alternate, economy, legato, sweep, hybrid) and level, hear any of them
+with chord pads under the line, loop one as a practice cell, or roll 🎲 for a link you can share.
+Written offline and shipped as data, so they cost nothing and work with the network off.
+
 ### Voicings
 Drop 2 (three string sets), drop 3, and shell voicings for nine chord qualities, shown as fretboard grips through every inversion. Click to hear.
 
