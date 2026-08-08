@@ -434,19 +434,22 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
     const plain = renderNotationSystems(g, 0, ['Dm7', 'G7'], 'eighth', null, 800)[0];
     const stacked = renderNotationSystems(g, 0, [['Dm7', 'Dm / Em'], ['G7', 'G / A']], 'eighth', null, 800)[0];
     const count = (s, t) => s.split(t).length - 1;
+    const height = s => Number(s.match(/height="([\d.]+)"/)[1]);
     return {
       plainMain:  count(plain, '>Dm7<') === 1 && count(plain, '>G7<') === 1,
-      plainNoSub: !plain.includes('Dm / Em'),
+      plainNoSub: count(plain, 'class="plab"') === 0,
       subMain:    count(stacked, '>Dm7<') === 1,
       subLine:    count(stacked, '>Dm / Em<') === 1 && count(stacked, '>G / A<') === 1
                   && count(stacked, 'class="plab"') === 2,
-      // the sub line sits below the main one, and the staff is pushed down to make room
-      taller:     stacked.length > plain.length,
+      // a stacked label reserves exactly 10px more headroom than a plain one (38 - 28), which
+      // shows up as an identical bump in the whole SVG's height — everything else about the
+      // two renders (notes, key, view) is the same
+      headroom:   height(stacked) - height(plain) === 10,
     };
   });
   assert('label: a plain string label still draws one line', lbl.plainMain && lbl.plainNoSub);
   assert('label: an array label draws the chord symbol and a sub line', lbl.subMain && lbl.subLine);
-  assert('label: stacked labels reserve extra headroom', lbl.taller);
+  assert('label: stacked labels reserve exactly 10px more headroom (38 - 28)', lbl.headroom);
 
   await p.selectOption('#etView', 'note');
   await p.waitForTimeout(200);
