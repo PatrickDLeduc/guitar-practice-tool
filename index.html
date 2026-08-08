@@ -1715,15 +1715,21 @@ function renderNotationSystems(groups, rootPc, labels, nv, fingers, availPx){
     const maxD = Math.max(38, ...cols.map(c=>c.sp.dval));
     const minD = Math.min(piano ? 18 : 30, ...cols.map(c=>c.sp.dval));
     const fingPad = fmap ? 13 : 0;                          // room for the finger-number row
-    const staffTop = (labels ? 28 : 12) + fingPad + (maxD-38)*SP/2;   // y of top staff line (F5, dval 38)
+    // a stacked label (chord symbol over its triad pair) needs a second line of headroom
+    const hasSub = marks.some(mk => Array.isArray(mk.label));
+    const labelPad = labels ? (hasSub ? 38 : 28) : 12;
+    const staffTop = labelPad + fingPad + (maxD-38)*SP/2;   // y of top staff line (F5, dval 38)
     const yOf = d => staffTop + (38-d)*SP/2;
     const inBass = d => piano && d < MID_C;
     const tabTop = yOf(minD) + 26;
     const H = piano ? yOf(minD) + 24 + fingPad : tabTop + 5*TS + 18;
     let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
-    // chord labels (progression mode)
+    // chord labels (progression mode); an array label puts a quieter second line underneath —
+    // the triad pair the bar is built from, which is the thing you read while playing it
     marks.forEach(mk=>{
-      s += `<text x="${mk.x+2}" y="14" font-size="12" font-weight="700" fill="var(--accent)">${mk.label}</text>`;
+      const [main, sub] = Array.isArray(mk.label) ? mk.label : [mk.label, null];
+      s += `<text x="${mk.x+2}" y="14" font-size="12" font-weight="700" fill="var(--accent)">${main}</text>`;
+      if(sub) s += `<text class="plab" x="${mk.x+2}" y="25" font-size="10" fill="var(--muted)">${sub}</text>`;
     });
     // staff (5 lines, E4..F5 = dval 30..38); piano adds the bass staff and a brace
     for(let d=30; d<=38; d+=2)

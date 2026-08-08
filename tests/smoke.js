@@ -426,6 +426,28 @@ const assert = (name, cond) => { console.log((cond ? 'PASS ' : 'FAIL ') + name);
   await p.selectOption('#etView', 'tab');
   await p.waitForTimeout(200);
   assert('etude: tab view renders text tab', (await p.locator('#etOut pre.tab').count()) === etSweep);
+
+  // A bar label may carry a second, quieter line under the chord symbol. Every existing caller
+  // passes plain strings and must be unaffected.
+  const lbl = await p.evaluate(() => {
+    const g = etudeGroups('3:5 3:7 / 3:9 3:10');
+    const plain = renderNotationSystems(g, 0, ['Dm7', 'G7'], 'eighth', null, 800)[0];
+    const stacked = renderNotationSystems(g, 0, [['Dm7', 'Dm / Em'], ['G7', 'G / A']], 'eighth', null, 800)[0];
+    const count = (s, t) => s.split(t).length - 1;
+    return {
+      plainMain:  count(plain, '>Dm7<') === 1 && count(plain, '>G7<') === 1,
+      plainNoSub: !plain.includes('Dm / Em'),
+      subMain:    count(stacked, '>Dm7<') === 1,
+      subLine:    count(stacked, '>Dm / Em<') === 1 && count(stacked, '>G / A<') === 1
+                  && count(stacked, 'class="plab"') === 2,
+      // the sub line sits below the main one, and the staff is pushed down to make room
+      taller:     stacked.length > plain.length,
+    };
+  });
+  assert('label: a plain string label still draws one line', lbl.plainMain && lbl.plainNoSub);
+  assert('label: an array label draws the chord symbol and a sub line', lbl.subMain && lbl.subLine);
+  assert('label: stacked labels reserve extra headroom', lbl.taller);
+
   await p.selectOption('#etView', 'note');
   await p.waitForTimeout(200);
   // Études carry their own subdivision: this must play in 8ths even though the Exercises tab
