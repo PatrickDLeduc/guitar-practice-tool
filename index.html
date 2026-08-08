@@ -353,7 +353,7 @@
        one tap away in a 3x3 grid that expands from the bar itself — same buttons, so every
        existing tab handler and deep link keeps working untouched. */
     .tabbtn[data-tab="stack"],.tabbtn[data-tab="voic"],
-    .tabbtn[data-tab="ear"],.tabbtn[data-tab="poly"]{display:none}
+    .tabbtn[data-tab="ear"],.tabbtn[data-tab="poly"],.tabbtn[data-tab="etude"]{display:none}
     .tabbtn.active{display:flex}     /* an overflow section still shows while it's the one you're in */
     #tabMore{display:flex}
     body.tabsmore #tabsBack{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:11}
@@ -497,6 +497,7 @@
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="today"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="4" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="10" y1="1.5" x2="10" y2="3.5"/><line x1="10" y1="16.5" x2="10" y2="18.5"/><line x1="1.5" y1="10" x2="3.5" y2="10"/><line x1="16.5" y1="10" x2="18.5" y2="10"/><line x1="4" y1="4" x2="5.5" y2="5.5"/><line x1="14.5" y1="14.5" x2="16" y2="16"/><line x1="4" y1="16" x2="5.5" y2="14.5"/><line x1="14.5" y1="5.5" x2="16" y2="4"/></g></svg><span class="tl">Today</span><span class="ts">Today</span></button>
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="stack"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="8.5" width="16" height="3" rx="1" fill="currentColor"/><rect x="2" y="14" width="16" height="3" rx="1" fill="currentColor"/></svg><span class="tl">Chord stacking</span><span class="ts">Stack</span></button>
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="prog"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="4" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="10" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/></svg><span class="tl">Progressions</span><span class="ts">Prog</span></button>
+    <button class="tabbtn" role="tab" aria-selected="false" data-tab="etude"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><path d="M5 15V4l10-2v11" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="3.5" cy="15.5" r="2.5" fill="currentColor"/><circle cx="13.5" cy="13.5" r="2.5" fill="currentColor"/></svg><span class="tl">Études</span><span class="ts">Études</span></button>
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="voic"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="3" width="6" height="6" rx="1" fill="currentColor"/><rect x="3" y="11" width="6" height="6" rx="1" fill="currentColor"/><rect x="11" y="11" width="6" height="6" rx="1" fill="currentColor"/></svg><span class="tl">Voicings</span><span class="ts">Voicings</span></button>
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="ear"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="currentColor"/></svg><span class="tl">Ear training</span><span class="ts">Ear</span></button>
     <button class="tabbtn" role="tab" aria-selected="false" data-tab="pg"><svg class="ticon" aria-hidden="true" viewBox="0 0 20 20"><rect x="3" y="11" width="4" height="7" fill="currentColor"/><rect x="8" y="7" width="4" height="11" fill="currentColor"/><rect x="13" y="2" width="4" height="16" fill="currentColor"/></svg><span class="tl">Progress</span><span class="ts">Progress</span></button>
@@ -784,6 +785,34 @@
       </div>
     </div>
 
+  </div>
+
+  <div id="viewEtude" role="tabpanel" style="display:none">
+    <div class="chips" id="etChips"></div>
+    <div class="controls">
+      <div class="ctl"><label>Technique</label><select id="etTech">
+        <option value="all" selected>Every technique</option>
+        <option value="alternate">Alternate picking</option>
+        <option value="economy">Economy picking</option>
+        <option value="legato">Legato</option>
+        <option value="sweep">Sweep picking</option>
+        <option value="hybrid">Hybrid picking</option>
+      </select></div>
+      <div class="ctl"><label>Level</label><select id="etLvl">
+        <option value="all" selected>Every level</option>
+        <option value="0">Beginner</option>
+        <option value="1">Intermediate</option>
+        <option value="2">Advanced</option>
+      </select></div>
+      <div class="ctl"><label>View</label><select id="etView">
+        <option value="note" selected>Notation</option>
+        <option value="tab">Tab only (text)</option>
+      </select></div>
+    </div>
+    <p class="sub">Written lines, not scale runs: each one states a motif, develops it over a chord
+      progression and resolves — while drilling one picking-hand problem. ▶ plays it with chord
+      pads underneath at the metronome tempo; Loop turns any of them into a practice cell.</p>
+    <div id="etOut"></div>
   </div>
 
   <div id="viewVoic" role="tabpanel" style="display:none">
@@ -1882,7 +1911,11 @@ function parseProgression(raw){
     return {chords: deg.map(d=>{ const pc=(keyPc+d)%12; return {pc, qual:'dom7', label:mkLabel(pc,'dom7')}; }), keyPc};
   }
   const minorKey = /minor/i.test(text);
-  const toks = text.split(/[\s,|>–—-]+/).filter(t=> t && !/^(and|then|minor|major|progression|chords?|the|a)$/i.test(t));
+  // The article "a" is dropped, the A chord is not. Case-insensitive matching on 'a' ate the
+  // one bare chord symbol that collides with an English word, so "C G Am A" lost its last
+  // chord with no error. Chord symbols are uppercase — lowercase 'a' never parsed as one.
+  const toks = text.split(/[\s,|>–—-]+/)
+    .filter(t=> t && t !== 'a' && !/^(and|then|minor|major|progression|chords?|the)$/i.test(t));
   const ROMAN = ROMAN_DEGREE, MAJ_FUNC = MAJ_KEY_FUNC, MIN_FUNC = MIN_KEY_FUNC;
   const chords = [];
   for(const tk of toks){
@@ -2168,6 +2201,311 @@ function parseQuery(raw){
   if(res.seq === undefined) res.seq = (res.root !== undefined) ? 'single' : 'cycle4';
   return res;
 }
+
+// ---- Études: written technique studies ----
+// Everything else in this file *derives* notes from a scale and a pattern. These are
+// composed lines — a motif that gets sequenced and answered over a progression — where the
+// picking-hand problem is the reason the line is shaped the way it is. They are data, not a
+// generator, so they cost nothing at runtime and work with the network off.
+//
+// ponytail: every étude is 4 bars of 8 eighth notes, one chord per bar, uniform subdivision.
+// Classic technique studies (Petrucci, Gilbert, Coltrane cells) are written exactly this way —
+// the musical interest is in the pitches and the metronome is the difficulty knob. Per-note
+// durations would mean reworking both renderNotationSystems and playNotes; add that when a
+// written étude genuinely needs syncopation to make its point.
+const ET_NOTES_PER_BAR = 8, ET_NV = 'eighth';
+const ET_LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
+// "string:fret", space-separated, ' / ' between bars. String 0 is the low E.
+function etudeGroups(t){
+  return t.split('/').map(g => g.trim().split(/\s+/).map(tok => {
+    const [s, f] = tok.split(':').map(Number);
+    return { s, f, p: STRINGS[s] + f };
+  }));
+}
+const ETUDES = [
+  // ---- alternate picking ----
+  { id:'alt-pent-answer', n:'Pentatonic call and answer', tech:'alternate', lvl:0,
+    key:9, qual:'minpent', ch:'Am7 Am7 Dm7 Am7',
+    why:'Bar 1 asks, bar 2 answers the same shape a step lower. Every string change lands on '
+       + 'the third note of a group, so the crossing never falls on a downstroke twice running.',
+    t:'3:5 3:7 4:5 4:8 5:5 4:8 4:5 3:7 / 2:7 3:5 3:7 4:5 3:7 3:5 2:7 2:5 '
+     + '/ 2:5 2:7 3:5 3:7 4:5 4:8 5:5 5:8 / 5:5 4:8 4:5 3:7 3:5 2:7 2:5 2:7' },
+  { id:'alt-cross-beat', n:'Crossing on the beat', tech:'alternate', lvl:1,
+    key:7, qual:'majscale', ch:'G Em C D',
+    why:'A two-note-per-string arch that changes string every other note, so the crossing '
+       + 'always arrives on a downstroke. The leading tone at the end of bar 1 pulls it round.',
+    t:'2:5 3:2 3:4 4:3 3:4 3:2 2:5 2:4 / 2:2 2:5 2:4 3:2 3:4 4:3 4:5 4:3 '
+     + '/ 3:5 4:3 4:5 5:2 5:3 5:2 4:5 4:3 / 4:5 5:2 5:5 5:3 5:2 4:5 3:4 4:3' },
+  { id:'alt-open-pentatonic', n:'Open-position pentatonic arch', tech:'alternate', lvl:0,
+    key:4, qual:'minpent', ch:'Em7 Em7 Am7 Em7',
+    why:'The same six-note shape climbing a string pair at a time, so the picking pattern never '
+       + 'changes while the phrase keeps rising. Bar 4 walks the whole thing back down to E.',
+    t:'2:2 3:0 3:2 4:0 3:2 3:0 2:2 2:0 / 3:0 3:2 4:0 4:3 4:0 3:2 3:0 2:2 '
+     + '/ 3:2 4:0 4:3 5:0 5:3 5:0 4:3 4:0 / 5:3 5:0 4:3 4:0 3:2 3:0 2:0 2:2' },
+  { id:'alt-open-c-turnaround', n:'Open-position turnaround', tech:'alternate', lvl:0,
+    key:0, qual:'majscale', ch:'C G Am F',
+    why:'One arpeggio up, one scale fragment down, on each chord of a I–V–vi–IV. Every bar ends '
+       + 'a step from where the next one starts, so the hand never has to jump.',
+    t:'4:1 5:0 5:3 5:0 4:3 4:1 4:0 4:1 / 4:0 4:3 5:3 4:3 5:0 4:3 4:0 3:2 '
+     + '/ 3:2 4:1 5:0 4:1 4:3 4:1 4:0 3:2 / 3:0 3:2 4:1 5:1 5:0 4:3 4:0 4:1' },
+  { id:'alt-dorian-fours-cross', n:'Dorian fours across the strings', tech:'alternate', lvl:1,
+    key:9, qual:'dorian', ch:'Am7 Am7 D7 Am7',
+    why:'A four-note cell restated a step higher each time. Because the cell is four long and '
+       + 'the strings hold three, the crossing lands in a different place in every repetition.',
+    t:'2:7 2:9 3:5 3:7 2:9 3:5 3:7 3:9 / 3:5 3:7 3:9 4:7 3:7 3:9 4:7 4:8 '
+     + '/ 3:9 4:7 4:8 4:10 4:7 4:8 4:10 5:7 / 4:10 5:7 5:8 5:10 5:8 5:7 4:8 4:10' },
+  { id:'alt-blues-box', n:'Blues box with the flat five', tech:'alternate', lvl:1,
+    key:0, qual:'blues', ch:'C7 F7 C7 G7',
+    why:'Strict down–up through a blues box, with the ♭5 arriving in bar 3 as a passing note '
+       + 'between G and F — it has to be picked cleanly or it just sounds out of tune.',
+    t:'2:10 3:8 3:10 4:8 3:10 3:8 2:10 2:8 / 3:10 4:8 4:11 5:8 4:11 4:8 3:10 3:8 '
+     + '/ 5:8 4:11 4:8 4:7 3:10 3:8 2:10 2:8 / 2:8 2:10 3:8 3:10 4:7 4:8 3:10 2:10' },
+  { id:'alt-skip-minor-cadence', n:'Displaced arpeggios over a minor cadence', tech:'alternate', lvl:2,
+    key:9, qual:'harmmin', ch:'Bm7b5 E7 Am7 Am7',
+    why:'The same arpeggios you already know, with notes thrown into the wrong octave — the '
+       + 'leaps are the point. Bar 4 is the recovery: stepwise, close, back under the hand.',
+    t:'2:9 4:6 3:7 5:5 4:6 2:9 3:7 3:5 / 3:7 4:9 3:9 5:7 4:9 3:7 3:9 4:6 '
+     + '/ 3:5 5:5 3:9 5:8 5:5 3:9 3:5 2:7 / 2:7 3:5 3:7 3:9 4:6 3:9 3:7 2:7' },
+  { id:'alt-tritone-altered', n:'Altered line over tritone substitutes', tech:'alternate', lvl:2,
+    key:7, qual:'altered', ch:'G7 Db7 G7 Db7',
+    why:'One scale covers both chords — G altered and D♭ lydian dominant are the same notes — so '
+       + 'the line never breaks while the harmony flips underneath it every bar.',
+    t:'2:5 2:6 2:8 3:4 3:6 3:8 3:6 3:4 / 3:6 3:8 4:6 4:8 4:9 4:8 4:6 3:8 '
+     + '/ 4:9 4:11 5:7 5:9 5:7 4:11 4:9 4:8 / 5:9 5:7 5:6 5:4 5:3 4:6 3:8 3:6' },
+  { id:'alt-dim-symmetry', n:'Diminished cell, shifted in minor thirds', tech:'alternate', lvl:2,
+    key:0, qual:'dimWH', ch:'Cdim7 Ebdim7 Gbdim7 Cdim7',
+    why:'The cell is whole step, half step, whole step — the scale spelled out — and it moves up '
+       + 'a minor third each bar. The fretting hand relocates; the picking hand must not notice.',
+    t:'2:7 2:9 3:5 3:7 2:9 3:5 3:7 3:8 / 3:5 3:7 3:8 3:10 3:7 3:8 3:10 3:11 '
+     + '/ 3:8 3:10 3:11 4:9 3:10 3:11 4:9 4:10 / 4:7 4:9 4:10 4:12 5:8 4:10 4:7 3:8' },
+
+  // ---- economy picking ----
+  { id:'eco-triad-cascade', n:'Triad cascade', tech:'economy', lvl:0,
+    key:0, qual:'majscale', ch:'C Am F G',
+    why:'Each bar climbs one arpeggio across three strings — all upward, so the pick glides '
+       + 'through the string changes instead of turning round. Then it walks back down.',
+    t:'3:5 3:9 4:8 5:5 5:8 5:7 5:5 4:8 / 4:8 5:5 5:8 5:7 5:5 4:8 4:5 3:7 '
+     + '/ 3:5 4:6 5:5 5:8 5:5 4:6 4:5 3:7 / 3:7 4:8 5:7 5:8 5:7 4:8 3:9 3:5' },
+  { id:'eco-dorian-fours', n:'Dorian fours, climbing', tech:'economy', lvl:1,
+    key:2, qual:'dorian', ch:'Dm7 Dm7 G7 Dm7',
+    why:'A four-note cell sequenced up the scale. Three notes on a string then one on the next '
+       + 'means every crossing is same-direction — two downstrokes in a row, one motion.',
+    t:'1:5 1:7 1:8 2:5 1:7 1:8 2:5 2:7 / 1:8 2:5 2:7 2:9 2:5 2:7 2:9 3:5 '
+     + '/ 2:7 2:9 3:5 3:7 2:9 3:5 3:7 3:9 / 3:5 3:7 3:9 4:6 4:8 4:6 3:9 3:7' },
+  { id:'eco-g-cascade', n:'Cascade up the neck', tech:'economy', lvl:0,
+    key:7, qual:'majscale', ch:'G C D G',
+    why:'One arpeggio per bar, climbing three strings without the pick ever turning round, then '
+       + 'stepping back down. Bar 3 reaches highest — that is the one to slow down for.',
+    t:'3:4 4:3 5:3 5:7 5:3 4:3 3:4 3:7 / 3:5 4:5 5:3 5:8 5:3 4:5 3:5 3:7 '
+     + '/ 3:7 4:7 5:5 5:10 5:5 4:7 3:7 3:4 / 3:4 4:3 5:3 5:7 5:5 4:8 4:5 5:3' },
+  { id:'eco-minor-cadence', n:'Minor cadence, three strings at a time', tech:'economy', lvl:0,
+    key:9, qual:'harmmin', ch:'Am Dm E7 Am',
+    why:'A i–iv–V–i where each chord gets one upward glide and one walk back. The raised 7th in '
+       + 'bar 3 is what makes the return to A sound like an arrival rather than a stop.',
+    t:'3:5 4:5 5:5 5:8 5:5 4:5 3:5 3:7 / 3:7 4:6 5:5 5:10 5:5 4:6 3:7 3:5 '
+     + '/ 3:9 4:9 5:7 5:10 5:7 4:9 3:9 3:7 / 3:5 4:5 5:5 5:8 5:5 4:5 4:6 5:5' },
+  { id:'eco-aeolian-cells', n:'Aeolian cells, climbing', tech:'economy', lvl:1,
+    key:4, qual:'natmin', ch:'Em7 Cmaj7 Am7 Bm7',
+    why:'Three notes on a string then one on the next, over and over. Every crossing is '
+       + 'same-direction, so the whole étude is one long chain of two-downstrokes-in-a-row.',
+    t:'1:7 1:9 1:10 2:7 1:9 1:10 2:7 2:9 / 1:10 2:7 2:9 2:10 2:7 2:9 2:10 3:7 '
+     + '/ 2:9 2:10 3:7 3:9 2:10 3:7 3:9 3:11 / 3:7 3:9 3:11 4:8 4:10 4:12 4:10 4:12' },
+  { id:'eco-lydian-lift', n:'Lydian lift', tech:'economy', lvl:1,
+    key:10, qual:'lydian', ch:'Bbmaj7 C Bbmaj7 C',
+    why:'The raised 4th sits at the top of every cell, so the ear hears the lift at exactly the '
+       + 'moment the pick has to glide to the next string. Two problems arriving together.',
+    t:'2:3 2:5 3:2 3:3 2:5 3:2 3:3 3:5 / 3:2 3:3 3:5 4:3 3:3 3:5 4:3 4:5 '
+     + '/ 3:5 4:3 4:5 4:6 4:3 4:5 4:6 5:3 / 4:5 4:6 5:3 5:5 5:6 5:5 5:3 4:5' },
+  { id:'eco-mixo-descent', n:'Descending economy over a dominant vamp', tech:'economy', lvl:2,
+    key:4, qual:'mixo', ch:'E7 E7 A7 E7',
+    why:'Economy going down is the harder half: the carried stroke is an upstroke. Bar 3 walks '
+       + 'the whole line down through the natural 7 of the IV chord and back into the vamp.',
+    t:'5:9 5:7 5:5 4:9 5:7 5:5 4:9 4:7 / 5:5 4:9 4:7 4:5 4:9 4:7 4:5 3:7 '
+     + '/ 4:9 4:8 4:7 4:5 3:7 3:6 3:4 2:7 / 2:7 3:4 3:6 3:7 4:5 4:7 4:9 4:5' },
+
+  { id:'eco-melmin-fall', n:'Melodic minor, falling', tech:'economy', lvl:2,
+    key:9, qual:'melmin', ch:'Am Am D7 Am',
+    why:'Descending cells the whole way down, which means the carried stroke is always an '
+       + 'upstroke — the half nobody practises. The raised 6th and 7th keep it from sounding sad.',
+    t:'5:12 5:10 5:8 5:7 5:10 5:8 5:7 4:10 / 5:8 5:7 4:10 4:9 5:7 4:10 4:9 4:7 '
+     + '/ 4:10 4:9 4:7 3:9 4:9 4:7 3:9 3:7 / 3:9 3:7 3:5 2:9 3:7 3:5 2:9 2:7' },
+  { id:'eco-bebop-octave', n:'Bebop dominant, one octave per bar', tech:'economy', lvl:2,
+    key:7, qual:'bebopdom', ch:'G7 G7 Cmaj7 G7',
+    why:'An eight-note scale in a bar of eighths, so every chord tone lands on a downbeat — the '
+       + 'reason this scale exists. Bar 2 runs it back down, where the glide is harder.',
+    t:'2:5 2:7 2:9 2:10 3:7 3:9 3:10 3:11 / 4:8 4:7 4:6 4:5 3:7 3:5 2:9 2:7 '
+     + '/ 2:10 3:7 3:9 3:10 4:7 4:8 4:10 4:12 / 5:8 5:7 5:5 5:3 4:7 4:6 4:5 3:7' },
+
+  // ---- legato ----
+  { id:'leg-minor-arch', n:'Three-per-string arch', tech:'legato', lvl:0,
+    key:9, qual:'natmin', ch:'Am Am F G',
+    why:'Exactly three notes on every string, so you pick six times in the whole bar. Keep the '
+       + 'hammered notes as loud as the picked one — that is the entire exercise.',
+    t:'2:5 2:7 2:9 3:5 3:7 3:9 3:7 3:5 / 2:9 3:5 3:7 3:9 4:6 4:8 4:6 3:9 '
+     + '/ 3:5 3:7 3:9 4:6 4:8 4:10 4:8 4:6 / 4:10 4:8 4:6 3:9 3:7 3:5 2:9 2:7' },
+  { id:'leg-dorian-roll', n:'Dorian roll', tech:'legato', lvl:1,
+    key:4, qual:'dorian', ch:'Em7 Em7 A7 Em7',
+    why:'Six up, two back, moved up a string each bar. The turn at the top of each cell is a '
+       + 'pull-off into a hammer with no pick between them — that is where it usually stumbles.',
+    t:'2:5 2:7 2:9 3:6 3:7 3:9 3:7 3:6 / 3:6 3:7 3:9 4:7 4:8 4:10 4:8 4:7 '
+     + '/ 4:7 4:8 4:10 5:7 5:9 5:10 5:9 5:7 / 5:9 5:7 4:10 4:8 4:7 3:9 3:7 3:9' },
+  { id:'leg-major-arch', n:'Major arch, three per string', tech:'legato', lvl:0,
+    key:7, qual:'majscale', ch:'G Am C D',
+    why:'Six notes up, two back, moving one string higher each bar. Only two picked notes per '
+       + 'bar — if the hammered ones are quieter, slow it down until they are not.',
+    t:'3:0 3:2 3:4 4:1 4:3 4:5 4:3 4:1 / 3:2 3:4 4:1 4:3 4:5 5:2 5:3 5:2 '
+     + '/ 4:1 4:3 4:5 5:2 5:3 5:5 5:3 5:2 / 5:5 5:3 5:2 4:5 4:3 4:1 3:4 4:3' },
+  { id:'leg-d-sequence', n:'Rising sequence in D', tech:'legato', lvl:0,
+    key:2, qual:'majscale', ch:'D Bm G A',
+    why:'Each bar starts where the last one turned round, so the line keeps climbing for three '
+       + 'bars before bar 4 lets it fall the whole way back. Pick six times in total.',
+    t:'1:5 1:7 1:9 2:5 2:7 2:9 2:7 2:5 / 2:5 2:7 2:9 3:6 3:7 3:9 3:7 3:6 '
+     + '/ 3:6 3:7 3:9 4:7 4:8 4:10 4:8 4:7 / 5:10 5:9 5:7 4:10 4:8 4:7 3:9 3:7' },
+  { id:'leg-lydian-roll', n:'Lydian roll', tech:'legato', lvl:1,
+    key:0, qual:'lydian', ch:'Cmaj7 Cmaj7 D7 Cmaj7',
+    why:'The raised 4th is the top note of the first cell, so the pull-off into the turn is the '
+       + 'note carrying the colour — it is the one that disappears when the left hand tires.',
+    t:'2:7 2:9 2:10 3:7 3:9 3:11 3:9 3:7 / 2:10 3:7 3:9 3:11 4:8 4:10 4:8 3:11 '
+     + '/ 3:11 4:8 4:10 4:12 5:8 5:10 5:8 4:12 / 5:12 5:10 5:8 4:12 4:10 4:8 3:11 3:9' },
+  { id:'leg-mixo-turn', n:'Mixolydian, down then up', tech:'legato', lvl:1,
+    key:2, qual:'mixo', ch:'D7 D7 G7 D7',
+    why:'Bar 1 falls before it climbs, which puts the pull-offs first while the hand is fresh. '
+       + 'The picked note is always the one that changes string — six per bar, no more.',
+    t:'3:9 3:7 3:5 2:9 2:7 2:5 2:7 2:9 / 3:5 3:7 3:9 4:7 4:10 4:8 4:7 3:9 '
+     + '/ 4:7 4:8 4:10 5:8 5:7 5:10 5:8 5:7 / 5:10 5:8 5:7 4:10 4:8 4:7 3:9 3:7' },
+  { id:'leg-phryg-stretch', n:'Phrygian dominant stretch', tech:'legato', lvl:2,
+    key:6, qual:'phrygdom', ch:'F#7 F#7 Bm7 F#7',
+    why:'Four-fret gaps inside a single string — index to pinky with no help from the pick. '
+       + 'Bar 3 borrows the natural 6 for the minor chord and slides it back a semitone.',
+    t:'2:5 2:8 2:9 3:6 3:7 3:9 3:7 3:6 / 3:6 3:7 3:9 4:7 4:8 4:11 4:8 4:7 '
+     + '/ 4:7 4:8 4:10 4:11 5:7 5:9 5:10 5:9 / 5:10 5:9 5:7 4:11 4:8 4:7 3:9 3:6' },
+
+  { id:'leg-harmmaj-gap', n:'Harmonic major, over the gap', tech:'legato', lvl:2,
+    key:0, qual:'harmmaj', ch:'Cmaj7 Fm G7 Cmaj7',
+    why:'The flat 6 leaves a three-semitone gap before the leading tone, and it falls inside one '
+       + 'string — index to pinky with nothing but a hammer to get you there.',
+    t:'2:5 2:6 2:9 3:5 3:7 3:9 3:7 3:5 / 3:5 3:7 3:9 4:6 4:8 4:9 4:8 4:6 '
+     + '/ 4:6 4:8 4:9 5:7 5:8 5:10 5:8 5:7 / 5:10 5:8 5:7 4:9 4:8 4:6 3:9 3:5' },
+  { id:'leg-hungarian', n:'Hungarian minor, two gaps a string', tech:'legato', lvl:2,
+    key:9, qual:'hungmin', ch:'Am E Am E',
+    why:'A raised 4th and a raised 7th put two three-fret jumps in every octave. Nothing here is '
+       + 'comfortable; the whole point is keeping the volume even when the reach is not.',
+    t:'2:7 2:9 2:10 3:8 3:9 3:10 3:9 3:8 / 3:8 3:9 3:10 4:9 4:10 4:12 4:10 4:9 '
+     + '/ 4:9 4:10 4:12 5:8 5:11 5:12 5:11 5:8 / 5:12 5:11 5:8 4:12 4:10 4:9 3:10 3:9' },
+
+  // ---- sweep picking ----
+  { id:'swp-three-string', n:'Three-string sweep, one shape moved', tech:'sweep', lvl:0,
+    key:9, qual:'natmin', ch:'Am F G Am',
+    why:'One grip, moved three times — so the picking hand can stop thinking and start '
+       + 'gliding. Roll the fretting finger at the top note or the chord rings as a block.',
+    t:'3:5 4:5 5:5 5:8 5:5 4:5 3:5 2:7 / 3:5 4:6 5:5 5:8 5:5 4:6 3:5 2:7 '
+     + '/ 3:7 4:8 5:7 5:10 5:7 4:8 3:7 2:9 / 3:5 4:5 5:5 5:8 5:5 4:5 3:5 5:5' },
+  { id:'swp-five-string', n:'Five-string sweep cycle', tech:'sweep', lvl:1,
+    key:2, qual:'harmmin', ch:'Dm Gm A7 Dm',
+    why:'Five strings up, three back — one continuous downstroke then one upstroke, never a '
+       + 'stroke per note. Bar 4 reverses it: the descending sweep is the harder direction.',
+    t:'1:5 2:7 3:7 4:6 5:5 4:6 3:7 2:7 / 1:10 2:8 3:7 4:8 5:6 4:8 3:7 2:8 '
+     + '/ 1:7 2:7 3:6 4:8 5:5 4:8 3:6 2:7 / 5:5 4:6 3:7 2:7 3:7 4:6 2:7 1:5' },
+  { id:'swp-major-shift', n:'One major shape, three positions', tech:'sweep', lvl:0,
+    key:0, qual:'majscale', ch:'C F G C',
+    why:'The identical three-string grip, dragged up the neck and home again. The sweep never '
+       + 'changes; the only new thing to learn is landing the shift in time for the downbeat.',
+    t:'3:5 4:5 5:3 5:8 5:3 4:5 3:5 2:7 / 3:10 4:10 5:8 5:13 5:8 4:10 3:10 2:12 '
+     + '/ 3:12 4:12 5:10 5:15 5:10 4:12 3:12 2:14 / 3:5 4:5 5:3 5:8 5:3 4:5 3:5 5:8' },
+  { id:'swp-diatonic-triads', n:'Diatonic triads in one window', tech:'sweep', lvl:0,
+    key:9, qual:'natmin', ch:'Am G F Em',
+    why:'Four different chords without leaving one hand position — minor, major, major, minor. '
+       + 'Learning to feel which grip you are in without looking is most of this exercise.',
+    t:'3:5 4:5 5:5 5:8 5:5 4:5 3:5 2:7 / 3:4 4:3 5:3 5:7 5:3 4:3 3:4 2:5 '
+     + '/ 3:5 4:6 5:5 5:8 5:5 4:6 3:5 2:7 / 3:4 4:5 5:3 5:7 5:3 4:5 3:4 1:7' },
+  { id:'swp-five-string-major', n:'Five-string major sweeps, open position', tech:'sweep', lvl:1,
+    key:0, qual:'majscale', ch:'C Am F G',
+    why:'Five strings in one downstroke, low on the neck where the string spacing is widest. '
+       + 'Open strings ring on forever — the fretting hand has to mute what the pick has left.',
+    t:'1:3 2:2 3:0 4:1 5:0 4:1 3:0 2:2 / 1:0 2:2 3:2 4:1 5:0 4:1 3:2 2:2 '
+     + '/ 1:3 2:3 3:2 4:1 5:1 4:1 3:2 2:3 / 1:2 2:0 3:0 4:0 5:3 4:0 3:0 4:1' },
+  { id:'swp-minor-cadence', n:'Five-string minor cadence', tech:'sweep', lvl:1,
+    key:4, qual:'harmmin', ch:'Em Am B7 Em',
+    why:'i–iv–V–i, each chord one sweep. Bar 3 drops to a four-string grip so the raised 3rd of '
+       + 'the V chord sits on top, where you can hear it pulling home.',
+    t:'1:7 2:9 3:9 4:8 5:7 4:8 3:9 2:9 / 1:12 2:10 3:9 4:10 5:8 4:10 3:9 2:10 '
+     + '/ 2:9 3:8 4:7 5:5 5:7 5:5 4:7 3:8 / 1:7 2:9 3:9 4:8 5:7 4:8 3:9 1:7' },
+  { id:'swp-six-string-turnaround', n:'Six-string sweeps through a turnaround', tech:'sweep', lvl:2,
+    key:0, qual:'majscale', ch:'Cmaj7 Am7 Dm7 G7',
+    why:'A full-width sweep on every bar of a I–vi–ii–V, so the shape changes while the motion '
+       + 'does not. It ends on the leading tone, which is why it loops without a seam.',
+    t:'0:8 1:7 2:5 3:5 4:5 5:7 4:5 3:5 / 0:5 1:7 2:5 3:5 4:5 5:5 4:5 3:5 '
+     + '/ 0:10 1:8 2:7 3:5 4:6 5:5 4:6 3:5 / 0:3 1:5 2:3 3:4 4:3 5:3 4:3 3:4' },
+
+  { id:'swp-six-string-minor', n:'Six-string sweeps, minor turnaround', tech:'sweep', lvl:2,
+    key:9, qual:'harmmin', ch:'Am Bm7b5 E7 Am',
+    why:'Full-width grips through i–ii°–V–i, with a position shift between every one. The tonic '
+       + 'sweep carries the raised 7th, so it leans home even before the V arrives.',
+    t:'0:5 1:7 2:6 3:5 4:5 5:5 4:5 3:5 / 0:7 1:5 2:3 3:4 4:6 5:5 4:6 3:4 '
+     + '/ 0:7 1:7 2:9 3:7 4:9 5:7 4:9 3:9 / 5:5 4:5 3:5 2:6 1:7 2:6 1:7 0:5' },
+  { id:'swp-maj7-descent', n:'Maj7 sweeps falling through the changes', tech:'sweep', lvl:2,
+    key:2, qual:'majscale', ch:'Dmaj7 Bm7 Em7 A7',
+    why:'Four seventh chords, six strings each, and the shape changes every bar while the motion '
+       + 'does not. It ends on the ♭7 of the V, which is why it loops without a seam.',
+    t:'0:10 1:9 2:7 3:6 4:7 5:5 4:7 3:6 / 0:7 1:5 2:4 3:4 4:7 5:5 4:7 3:4 '
+     + '/ 0:12 1:10 2:9 3:9 4:8 5:10 4:8 3:9 / 5:5 4:5 3:6 2:5 1:7 0:5 1:7 2:5' },
+
+  // ---- hybrid picking ----
+  { id:'hyb-pedal-tone', n:'Pedal tone under a rising line', tech:'hybrid', lvl:0,
+    key:7, qual:'majscale', ch:'G C D G',
+    why:'Pick the low note, pluck the high one with your middle finger. The bass note never '
+       + 'moves inside a bar, so the only thing to think about is the finger.',
+    t:'2:5 5:3 2:5 5:5 2:5 5:7 2:5 5:5 / 3:5 5:3 3:5 5:5 3:5 5:8 5:7 5:5 '
+     + '/ 1:5 5:5 1:5 5:7 1:5 5:10 5:7 5:5 / 2:5 5:7 2:5 5:5 2:5 5:3 5:5 5:3' },
+  { id:'hyb-octave-pairs', n:'Octave pairs', tech:'hybrid', lvl:0,
+    key:9, qual:'natmin', ch:'Am F C G',
+    why:'Pick the low note, pluck the octave above it with your middle finger, and mute the '
+       + 'string in between with the underside of your index. That mute is the whole exercise.',
+    t:'2:7 5:5 3:5 5:8 2:7 5:5 3:9 5:5 / 3:5 5:5 3:10 5:8 3:5 5:5 2:7 5:8 '
+     + '/ 3:5 5:8 3:9 5:7 2:5 5:8 3:5 5:5 / 2:5 5:7 2:9 5:10 2:5 5:7 3:7 5:10' },
+  { id:'hyb-open-pedal', n:'Open bass pedal', tech:'hybrid', lvl:0,
+    key:4, qual:'majscale', ch:'E A B E',
+    why:'The low E never stops and never needs a finger, so the fretting hand is free to walk the '
+       + 'top voice up the neck. The easiest way into hybrid picking there is.',
+    t:'0:0 5:0 0:0 5:2 0:0 5:4 0:0 5:2 / 0:0 5:5 0:0 5:4 0:0 5:2 0:0 5:5 '
+     + '/ 0:0 5:7 0:0 5:9 0:0 5:7 0:0 5:5 / 0:0 5:4 0:0 5:2 0:0 5:0 5:2 5:0' },
+  { id:'hyb-skip-arps', n:'String-skipping arpeggios', tech:'hybrid', lvl:1,
+    key:9, qual:'natmin', ch:'Am7 Dm7 G7 Cmaj7',
+    why:'Every pair skips the string in between, so the arpeggios come out spread instead of '
+       + 'stacked. The skipped string must stay silent — that is the muting half of the drill.',
+    t:'3:5 5:5 3:9 5:8 3:5 5:7 3:9 5:5 / 3:7 5:5 3:10 5:8 3:7 5:10 3:5 5:5 '
+     + '/ 3:4 5:3 3:7 5:7 3:4 5:8 3:7 5:3 / 3:5 5:3 3:9 5:7 3:5 5:8 3:9 3:5' },
+  { id:'hyb-skip-ii-v-i', n:'Skipped arpeggios through a ii–V–I', tech:'hybrid', lvl:1,
+    key:5, qual:'majscale', ch:'Gm7 C7 Fmaj7 Fmaj7',
+    why:'Every pair jumps a string, so ordinary seventh arpeggios come out spread wide. Bar 4 '
+       + 'closes the intervals down as it resolves — the line settles as the hand does.',
+    t:'2:5 4:8 2:8 4:11 2:10 4:6 2:5 4:8 / 2:10 4:5 2:5 4:11 2:10 4:8 2:7 4:5 '
+     + '/ 2:10 4:6 2:7 4:5 2:10 4:10 2:7 4:6 / 2:7 4:10 2:10 4:5 2:8 4:6 2:10 4:6' },
+  { id:'hyb-banjo-roll', n:'Banjo roll', tech:'hybrid', lvl:1,
+    key:7, qual:'majscale', ch:'G D Em C',
+    why:'Pick, middle, ring in a repeating forward roll while the top note carries a melody. '
+       + 'Let every string ring into the next — this is the one place you do not mute.',
+    t:'3:0 4:0 5:3 3:0 4:0 5:2 4:0 5:0 / 3:2 4:3 5:2 3:2 4:3 5:5 4:3 5:2 '
+     + '/ 3:0 4:0 5:0 3:0 4:0 5:3 4:0 5:0 / 3:0 4:1 5:0 3:0 4:1 5:3 4:1 5:0' },
+  { id:'hyb-tenths-ii-v-i', n:'Tenths through a ii–V–I', tech:'hybrid', lvl:2,
+    key:0, qual:'majscale', ch:'Dm7 G7 Cmaj7 Cmaj7',
+    why:'Two strings skipped at a time. Bar 1 moves in tenths from the low E; bars 2–4 shift '
+       + 'the pair inward and close on octaves, so the hand rebalances mid-phrase.',
+    t:'1:5 4:6 1:8 4:10 1:10 4:6 1:7 4:5 / 2:5 5:7 2:3 5:5 2:5 5:3 2:7 5:5 '
+     + '/ 2:10 5:7 2:9 5:8 2:7 5:5 2:5 5:8 / 2:10 5:8 2:9 5:7 2:7 5:5 2:10 5:8' },
+  { id:'hyb-melmin-leaps', n:'Wide leaps over melodic minor', tech:'hybrid', lvl:2,
+    key:2, qual:'melmin', ch:'Dm6 G7 A7 Dm6',
+    why:'One scale covers all four chords — over G7 it gives you the ♯11, over A7 the natural 3. '
+       + 'The skip pair moves inward at bar 2, so the hand has to rebalance mid-phrase.',
+    t:'1:5 4:6 1:8 4:10 1:7 4:8 1:10 4:6 / 2:9 5:10 2:7 5:7 2:9 5:5 2:11 5:7 '
+     + '/ 2:7 5:9 2:11 5:5 2:9 5:7 2:7 5:9 / 2:12 5:10 2:11 5:9 2:9 5:7 2:12 5:10' },
+  { id:'hyb-phrygian-vamp', n:'Phrygian vamp in wide voicings', tech:'hybrid', lvl:2,
+    key:0, qual:'phrygian', ch:'Cm7 Db Cm7 Db',
+    why:'The ♭2 is the whole sound, and here it is always in the plucked upper voice where it '
+       + 'rings against the picked note below. Bars 3–4 move the pair up two strings.',
+    t:'2:10 4:11 2:8 4:8 2:10 4:9 2:6 4:6 / 2:11 4:9 2:6 4:6 2:11 4:11 2:8 4:9 '
+     + '/ 3:8 5:8 3:10 5:11 3:12 5:9 3:8 5:6 / 3:10 5:9 3:8 5:8 3:12 5:6 3:10 5:9' },
+];
 // ===== ENGINE END =====
 
 // ---- Polyrhythm math (pure) ----
@@ -3439,6 +3777,7 @@ function stateToHash(){
     if($('progIn').value.trim()) parts.push('pi=' + encodeURIComponent($('progIn').value.trim()));
     if($('progN').value !== '8') parts.push('pn=' + $('progN').value);
     if($('progLine').value !== 'arps') parts.push('pl=' + $('progLine').value);
+    if(etFocus) parts.push('et=' + etFocus);
     if(parts.length) history.replaceState(null, '', '#' + parts.join('&'));
     else history.replaceState(null, '', location.pathname + location.search);
   }catch(e){}
@@ -3464,6 +3803,7 @@ function parseHash(){
     else if(k === 'pi') st.pi = decodeURIComponent(v);
     else if(k === 'pn') st.pn = v;
     else if(k === 'pl') st.pl = v;
+    else if(k === 'et') st.et = v;
   });
   return Object.keys(st).length ? st : null;
 }
@@ -3558,6 +3898,7 @@ document.querySelectorAll('.tabbtn[data-tab]').forEach(b=> b.onclick = ()=>{
   $('viewProg').style.display = b.dataset.tab==='prog' ? '' : 'none';
   $('viewEar').style.display = b.dataset.tab==='ear' ? '' : 'none';
   $('viewVoic').style.display = b.dataset.tab==='voic' ? '' : 'none';
+  $('viewEtude').style.display = b.dataset.tab==='etude' ? '' : 'none';
   $('viewPg').style.display = b.dataset.tab==='pg' ? '' : 'none';
   $('viewPoly').style.display = b.dataset.tab==='poly' ? '' : 'none';
   document.body.classList.remove('sheet','tabsmore');
@@ -3567,6 +3908,7 @@ document.querySelectorAll('.tabbtn[data-tab]').forEach(b=> b.onclick = ()=>{
   if(b.dataset.tab==='stack') renderStack();
   if(b.dataset.tab==='prog' && !progData) renderProg();
   if(b.dataset.tab==='voic'){ renderVoicings(); renderVoicingDrill(); }
+  if(b.dataset.tab==='etude') renderEtudes();
   if(b.dataset.tab==='pg') renderProgress();
   if(b.dataset.tab==='poly') renderPoly();
   if(b.dataset.tab!=='poly') polyTabLeave();
@@ -4361,13 +4703,16 @@ function stopPlayback(){
 }
 // Plays a flat list of {s,f} notes as 8th notes at the metronome tempo, after a 4-click count-in.
 const NV_MULT = {half:2, quarter:1, eighth:0.5, triplet:1/3, sixteenth:0.25};
-function playNotes(noteList, btn, pads, skipCountIn){
+// `nv` overrides the Exercises-tab note-value select — an étude carries its own subdivision
+// and must not change speed because you last looked at a 16th-note scale run.
+function playNotes(noteList, btn, pads, skipCountIn, nv){
   const ctx = ensureAudio();
   if(!skipCountIn) stopPlayback();
   const g = ctx.createGain(); g.gain.value = 1; g.connect(metro.bus);
   const spb = 60 / metro.bpm;
   const nvSel = document.getElementById('selNV');
-  const eighth = spb * (NV_MULT[nvSel ? nvSel.value : 'quarter'] ?? 1);   // note unit
+  const unit = nv || (nvSel ? nvSel.value : 'quarter');
+  const eighth = spb * (NV_MULT[unit] ?? 1);   // note unit
   let t0 = ctx.currentTime + 0.08;
   const countDur = skipCountIn ? 0 : 4*spb;
   if(!skipCountIn) for(let i=0;i<4;i++){
@@ -4380,7 +4725,7 @@ function playNotes(noteList, btn, pads, skipCountIn){
   }
   const start = t0 + countDur;
   // swing: delay every 2nd 8th by a third of the unit (2:1 triplet feel)
-  const sw = swingOn && (nvSel ? nvSel.value : 'quarter') === 'eighth' ? 1/3 : 0;
+  const sw = swingOn && unit === 'eighth' ? 1/3 : 0;
   // Karplus-Strong is a plucked string; piano borrows the existing soft pad voice.
   const voice = instrument === 'piano' ? pad : pluck;
   // Onset comes from the time slot, not the array index: a stacked note shares the
@@ -4390,12 +4735,12 @@ function playNotes(noteList, btn, pads, skipCountIn){
   noteList.forEach((n,i)=>{ const t = slots[i]; voice(ctx, n.p, start + (t + (t%2 ? sw : 0))*eighth, eighth, 0.16, g); });
   if(pads) pads.forEach(p=> p.pitches.forEach(m=> tone(ctx, m, start + p.at*eighth, p.dur*eighth, 0.06, 'sine', g)));
   const total = (countDur + (slot + sw)*eighth + (playLoop ? 0.02 : 0.3)) * 1000;
-  playState = {g, btn, loop: playLoop, args:[noteList, btn, pads],
+  playState = {g, btn, loop: playLoop, args:[noteList, btn, pads, nv],
     endTimer: setTimeout(()=>{
       if(playState && playState.loop){
         const a = playState.args;
         playState = null;
-        playNotes(a[0], a[1], a[2], true);
+        playNotes(a[0], a[1], a[2], true, a[3]);
       } else stopPlayback();
     }, total)};
   trackPlayback(ctx, start, eighth, noteList.length, btn && btn.closest('.keyblock'), sw, slots);
@@ -4541,6 +4886,80 @@ $('progPlay').onclick = ()=>{
   playNotes(progData.groups.flat(), $('progPlay'), pads);
 };
 $('loopBtn2').onclick = ()=> setLoop(!playLoop);
+
+// ---- Études UI ----
+// The list is static, so this only ever filters and draws. Chord labels, pads, notation, tab
+// and the follow-along highlight all come from the same helpers the Progressions tab uses.
+let etFocus = null;   // id from the deep link or 🎲 — scrolled to and outlined once drawn
+const etDice = document.createElement('button');
+etDice.className = 'chip dicechip'; etDice.textContent = '🎲 Surprise me';
+etDice.onclick = ()=>{
+  const list = etudeList();
+  if(!list.length) return;
+  const pick = list[Math.floor(Math.random()*list.length)];
+  etFocus = pick.id === etFocus && list.length > 1
+    ? list[(list.indexOf(pick)+1) % list.length].id : pick.id;   // never land on the same one twice
+  renderEtudes();
+};
+$('etChips').appendChild(etDice);
+function etudeList(){
+  const tech = $('etTech').value, lvl = $('etLvl').value;
+  return ETUDES.filter(e => (tech === 'all' || e.tech === tech) && (lvl === 'all' || e.lvl === +lvl));
+}
+function etudeChords(et){ return parseProgression(et.ch).chords; }
+function renderEtudes(){
+  const out = $('etOut'); out.innerHTML = '';
+  const list = etudeList();
+  const noteView = $('etView').value === 'note';
+  list.forEach(et=>{
+    const groups = etudeGroups(et.t), chords = etudeChords(et);
+    markBarLines(groups, ET_NV);
+    const div = document.createElement('div'); div.className = 'keyblock';
+    if(et.id === etFocus) div.style.outline = '2px solid var(--accent)';
+    const head = document.createElement('div'); head.className = 'keyhead';
+    head.innerHTML = `<span class="keyname">${et.n}</span>`;
+    const pb = document.createElement('button'); pb.className = 'pbtn'; pb.textContent = '▶';
+    pb.title = 'Play this étude with chord pads at the metronome tempo';
+    pb.setAttribute('aria-label', 'Play ' + et.n);
+    pb.onclick = ()=>{
+      if(playState && playState.btn === pb){ stopPlayback(); return; }
+      // one pad per bar, matching the way the Progressions tab voices its comp
+      const pads = chords.map((c,i)=>{
+        let rootM = 48 + c.pc; if(rootM > 55) rootM -= 12;
+        return {at: i*ET_NOTES_PER_BAR, dur: ET_NOTES_PER_BAR,
+          pitches: QUALITIES[c.qual].intervals.slice(0,4).map(iv=>rootM+iv)};
+      });
+      track('etude_play', {id: et.id, tech: et.tech, lvl: et.lvl});
+      playNotes(groups.flat(), pb, pads, false, ET_NV);
+    };
+    head.appendChild(pb);
+    div.appendChild(head);
+    const meta = document.createElement('p'); meta.className = 'sub';
+    meta.textContent = `${chords.map(c=>c.label).join(' – ')} · ${ET_LEVELS[et.lvl]} · eighth notes`;
+    div.appendChild(meta);
+    const why = document.createElement('p'); why.className = 'sub';
+    why.textContent = et.why;
+    div.appendChild(why);
+    const tip = document.createElement('p'); tip.className = 'sub';
+    tip.textContent = `${[...selTech.options].find(o=>o.value===et.tech).text}: ${TECH_TIPS[et.tech]}`;
+    div.appendChild(tip);
+    if(noteView){
+      const nd = document.createElement('div'); nd.className = 'notation';
+      nd.innerHTML = renderNotationSystems(groups, et.key, chords.map(c=>c.label), ET_NV, null,
+        $('etOut').clientWidth - 34).map(s=>`<div class="nsys">${s}</div>`).join('');
+      div.appendChild(nd);
+    } else {
+      const pre = document.createElement('pre'); pre.className = 'tab';
+      pre.innerHTML = renderTab(groups).map(s=>`<span class="sys">${s}</span>`).join('');
+      div.appendChild(pre);
+    }
+    out.appendChild(div);
+    if(et.id === etFocus) requestAnimationFrame(()=> div.scrollIntoView({block:'nearest'}));
+  });
+  if(!list.length) out.innerHTML = '<p class="sub">No étude matches that combination yet.</p>';
+  stateToHash();
+}
+['etTech','etLvl','etView'].forEach(id=> $(id).addEventListener('change', ()=>{ etFocus = null; renderEtudes(); }));
 // ---- Jam track: drums + bass + comping over the current progression ----
 let noiseBuf = null;
 function noiseBuffer(ctx){
@@ -5568,6 +5987,12 @@ metro.onBar = akOnBar;
     if(st.pi) $('progIn').value = st.pi;
     if(st.pn) $('progN').value = st.pn;
     if(st.pl) $('progLine').value = st.pl;
+    // a linked étude carries its own technique filter, or it would open into a list it isn't in
+    if(st.et && ETUDES.some(e => e.id === st.et)){
+      etFocus = st.et;
+      $('etTech').value = ETUDES.find(e => e.id === st.et).tech;
+      $('etLvl').value = 'all';
+    }
     generate();
     if(st.t && st.t !== 'ex'){
       const b = document.querySelector(`.tabbtn[data-tab="${st.t}"]`);
